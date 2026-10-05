@@ -19,5 +19,7 @@ export const modules: ModuleMap = {
   "./components/mockups/profile-hub-redesign/Current.tsx": () => import("../components/mockups/profile-hub-redesign/Current.tsx"),
   "./components/mockups/profile-hub-redesign/Updated.tsx": () => import("../components/mockups/profile-hub-redesign/Updated.tsx"),
   "./components/mockups/settings-redesign/Current.tsx": () => import("../components/mockups/settings-redesign/Current.tsx"),
-  "./components/mockups/settings-redesign/Updated.tsx": () => import("../components/mockups/settings-redesign/Updated.tsx")
+  "./components/mockups/settings-redesign/Updated.tsx": () => import("../components/mockups/settings-redesign/Updated.tsx"),
+  "./components/mockups/shooting-cohort-admin/Current.tsx": () => import("../components/mockups/shooting-cohort-admin/Current.tsx"),
+  "./components/mockups/shooting-cohort-admin/DashboardAligned.tsx": () => import("../components/mockups/shooting-cohort-admin/DashboardAligned.tsx")
 };

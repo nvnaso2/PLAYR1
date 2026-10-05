@@ -61,6 +61,8 @@ export const pageLoaders = {
   settings: () => import("@/pages/settings"),
   supportMessages: () => import("@/pages/support-messages"),
   adminSupportMessages: () => import("@/pages/support-messages"),
+  adminShootingCohort: () => import("@/pages/admin-shooting-cohort"),
+  adminCommunity3Pointers: () => import("@/pages/admin-community-3-pointers"),
   notificationLab: () => import("@/pages/notification-lab"),
 } as const;
 
@@ -75,6 +77,8 @@ const routeToLoader: Record<string, keyof typeof pageLoaders> = {
   "/settings": "settings",
   "/contact": "supportMessages",
   "/admin/support-messages": "adminSupportMessages",
+  "/admin/shooting-cohort": "adminShootingCohort",
+  "/admin/community-3-pointers": "adminCommunity3Pointers",
   "/career": "career",
   "/my-season": "mySeason",
   "/development": "development",

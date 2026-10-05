@@ -101,6 +101,8 @@ const StreakChallengePage = lazy(pageLoaders.streakChallenge);
 const SettingsPage = lazy(pageLoaders.settings);
 const SupportMessages = lazy(pageLoaders.supportMessages);
 const AdminSupportMessages = lazy(() => pageLoaders.adminSupportMessages().then((module) => ({ default: module.AdminSupportMessagesPage })));
+const AdminShootingCohortPage = lazy(pageLoaders.adminShootingCohort);
+const AdminCommunity3PointersPage = lazy(pageLoaders.adminCommunity3Pointers);
 const ShootingCohort = lazy(() => import("@/pages/shooting-cohort"));
 const NotificationLab = lazy(pageLoaders.notificationLab);
 
@@ -431,6 +433,8 @@ function Router() {
                 <Route path="/admin/onboarding-preview">{() => <AdminRoute><OnboardingPreview /></AdminRoute>}</Route>
                 <Route path="/admin/brand-principles">{() => <AdminRoute><AdminBrandPrinciples /></AdminRoute>}</Route>
                 <Route path="/admin/support-messages">{() => <AdminRoute><AdminSupportMessages /></AdminRoute>}</Route>
+                <Route path="/admin/shooting-cohort">{() => <AdminRoute><AdminShootingCohortPage /></AdminRoute>}</Route>
+                <Route path="/admin/community-3-pointers">{() => <AdminRoute><AdminCommunity3PointersPage /></AdminRoute>}</Route>
                 <Route path="/shooting-cohort" component={ShootingCohort} />
                 <Route path="/admin/notification-lab">{() => <AdminRoute><Suspense fallback={<LoadingScreen />}><NotificationLab /></Suspense></AdminRoute>}</Route>
                 <Route path="/admin">{() => <AdminRoute />}</Route>

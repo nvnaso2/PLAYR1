@@ -310,6 +310,36 @@ export function AppSidebar() {
                       <SidebarMenuItem>
                         <SidebarMenuButton
                           asChild
+                          isActive={location === "/admin/community-3-pointers"}
+                          data-testid="link-nav-admin-community-3-pointers"
+                          onMouseEnter={() => preloadRoute("/admin/community-3-pointers")}
+                          onTouchStart={() => preloadRoute("/admin/community-3-pointers")}
+                          onFocus={() => preloadRoute("/admin/community-3-pointers")}
+                        >
+                          <Link href="/admin/community-3-pointers" onClick={closeSidebar}>
+                            <Flame className="w-4 h-4" />
+                            <span>Community 3 Pointers</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location === "/admin/shooting-cohort"}
+                          data-testid="link-nav-admin-shooting-cohort"
+                          onMouseEnter={() => preloadRoute("/admin/shooting-cohort")}
+                          onTouchStart={() => preloadRoute("/admin/shooting-cohort")}
+                          onFocus={() => preloadRoute("/admin/shooting-cohort")}
+                        >
+                          <Link href="/admin/shooting-cohort" onClick={closeSidebar}>
+                            <Target className="w-4 h-4" />
+                            <span>Shooting Cohort</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
                           isActive={location === "/admin/support-messages" || location.startsWith("/admin/support-messages/")}
                           data-testid="link-nav-admin-support-messages"
                           onMouseEnter={() => preloadRoute("/admin/support-messages")}

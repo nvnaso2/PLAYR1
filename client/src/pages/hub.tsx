@@ -860,8 +860,8 @@ export default function HubPage() {
               type="button"
               onClick={() => navigate("/shooting-cohort")}
               className="group relative flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-              aria-label={(supportUnread?.unreadCount || 0) > 0 ? `Talk Through Your Game, ${supportUnread?.unreadCount} unread messages` : "Talk Through Your Game"}
-              data-testid="button-hub-talk-through-game"
+              aria-label={(supportUnread?.unreadCount || 0) > 0 ? `Shooting Cohort, ${supportUnread?.unreadCount} unread messages` : "Shooting Cohort"}
+              data-testid="button-hub-shooting-cohort"
             >
               {(supportUnread?.unreadCount || 0) > 0 && (
                 <span className="absolute right-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
@@ -871,7 +871,7 @@ export default function HubPage() {
               <span className="flex h-[68px] w-[68px] items-center justify-center rounded-full border border-orange-200/80 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 shadow-[0_0_16px_rgba(249,115,22,0.42),inset_0_2px_5px_rgba(255,255,255,0.4)] transition group-hover:scale-[1.04]">
                 <Target className="h-8 w-8 text-zinc-950" strokeWidth={2.6} />
               </span>
-              <span className="max-w-[100px] text-[10px] font-bold leading-tight text-zinc-300">Talk Through Your Game</span>
+              <span className="max-w-[100px] text-[10px] font-bold leading-tight text-zinc-300">Shooting Cohort</span>
             </button>
           </div>
         </section>

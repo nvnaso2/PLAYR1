@@ -359,23 +359,15 @@ export default function ShootingCohortPage() {
   return (
     <main className="shooting-cohort-page min-h-full bg-[#100e0b] px-4 pb-12 pt-5 text-[#fff1de] sm:px-7 sm:pt-8">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-5 flex items-center justify-between gap-4">
-          <button type="button" onClick={() => navigate("/hub")} className="flex items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef8a43]">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#cb7840]/40 bg-[#cb7840]/10 font-heading text-sm text-[#f3a56b]">P1</span>
-            <span><span className="block font-mono text-[9px] uppercase tracking-[0.2em] text-[#c58a5e]">PLAYR1 / Founder-led</span><span className="block text-xs font-semibold text-[#e4d8c8]">Shooting cohort</span></span>
-          </button>
-          <Button variant="ghost" onClick={() => navigate("/hub")} className="text-[#918577] hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
-        </header>
         <section className="border-b border-[#382e24] pb-5">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#c58a5e]"><Target className="h-3.5 w-3.5" /> PLAYR1 Shooting Cohort</p>
-              <h1 className="mt-2 font-heading text-3xl uppercase leading-tight tracking-wide text-[#fff3e2] sm:text-4xl">Build an <span className="text-[#ee9652]">Effortless Shot</span></h1>
-              <p className="mt-2 text-sm text-[#a99b89]">Founder-led coaching. Progress you can measure.</p>
+              <h1 className="font-heading text-3xl uppercase leading-tight tracking-wide text-[#fff3e2] sm:text-4xl">Build an <span className="text-[#ee9652]">Effortless Shot</span></h1>
             </div>
             <div className="flex flex-wrap gap-2">
               {canStartApplication && <Button onClick={toggleInterestSurvey} disabled={!settings?.applicationsOpen} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b] disabled:opacity-50">{showInterestSurvey ? "Close survey" : "Interest Survey"}</Button>}
               <Button variant="outline" onClick={() => navigate("/contact?from=shooting-cohort")} className="border-[#68482e] bg-[#17130f] text-[#f0b17d] hover:bg-[#352416]"><MessageCircle className="mr-2 h-4 w-4" />Message Founder</Button>
+              <Button variant="ghost" onClick={() => navigate("/hub")} className="text-[#918577] hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
             </div>
           </div>
           {canStartApplication && !settings?.applicationsOpen && <p className="mt-3 text-xs text-[#9d8f7e]">Applications are paused right now.</p>}

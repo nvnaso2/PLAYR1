@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
-import { ArrowLeft, ArrowUp, ClipboardList, Flame, Inbox, Loader2, MessageCircle, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowUp, Inbox, Loader2, MessageCircle, ShieldCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,6 @@ import { EmojiPicker } from "@/components/emoji-picker";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getObjectUrl, nativeFetch, queryClient } from "@/lib/queryClient";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AdminCustomWorkoutRequests } from "@/components/admin-custom-workout-requests";
-import { AdminCommunity3Pointers } from "@/components/admin-community-3-pointers";
-import AdminShootingCohort from "@/components/admin-shooting-cohort";
 
 type SupportRecipient = {
   displayName: string;
@@ -271,7 +267,6 @@ export function AdminSupportMessagesPage() {
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("player-help");
   const [messageText, setMessageText] = useState("");
   const [, navigate] = useLocation();
 
@@ -315,22 +310,6 @@ export function AdminSupportMessagesPage() {
 
   const selectedConversation = inboxQuery.data?.conversations.find((conversation) => conversation.playerId === selectedPlayerId);
   const threadMessages = threadQuery.data?.messages ?? [];
-  const customRequestsQuery = useQuery<Array<{ status: string }>>({
-    queryKey: ["/api/admin/custom-workout-requests"],
-    refetchInterval: 5000,
-  });
-  const communitySubmissionsQuery = useQuery<Array<{ id: string }>>({
-    queryKey: ["/api/admin/streak-challenges/creator-submissions", "fifty-in-a-row"],
-    queryFn: async () => {
-      const response = await nativeFetch("/api/admin/streak-challenges/creator-submissions?slug=fifty-in-a-row");
-      if (!response.ok) throw new Error("Failed to load community submissions");
-      return response.json();
-    },
-    refetchInterval: 5000,
-  });
-  const supportUnreadCount = inboxQuery.data?.conversations.reduce((total, conversation) => total + conversation.unreadCount, 0) || 0;
-  const customRequestCount = customRequestsQuery.data?.filter((request) => request.status === "submitted" || request.status === "in_progress").length || 0;
-  const communityCount = communitySubmissionsQuery.data?.length || 0;
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [threadMessages.length]);
@@ -383,27 +362,16 @@ export function AdminSupportMessagesPage() {
   }
 
   return (
-    <div className="mx-auto min-h-full w-full max-w-5xl p-4 pb-8 sm:p-6">
+    <div className="mx-auto min-h-full w-full max-w-5xl p-4 pb-8 sm:p-6" data-testid="admin-player-inbox">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-300/80">ADMIN INBOX</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">Player activity</h1>
-          <p className="mt-2 text-sm text-zinc-500">Player Inbox, community submissions, and custom workout requests in one place.</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-300/80">ADMIN · MESSAGES</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">Player Inbox</h1>
+          <p className="mt-2 text-sm text-zinc-500">Private conversations with players.</p>
         </div>
         <Button variant="outline" onClick={() => navigate("/admin")} data-testid="admin-support-dashboard-link">Admin dashboard</Button>
       </div>
-      <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setSelectedPlayerId(null); }} className="w-full">
-        <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-orange-500/15 bg-gradient-to-r from-zinc-950 via-zinc-900 to-orange-950/30 p-2">
-          <TabsTrigger value="player-help" className="gap-2 rounded-xl px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"><MessageCircle className="h-4 w-4" />Player Inbox{supportUnreadCount > 0 && <Badge variant="destructive" className="h-5 min-w-5 rounded-full px-1.5 text-[10px]">{supportUnreadCount}</Badge>}</TabsTrigger>
-          <TabsTrigger value="community" className="gap-2 rounded-xl px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"><Flame className="h-4 w-4" />Community 3 Pointers{communityCount > 0 && <Badge className="h-5 min-w-5 rounded-full bg-orange-500 px-1.5 text-[10px] text-black">{communityCount}</Badge>}</TabsTrigger>
-          <TabsTrigger value="custom" className="gap-2 rounded-xl px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"><ClipboardList className="h-4 w-4" />Custom Requests{customRequestCount > 0 && <Badge className="h-5 min-w-5 rounded-full bg-orange-500 px-1.5 text-[10px] text-black">{customRequestCount}</Badge>}</TabsTrigger>
-          <TabsTrigger value="shooting-cohort" className="gap-2 rounded-xl px-3 py-2 text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-black sm:text-sm"><Flame className="h-4 w-4" />Shooting Cohort</TabsTrigger>
-        </TabsList>
-        <TabsContent value="community" className="mt-0"><AdminCommunity3Pointers /></TabsContent>
-        <TabsContent value="custom" className="mt-0"><AdminCustomWorkoutRequests /></TabsContent>
-        <TabsContent value="shooting-cohort" className="mt-0"><AdminShootingCohort /></TabsContent>
-        <TabsContent value="player-help" className="mt-0">
-        {inboxQuery.isLoading ? (
+      {inboxQuery.isLoading ? (
         <div className="space-y-3">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-24 rounded-xl" />)}</div>
       ) : inboxQuery.data?.available === false ? (
         <div className="border-t border-white/[0.05] py-16 text-center text-sm text-zinc-500" data-testid="admin-support-unavailable">No support account is configured.</div>
@@ -440,8 +408,6 @@ export function AdminSupportMessagesPage() {
           ))}
         </div>
       )}
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
