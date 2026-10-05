@@ -224,7 +224,7 @@ export class ObjectStorageService {
   }
 
   // Gets the upload URL for an object entity.
-  async getObjectEntityUploadURL(): Promise<string> {
+  async getObjectEntityUploadURL(entityId?: string): Promise<string> {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
       throw new Error(
@@ -233,8 +233,11 @@ export class ObjectStorageService {
       );
     }
 
-    const objectId = randomUUID();
-    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+    const objectId = entityId ?? `uploads/${randomUUID()}`;
+    if (!/^[A-Za-z0-9/_-]+$/.test(objectId) || objectId.split("/").some((part) => !part || part === "." || part === "..")) {
+      throw new Error("Invalid object entity path");
+    }
+    const fullPath = `${privateObjectDir}/${objectId}`;
 
     const { bucketName, objectName } = parseObjectPath(fullPath);
 
@@ -244,6 +247,16 @@ export class ObjectStorageService {
       objectName,
       method: "PUT",
       ttlSec: 43200,
+    });
+  }
+
+  async getObjectEntityReadURL(objectPath: string, ttlSec = 600): Promise<string> {
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    return signObjectURL({
+      bucketName: objectFile.bucket.name,
+      objectName: objectFile.name,
+      method: "GET",
+      ttlSec,
     });
   }
 

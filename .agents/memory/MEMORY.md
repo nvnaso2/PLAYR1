@@ -33,4 +33,4 @@
 - [Journal design direction](journal-design-direction.md) — keep Journal focused on new reflections, saved entries, and Coach P review with PLAYR1 charcoal/orange styling
 - [Lead magnet result privacy](lead-magnet-result-privacy.md) — keep submissions stored for Coach P while hiding saved-result history from players
 - [Settings family controls](settings-family-controls.md) — remove family and parent-invite controls from Settings only; retain related routes, stored data, and backend flows
-- [Founder-led shooting cohort](founder-shooting-cohort.md) — free rolling cohort with open intake, manual waitlist invites, individualized training, and Player Inbox management
+- [Founder-led shooting cohort](founder-shooting-cohort.md) — open intake, manual waitlist, individualized training, shared chat, editable surveys, and private founder-review videos

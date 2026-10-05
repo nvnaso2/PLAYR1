@@ -5,6 +5,7 @@ import {
   shootingCohortAssessments,
   shootingCohortMessages,
   shootingCohortSettings,
+  shootingCohortVideoSubmissions,
   userProfiles,
 } from "@shared/schema";
 import type {
@@ -12,6 +13,7 @@ import type {
   ShootingCohortApplicationAnswers,
   ShootingCohortAssessmentInput,
   ShootingCohortStatus,
+  ShootingCohortVideoSubmissionInput,
 } from "@shared/shooting-cohort";
 import { canAssignShootingCohortSeat, getShootingCohortAdmissionStatus, getShootingCohortSenderDisplayName } from "@shared/shooting-cohort";
 
@@ -148,6 +150,61 @@ export async function submitShootingCohortApplication(
     }).returning();
     return created;
   });
+}
+
+export async function updateShootingCohortApplication(
+  userId: string,
+  answers: ShootingCohortApplicationAnswers,
+) {
+  const [application] = await db.update(shootingCohortApplications)
+    .set({ answers, updatedAt: new Date() })
+    .where(and(
+      eq(shootingCohortApplications.userId, userId),
+      inArray(shootingCohortApplications.status, [...VISIBLE_APPLICATION_STATUSES]),
+    ))
+    .returning();
+  if (!application) throw new ShootingCohortError("There is no active cohort application to update.", 404);
+  return application;
+}
+
+export async function createShootingCohortVideoSubmission(
+  userId: string,
+  submission: ShootingCohortVideoSubmissionInput,
+) {
+  const [created] = await db.insert(shootingCohortVideoSubmissions)
+    .values({ ...submission, userId })
+    .returning();
+  return created;
+}
+
+export async function getShootingCohortVideoSubmissionsForPlayer(userId: string) {
+  return db.select().from(shootingCohortVideoSubmissions)
+    .where(eq(shootingCohortVideoSubmissions.userId, userId))
+    .orderBy(desc(shootingCohortVideoSubmissions.createdAt));
+}
+
+export async function getShootingCohortVideoSubmissionForPlayer(videoId: string, userId: string) {
+  const [submission] = await db.select().from(shootingCohortVideoSubmissions)
+    .where(and(
+      eq(shootingCohortVideoSubmissions.id, videoId),
+      eq(shootingCohortVideoSubmissions.userId, userId),
+    ))
+    .limit(1);
+  return submission;
+}
+
+export async function getShootingCohortVideoSubmissionsForAdmin(applicationId: string) {
+  const [application] = await db.select({
+    userId: shootingCohortApplications.userId,
+    status: shootingCohortApplications.status,
+  })
+    .from(shootingCohortApplications)
+    .where(eq(shootingCohortApplications.id, applicationId))
+    .limit(1);
+  if (!application || application.status !== "active") {
+    throw new ShootingCohortError("Active cohort member not found.", 404);
+  }
+  return getShootingCohortVideoSubmissionsForPlayer(application.userId);
 }
 
 export async function updateShootingCohortSettings(

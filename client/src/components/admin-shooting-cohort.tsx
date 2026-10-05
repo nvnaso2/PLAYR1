@@ -6,6 +6,7 @@ import {
   ChevronUp,
   ClipboardList,
   Clock3,
+  Film,
   LockKeyhole,
   MessageCircle,
   Send,
@@ -13,6 +14,7 @@ import {
   Target,
   Trash2,
   Users,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,12 +33,14 @@ import {
   useSetShootingCohortApplicationStatus,
   useShootingCohortAdminQuery,
   useShootingCohortMessagesQuery,
+  useAdminShootingCohortVideoSubmissionsQuery,
   useSendShootingCohortMessage,
   useUpdateShootingCohortSettings,
 } from "@/lib/shooting-cohort-api";
 import type {
   ShootingCohortAdminApplication,
   ShootingCohortChatMessage,
+  ShootingCohortVideoSubmission,
 } from "@/lib/shooting-cohort-api";
 
 type AdminView = "cohort" | "applications" | "conversation";
@@ -143,6 +147,37 @@ function ReviewField({ label, value }: { label: string; value: string }) {
       <p className="font-mono text-[8px] uppercase tracking-[0.14em] text-stone-500">{label}</p>
       <p className="mt-1 break-words whitespace-pre-wrap text-xs leading-5 text-stone-200">{value || "—"}</p>
     </div>
+  );
+}
+
+function ApplicantVideoReview({ applicant }: { applicant: ShootingCohortAdminApplication }) {
+  const query = useAdminShootingCohortVideoSubmissionsQuery(applicant.id, applicant.status === "active");
+  return (
+    <section className="space-y-3 rounded-xl border border-white/[0.07] bg-[#10100e] p-3.5 lg:col-span-2" aria-label={`${applicant.displayName || "Applicant"} cohort video submissions`}>
+      <p className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.16em] text-orange-200"><Film className="h-3.5 w-3.5" />Founder video review · private</p>
+      {applicant.status !== "active"
+        ? <p className="text-xs leading-5 text-stone-500">Video review is available while the player has active cohort membership.</p>
+        : query.isLoading
+          ? <p className="text-xs text-stone-500">Loading private cohort videos…</p>
+          : query.isError
+            ? <div className="text-xs text-rose-200"><p>Video submissions could not load.</p><Button variant="ghost" onClick={() => query.refetch()} className="mt-1 h-auto px-0 text-rose-200">Retry</Button></div>
+            : !query.data?.length
+              ? <div className="flex items-center gap-2 rounded-lg border border-dashed border-white/[0.08] px-3 py-4 text-xs text-stone-500"><Video className="h-4 w-4" />No cohort clips submitted yet.</div>
+              : <div className="grid gap-3 sm:grid-cols-2">
+                {query.data.map((video: ShootingCohortVideoSubmission) => (
+                  <article key={video.id} className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#151411]">
+                    <video controls playsInline preload="metadata" src={video.mediaUrl} className="aspect-video w-full bg-black" aria-label={video.title} />
+                    <div className="p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <h4 className="break-words text-sm font-semibold text-stone-100">{video.title}</h4>
+                        <time className="shrink-0 font-mono text-[9px] text-stone-500">{formatDate(video.createdAt)}</time>
+                      </div>
+                      {video.description && <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-stone-400">{video.description}</p>}
+                    </div>
+                  </article>
+                ))}
+              </div>}
+    </section>
   );
 }
 
@@ -257,6 +292,7 @@ function ApplicantCard({
             <p className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.16em] text-orange-200"><ShieldCheck className="h-3 w-3" />Admin-only test results</p>
             <AssessmentReview application={applicant} />
           </section>
+          <ApplicantVideoReview applicant={applicant} />
         </div>
       )}
     </article>
@@ -301,7 +337,7 @@ function CohortOverview({
     <div className="space-y-5">
       <section aria-label="Cohort statistics" data-testid="cohort-statistics">
         <div className="mb-3 flex items-end justify-between gap-3">
-          <div><p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-orange-200">The room, right now</p><h2 className="mt-1 font-heading text-2xl font-bold text-stone-100">Cohort pulse</h2></div>
+          <h2 className="font-heading text-2xl font-bold text-stone-100">Cohort Home</h2>
           <p className="font-mono text-[10px] text-stone-500">{reserved} / {capacity || data.settings.capacity} seats committed</p>
         </div>
         <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">

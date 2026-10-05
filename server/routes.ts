@@ -5,7 +5,7 @@ import path from "path";
 import { storage } from "./storage";
 import { FREE_SAVED_WORKOUT_LIMIT } from "@shared/workout-limits";
 import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
-import { registerObjectStorageRoutes, processVideoObject } from "./replit_integrations/object_storage";
+import { ObjectStorageService, registerObjectStorageRoutes, processVideoObject } from "./replit_integrations/object_storage";
 import { users } from "@shared/models/auth";
 import { db, pool } from "./db";
 import { eq, and, or, isNull, ilike, sql, inArray, gte, desc, asc } from "drizzle-orm";
@@ -62,8 +62,14 @@ import { canTransitionCustomWorkoutRequest, hasUniqueDrillIds, isPlayr1CatalogDr
 import { NOTIFICATION_CATALOG } from "@shared/notification-catalog";
 import { selectHubRecommendation, type HubRecommendationCandidate } from "./hub-recommendations";
 import type { HubRecommendationResponse } from "@shared/hub-recommendations";
-import { ADMIN_SHOOTING_COHORT_STATUSES, shootingCohortApplicationSchema, shootingCohortAssessmentSchema } from "@shared/shooting-cohort";
 import {
+  ADMIN_SHOOTING_COHORT_STATUSES,
+  shootingCohortApplicationSchema,
+  shootingCohortAssessmentSchema,
+  shootingCohortVideoSubmissionSchema,
+} from "@shared/shooting-cohort";
+import {
+  createShootingCohortVideoSubmission,
   createShootingCohortAssessment,
   createShootingCohortMessage,
   deleteShootingCohortMessage,
@@ -71,12 +77,16 @@ import {
   getShootingCohortAdminOverview,
   getShootingCohortMessages,
   getShootingCohortStatus,
+  getShootingCohortVideoSubmissionForPlayer,
+  getShootingCohortVideoSubmissionsForAdmin,
+  getShootingCohortVideoSubmissionsForPlayer,
   hasActiveShootingCohortMembership,
   inviteShootingCohortApplicant,
   removeShootingCohortApplication,
   respondToShootingCohortInvitation,
   ShootingCohortError,
   submitShootingCohortApplication,
+  updateShootingCohortApplication,
   updateShootingCohortApplicationStatus,
   updateShootingCohortSettings,
 } from "./shooting-cohort";
@@ -3270,6 +3280,23 @@ ${JSON.stringify(catalogForPrompt)}
     }
   });
 
+  app.patch("/api/shooting-cohort/application", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const parsed = shootingCohortApplicationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Please complete the shooting cohort interest survey.", errors: parsed.error.flatten() });
+    }
+    try {
+      const application = await updateShootingCohortApplication(req.user.claims.sub, parsed.data);
+      res.json({ application });
+    } catch (error) {
+      if (error instanceof ShootingCohortError) {
+        return res.status(error.statusCode).json({ message: error.message });
+      }
+      console.error("Error updating shooting cohort application answers:", error);
+      res.status(500).json({ message: "Failed to update shooting cohort survey" });
+    }
+  });
+
   app.post("/api/shooting-cohort/invitation-response", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     const parsed = z.object({ response: z.enum(["accept", "decline"]) }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Choose whether to accept or decline the invitation." });
@@ -3312,6 +3339,62 @@ ${JSON.stringify(catalogForPrompt)}
     }
   });
 
+  app.get("/api/shooting-cohort/videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      if (!(await hasActiveShootingCohortMembership(userId))) {
+        return res.status(403).json({ message: "Active cohort members only." });
+      }
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      const objectStorage = new ObjectStorageService();
+      const submissions = await getShootingCohortVideoSubmissionsForPlayer(userId);
+      const safeSubmissions = await Promise.all(submissions.map(async ({ videoUrl, ...submission }) => ({
+        ...submission,
+        mediaUrl: await objectStorage.getObjectEntityReadURL(videoUrl, 600),
+      })));
+      res.json(safeSubmissions);
+    } catch (error) {
+      console.error("Error loading shooting cohort videos:", error);
+      res.status(500).json({ message: "Failed to load cohort video submissions" });
+    }
+  });
+
+  app.post("/api/shooting-cohort/videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const parsed = shootingCohortVideoSubmissionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Add a title and upload a valid video before submitting." });
+    }
+    try {
+      const userId = req.user.claims.sub;
+      if (!(await hasActiveShootingCohortMembership(userId))) {
+        return res.status(403).json({ message: "Active cohort members only." });
+      }
+      const submission = await createShootingCohortVideoSubmission(userId, parsed.data);
+      res.status(201).json({ id: submission.id });
+    } catch (error) {
+      console.error("Error saving shooting cohort video:", error);
+      res.status(500).json({ message: "Failed to save cohort video submission" });
+    }
+  });
+
+  app.post("/api/shooting-cohort/videos/:id/process", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      if (!(await hasActiveShootingCohortMembership(userId))) {
+        return res.status(403).json({ message: "Active cohort members only." });
+      }
+      const submission = await getShootingCohortVideoSubmissionForPlayer(req.params.id, userId);
+      if (!submission) return res.status(404).json({ message: "Video submission not found" });
+      void processVideoObject(submission.videoUrl).catch((error) => {
+        console.error(`[cohort-video-process] Failed for ${submission.id}:`, error);
+      });
+      res.status(202).json({ videoId: submission.id, state: "processing", fallback: "original-upload" });
+    } catch (error) {
+      console.error("Error starting shooting cohort video processing:", error);
+      res.status(500).json({ message: "Failed to start video compatibility processing" });
+    }
+  });
+
   app.get("/api/shooting-cohort/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -3349,6 +3432,25 @@ ${JSON.stringify(catalogForPrompt)}
     } catch (error) {
       console.error("Error loading admin shooting cohort:", error);
       res.status(500).json({ message: "Failed to load shooting cohort management" });
+    }
+  });
+
+  app.get("/api/admin/shooting-cohort/applications/:id/videos", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      const objectStorage = new ObjectStorageService();
+      const submissions = await getShootingCohortVideoSubmissionsForAdmin(req.params.id);
+      const safeSubmissions = await Promise.all(submissions.map(async ({ videoUrl, ...submission }) => ({
+        ...submission,
+        mediaUrl: await objectStorage.getObjectEntityReadURL(videoUrl, 600),
+      })));
+      res.json(safeSubmissions);
+    } catch (error) {
+      if (error instanceof ShootingCohortError) {
+        return res.status(error.statusCode).json({ message: error.message });
+      }
+      console.error("Error loading admin shooting cohort videos:", error);
+      res.status(500).json({ message: "Failed to load cohort member video submissions" });
     }
   });
 

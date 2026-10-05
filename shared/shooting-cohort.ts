@@ -90,6 +90,15 @@ export type ShootingCohortAssessmentType = ShootingCohortAssessmentInput["type"]
 export type ShootingCohortSpotUpResults = ShootingCohortAssessmentInput["spotUp"];
 export type ShootingCohortOffDribbleResults = ShootingCohortAssessmentInput["offDribble"];
 
+export const shootingCohortVideoSubmissionSchema = z.object({
+  title: z.string().trim().min(1).max(100),
+  videoUrl: z.string().trim().min(1).max(2048).startsWith("/objects/cohort-private/"),
+  thumbnailUrl: z.string().trim().max(2048).startsWith("/objects/cohort-private/").optional().nullable(),
+  description: z.string().trim().max(1000).optional().default(""),
+});
+
+export type ShootingCohortVideoSubmissionInput = z.infer<typeof shootingCohortVideoSubmissionSchema>;
+
 export function getShootingCohortAdmissionStatus(occupiedSeats: number, capacity: number): "active" | "waitlisted" {
   return occupiedSeats < capacity ? "active" : "waitlisted";
 }

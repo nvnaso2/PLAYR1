@@ -33,7 +33,6 @@ import {
 import { 
   Target, 
   ClipboardList, 
-  Video, 
   User,
   UserCircle,
   LogOut,
@@ -64,7 +63,6 @@ import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
 
 const playerNavItems = [
-  { title: "My Film Room", url: "/videos", icon: Video },
   { title: "Feedback", url: "/feedback", icon: Megaphone },
 ];
 

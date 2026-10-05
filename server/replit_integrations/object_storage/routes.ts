@@ -1,7 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { isAuthenticated } from "../../auth";
+import { isAuthenticated, type AuthenticatedRequest } from "../../auth";
 import { storage } from "../../storage";
+import { hasActiveShootingCohortMembership } from "../../shooting-cohort";
 import { exec } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -292,6 +293,32 @@ export function registerObjectStorageRoutes(app: Express): void {
     }
   });
 
+  app.post("/api/shooting-cohort/videos/upload-url", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      if (!(await hasActiveShootingCohortMembership(userId))) {
+        return res.status(403).json({ error: "Active cohort members only." });
+      }
+      const { name, size, contentType } = req.body;
+      if (!name || typeof size !== "number" || !contentType) {
+        return res.status(400).json({ error: "Missing required video upload details." });
+      }
+      if (!ALLOWED_VIDEO_TYPES.includes(contentType)) {
+        return res.status(400).json({ error: `Invalid content type. Allowed types: ${ALLOWED_VIDEO_TYPES.join(", ")}` });
+      }
+      if (!Number.isFinite(size) || size <= 0 || size > MAX_VIDEO_SIZE) {
+        return res.status(400).json({ error: "Video must be larger than 0 bytes and under 4GB." });
+      }
+
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL(`cohort-private/${randomUUID()}`);
+      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      res.json({ uploadURL, objectPath, metadata: { name, size, contentType } });
+    } catch (error) {
+      console.error("Error generating shooting cohort video upload URL:", error);
+      res.status(500).json({ error: "Failed to generate cohort video upload URL" });
+    }
+  });
+
   app.post("/api/user/uploads/photo-url", isAuthenticated, async (req, res) => {
     try {
       const { name, size, contentType } = req.body;
@@ -402,6 +429,9 @@ export function registerObjectStorageRoutes(app: Express): void {
    */
   app.get("/objects/{*objectPath}", async (req, res) => {
     try {
+      if (req.path.startsWith("/objects/cohort-private/")) {
+        return res.status(404).json({ error: "Object not found" });
+      }
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       await objectStorageService.serveObject(objectFile, res, req, 3600);
     } catch (error) {

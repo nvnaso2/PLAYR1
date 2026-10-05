@@ -1,14 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
-  ArrowRight, BadgeCheck, CalendarDays, Check, ChevronRight, CircleHelp, Clock3,
-  LockKeyhole, MessageCircle, Send, ShieldCheck, Target, Trophy, X,
+  Activity, ArrowRight, BadgeCheck, CalendarDays, Check, ChevronRight, CircleHelp,
+  ClipboardList, Clock3, Dumbbell, LockKeyhole, MessageCircle, Send, ShieldCheck,
+  Target, Trophy, X,
 } from "lucide-react";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ShootingCohortVideos } from "@/components/shooting-cohort-videos";
 import { useToast } from "@/hooks/use-toast";
 import {
   getAssessmentTotals,
@@ -25,6 +37,7 @@ import {
   useShootingCohortQuery,
   useSubmitShootingCohortApplication,
   useSubmitShootingCohortAssessment,
+  useUpdateShootingCohortApplication,
   type ShootingCohortAssessmentRecord,
 } from "@/lib/shooting-cohort-api";
 
@@ -56,6 +69,20 @@ const initialAnswers: ApplicationDraft = {
   goal: "",
   currentRoutine: "",
 };
+
+function toApplicationDraft(answers?: ShootingCohortApplicationAnswers): ApplicationDraft {
+  if (!answers) return initialAnswers;
+  return {
+    practiceDays: [...answers.practiceDays],
+    sessionMinutes: String(answers.sessionMinutes),
+    hoopAccess: answers.hoopAccess,
+    weeklyShots: String(answers.weeklyShots),
+    focusAreas: [...answers.focusAreas],
+    confidence: answers.confidence,
+    goal: answers.goal,
+    currentRoutine: answers.currentRoutine ?? "",
+  };
+}
 
 const statusCopy: Record<string, { label: string; detail: string; tone: string }> = {
   active: { label: "You’re in", detail: "Your place is active. Start with your baseline and meet the cohort.", tone: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-200" },
@@ -182,12 +209,15 @@ function AssessmentForm({ type, pending, onCancel, onSubmit }: {
   );
 }
 
-function ApplicationForm({ onSubmit, pending, isOpen }: {
+function ApplicationForm({ onSubmit, pending, isOpen, initialAnswers, editing = false, onCancel }: {
   onSubmit: (answers: ShootingCohortApplicationAnswers) => void;
   pending: boolean;
   isOpen: boolean;
+  initialAnswers?: ShootingCohortApplicationAnswers;
+  editing?: boolean;
+  onCancel?: () => void;
 }) {
-  const [answers, setAnswers] = useState<ApplicationDraft>(initialAnswers);
+  const [answers, setAnswers] = useState<ApplicationDraft>(() => toApplicationDraft(initialAnswers));
   const toggleDay = (day: typeof practiceDays[number]) => setAnswers((current) => ({
     ...current,
     practiceDays: current.practiceDays.includes(day) ? current.practiceDays.filter((item) => item !== day) : [...current.practiceDays, day],
@@ -211,9 +241,9 @@ function ApplicationForm({ onSubmit, pending, isOpen }: {
   return (
     <section className="overflow-hidden rounded-[26px] border border-[#493a2c] bg-[#17130f]">
       <div className="border-b border-[#382e24] px-5 py-5 sm:px-7">
-        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#df965c]">Player interest survey · 3 minutes</p>
-        <h2 className="mt-2 font-heading text-3xl uppercase leading-none text-[#fff1de]">Tell us how you train.</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#a99b89]">This helps the founder coach your shot, not sort players by a number. Every player can apply.</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#df965c]">{editing ? "Your cohort profile" : "Player interest survey · 3 minutes"}</p>
+        <h2 className="mt-2 font-heading text-3xl uppercase leading-none text-[#fff1de]">{editing ? "Update how you train." : "Tell us how you train."}</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#a99b89]">{editing ? "Keep your practice details, goals, and focus areas current. Saving changes will not alter your cohort status." : "This helps the founder coach your shot, not sort players by a number. Every player can apply."}</p>
       </div>
       <div className="grid gap-x-7 gap-y-6 p-5 sm:grid-cols-2 sm:p-7">
         <fieldset className="space-y-3 sm:col-span-2">
@@ -235,7 +265,9 @@ function ApplicationForm({ onSubmit, pending, isOpen }: {
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="cohort-goal" className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">What’s one shooting goal you care about?</Label><Textarea id="cohort-goal" maxLength={1000} value={answers.goal} onChange={(event) => setAnswers({ ...answers, goal: event.target.value })} placeholder="Be specific about what you want to change in your game." className="min-h-24 border-[#493e32] bg-[#100e0b] text-[#f3e6d5] placeholder:text-[#675d51]" /><p className="text-right font-mono text-[10px] text-[#74695d]">{answers.goal.length}/1000</p></div>
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="routine" className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">What does your current routine look like? <span className="normal-case tracking-normal text-[#817567]">optional</span></Label><Textarea id="routine" maxLength={1000} value={answers.currentRoutine ?? ""} onChange={(event) => setAnswers({ ...answers, currentRoutine: event.target.value })} placeholder="Any details about drills, feedback, or what you have tried." className="min-h-20 border-[#493e32] bg-[#100e0b] text-[#f3e6d5] placeholder:text-[#675d51]" /></div>
         <div className="flex flex-col gap-3 border-t border-[#382e24] pt-5 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="max-w-xl text-xs leading-5 text-[#8f8274]">Initial applications become active until capacity is full; remaining players join the waitlist in application order. No age or guardian check is required.</p>
+          <p className="max-w-xl text-xs leading-5 text-[#8f8274]">{editing ? "Only the answers on this survey will change." : "Initial applications become active until capacity is full; remaining players join the waitlist in application order. No age or guardian check is required."}</p>
+          <div className="flex flex-wrap justify-end gap-2">
+          {onCancel && <Button variant="ghost" onClick={onCancel} className="text-[#a99b89] hover:text-white">Cancel</Button>}
           <Button onClick={() => {
             if (!canSubmit || answers.confidence === null || answers.hoopAccess === "") return;
             onSubmit({
@@ -245,7 +277,8 @@ function ApplicationForm({ onSubmit, pending, isOpen }: {
               weeklyShots: Number(answers.weeklyShots),
               confidence: answers.confidence,
             });
-          }} disabled={!canSubmit || !isOpen || pending} className="shrink-0 bg-[#ef8a43] px-5 font-bold text-[#21150c] hover:bg-[#ff9e5b]">{pending ? "Sending application…" : "Apply to the cohort"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
+          }} disabled={!canSubmit || (!editing && !isOpen) || pending} className="shrink-0 bg-[#ef8a43] px-5 font-bold text-[#21150c] hover:bg-[#ff9e5b]">{pending ? (editing ? "Saving changes…" : "Sending application…") : (editing ? "Save survey" : "Apply to the cohort")} <ArrowRight className="ml-2 h-4 w-4" /></Button>
+          </div>
         </div>
       </div>
     </section>
@@ -294,12 +327,199 @@ function MemberChat({ isAdmin = false }: { isAdmin?: boolean }) {
   );
 }
 
+function AssessmentTrend({ assessments }: { assessments: ShootingCohortAssessmentRecord[] }) {
+  const ordered = [...assessments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const points = ordered.map((assessment) => ({
+    timestamp: new Date(assessment.createdAt).getTime(),
+    makes: getAssessmentTotals({
+      freeThrowsMade: assessment.freeThrowsMade,
+      spotUp: assessment.spotUpResults,
+      offDribble: assessment.offDribbleResults,
+    }).total.made,
+  }));
+  const baseline = points[0];
+  const latest = points[points.length - 1];
+  const delta = baseline && latest ? latest.makes - baseline.makes : 0;
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl border border-[#3a3329] bg-[#100e0b] p-3">
+          <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-[#817567]">Latest makes</p>
+          <p className="mt-1 font-heading text-2xl text-[#f4b27c]">{latest ? `${latest.makes}/60` : "—"}</p>
+        </div>
+        <div className="rounded-xl border border-[#3a3329] bg-[#100e0b] p-3">
+          <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-[#817567]">Since baseline</p>
+          <p className="mt-1 font-heading text-2xl text-[#f4b27c]">{points.length > 1 ? `${delta > 0 ? "+" : ""}${delta}` : "—"}</p>
+        </div>
+        <div className="rounded-xl border border-[#3a3329] bg-[#100e0b] p-3">
+          <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-[#817567]">Tests logged</p>
+          <p className="mt-1 font-heading text-2xl text-[#f4b27c]">{points.length}</p>
+        </div>
+      </div>
+      {points.length > 1 ? (
+        <div className="rounded-xl border border-[#3a3329] bg-[#100e0b] p-3" role="img" aria-label="Trend of total shooting makes across cohort assessments">
+          <p className="mb-2 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.14em] text-[#9d8f7e]"><Activity className="h-3.5 w-3.5 text-[#df965c]" />Total makes across your shooting checks</p>
+          <div className="h-[190px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={points} margin={{ top: 8, right: 12, bottom: 2, left: -12 }}>
+                <CartesianGrid stroke="#382e24" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="timestamp"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  tickFormatter={(value) => new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  tick={{ fill: "#8f8274", fontSize: 10 }}
+                  axisLine={{ stroke: "#493a2c" }}
+                  tickLine={false}
+                />
+                <YAxis type="number" domain={[0, 60]} allowDecimals={false} tick={{ fill: "#8f8274", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  labelFormatter={(value) => new Date(Number(value)).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+                  formatter={(value) => [`${value} / 60`, "Makes"]}
+                  contentStyle={{ background: "#17130f", border: "1px solid #493a2c", borderRadius: 12, color: "#fff1de", fontSize: 12 }}
+                />
+                <Line type="monotone" dataKey="makes" name="Total makes" stroke="#ef8a43" strokeWidth={2.5} dot={{ r: 3, fill: "#ef8a43", stroke: "#100e0b", strokeWidth: 2 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 rounded-xl border border-dashed border-[#514333] bg-[#100e0b] px-4 py-4">
+          <Activity className="h-4 w-4 shrink-0 text-[#a77b56]" />
+          <p className="text-xs leading-5 text-[#9d8f7e]">{points.length ? "Your baseline is saved. Log a retest to see how your makes change over time." : "Save your baseline to start a private shooting-progress trend."}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type CohortWorkoutRequest = {
+  id: string;
+  status: string;
+  improvementFocus: string;
+  desiredOutcome: string;
+  availableTime: number;
+  createdAt: string;
+  workout?: { workout?: { name: string; description?: string | null } } | null;
+};
+
+type CohortDirectWorkoutAssignment = {
+  id: string;
+  status: string;
+  createdAt: string;
+  workout?: { workout?: { name: string; description?: string | null; estimatedDuration?: number | null } } | null;
+};
+
+type AssignedCohortDrill = {
+  id: string;
+  status: string;
+  dueDate?: string | null;
+  notes?: string | null;
+  drill?: { title: string; description?: string | null };
+};
+
+function CohortTrainingSection() {
+  const [, navigate] = useLocation();
+  const workoutsQuery = useQuery<{
+    eligible: boolean;
+    requests: CohortWorkoutRequest[];
+    assignments?: CohortDirectWorkoutAssignment[];
+  }>({
+    queryKey: ["/api/custom-workout-requests"],
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
+  const drillsQuery = useQuery<AssignedCohortDrill[]>({
+    queryKey: ["/api/assigned-drills"],
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
+
+  const workoutItems = [
+    ...(workoutsQuery.data?.requests ?? []).map((request) => ({
+      id: request.id,
+      name: request.workout?.workout?.name || request.improvementFocus,
+      detail: request.workout?.workout?.description || request.desiredOutcome,
+      status: request.status,
+      createdAt: request.createdAt,
+    })),
+    ...(workoutsQuery.data?.assignments ?? []).map((assignment) => ({
+      id: `direct-${assignment.id}`,
+      name: assignment.workout?.workout?.name || "Assigned workout",
+      detail: assignment.workout?.workout?.description || "Built for your training plan.",
+      status: assignment.status,
+      createdAt: assignment.createdAt,
+    })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return (
+    <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Assigned cohort training">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Dumbbell className="h-4 w-4" /></span>
+          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Requests &amp; assignments</h2></div>
+        </div>
+        <Button onClick={() => navigate("/custom-workouts")} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">Request a workout <ArrowRight className="ml-2 h-4 w-4" /></Button>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <section className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
+          <div className="mb-3 flex items-center gap-2"><ClipboardList className="h-4 w-4 text-[#df965c]" /><h3 className="font-heading text-lg uppercase text-[#e8dccb]">Custom workouts</h3></div>
+          {workoutsQuery.isLoading
+            ? <p className="text-xs text-[#887c6e]">Loading your workout requests…</p>
+            : workoutsQuery.isError
+              ? <div className="text-xs text-red-200"><p>Workout requests could not load.</p><Button variant="ghost" onClick={() => workoutsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
+              : workoutItems.length === 0
+                ? <p className="text-xs leading-5 text-[#817567]">No requests yet. Send the founder a focus and get a custom session built for you.</p>
+                : <div className="space-y-2">
+                  {workoutItems.slice(0, 4).map((workout) => (
+                    <div key={workout.id} className="rounded-lg border border-[#342c24] bg-[#17130f] p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 font-semibold text-sm text-[#e7dac8]">{workout.name}</p>
+                        <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{workout.status.replace(/_/g, " ")}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#8f8274]">{workout.detail}</p>
+                    </div>
+                  ))}
+                  {workoutItems.length > 4 && <Button variant="ghost" onClick={() => navigate("/custom-workouts")} className="h-auto px-0 text-xs text-[#e8a16a]">See all {workoutItems.length} workouts <ChevronRight className="ml-1 h-3.5 w-3.5" /></Button>}
+                </div>}
+        </section>
+
+        <section className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
+          <div className="mb-3 flex items-center gap-2"><Target className="h-4 w-4 text-[#df965c]" /><h3 className="font-heading text-lg uppercase text-[#e8dccb]">Assigned drills</h3></div>
+          {drillsQuery.isLoading
+            ? <p className="text-xs text-[#887c6e]">Loading assigned drills…</p>
+            : drillsQuery.isError
+              ? <div className="text-xs text-red-200"><p>Assigned drills could not load.</p><Button variant="ghost" onClick={() => drillsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
+              : !drillsQuery.data?.length
+                ? <p className="text-xs leading-5 text-[#817567]">Drills assigned by your coach will show here.</p>
+                : <div className="space-y-2">
+                  {drillsQuery.data.slice(0, 4).map((assignment) => (
+                    <div key={assignment.id} className="rounded-lg border border-[#342c24] bg-[#17130f] p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 font-semibold text-sm text-[#e7dac8]">{assignment.drill?.title || "Assigned drill"}</p>
+                        <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{assignment.status.replace(/_/g, " ")}</span>
+                      </div>
+                      {assignment.dueDate && <p className="mt-1 text-[10px] text-[#817567]">Due {new Date(assignment.dueDate).toLocaleDateString()}</p>}
+                      {assignment.notes && <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#8f8274]">{assignment.notes}</p>}
+                    </div>
+                  ))}
+                </div>}
+        </section>
+      </div>
+    </section>
+  );
+}
+
 export default function ShootingCohortPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const playerQuery = useShootingCohortQuery();
   const assessmentQuery = useShootingCohortAssessmentsQuery();
   const submitApplication = useSubmitShootingCohortApplication();
+  const updateApplication = useUpdateShootingCohortApplication();
   const respondInvitation = useRespondToShootingCohortInvitation();
   const submitAssessment = useSubmitShootingCohortAssessment();
   const [showAssessmentForm, setShowAssessmentForm] = useState(false);
@@ -327,13 +547,17 @@ export default function ShootingCohortPage() {
     if (closedApplicationStatus) setReapply(false);
   };
   const apply = async (answers: ShootingCohortApplicationAnswers) => {
+    const editing = Boolean(application && !closedApplicationStatus);
     try {
-      await submitApplication.mutateAsync(answers);
+      if (editing) await updateApplication.mutateAsync(answers);
+      else await submitApplication.mutateAsync(answers);
       setShowInterestSurvey(false);
       setReapply(false);
-      toast({ title: "Application received", description: "Your place is now reflected in your cohort status." });
+      toast(editing
+        ? { title: "Survey updated", description: "Your answers are saved without changing your cohort status." }
+        : { title: "Application received", description: "Your place is now reflected in your cohort status." });
     } catch (error) {
-      toast({ title: "Application not sent", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      toast({ title: editing ? "Survey not updated" : "Application not sent", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
     }
   };
   const respond = async (response: "accept" | "decline") => {
@@ -398,13 +622,18 @@ export default function ShootingCohortPage() {
           <div className="mt-5">
             <section className={`flex flex-col gap-4 rounded-[22px] border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${status?.tone ?? "border-zinc-700 bg-zinc-900"}`}>
               <div className="flex items-start gap-3"><span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20"><ShieldCheck className="h-4 w-4" /></span><div><p className="font-heading text-2xl uppercase leading-none">{status?.label}</p><p className="mt-1.5 max-w-xl text-sm leading-5 opacity-80">{status?.detail}</p>{application.appliedAt && <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.14em] opacity-60">Applied {formatDate(application.appliedAt)} · status updates in your portal</p>}</div></div>
-              {application.status === "invited" && <div className="flex gap-2"><Button variant="outline" onClick={() => void respond("decline")} disabled={invitationBusy} className="border-current/30 bg-black/10 text-current hover:bg-black/20">Decline</Button><Button onClick={() => void respond("accept")} disabled={invitationBusy} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">{invitationBusy ? "Updating…" : "Accept invitation"} <Check className="ml-2 h-4 w-4" /></Button></div>}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={toggleInterestSurvey} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="border-current/30 bg-black/10 text-current hover:bg-black/20">{showInterestSurvey ? "Close survey" : "Edit interest survey"}</Button>
+                {application.status === "invited" && <><Button variant="outline" onClick={() => void respond("decline")} disabled={invitationBusy} className="border-current/30 bg-black/10 text-current hover:bg-black/20">Decline</Button><Button onClick={() => void respond("accept")} disabled={invitationBusy} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">{invitationBusy ? "Updating…" : "Accept invitation"} <Check className="ml-2 h-4 w-4" /></Button></>}
+              </div>
             </section>
+            {showInterestSurvey && <div id="shooting-cohort-interest-survey" className="mt-4"><ApplicationForm initialAnswers={application.answers} editing onCancel={closeInterestSurvey} onSubmit={(answers) => void apply(answers)} pending={updateApplication.isPending} isOpen /></div>}
           </div>
         )}
 
         {isMember && (
-          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.12fr)_minmax(330px,0.88fr)]">
+          <div className="mt-6 space-y-5">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.12fr)_minmax(330px,0.88fr)]">
             <div className="space-y-5">
               <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5">
                 <div className="flex flex-wrap items-end justify-between gap-4">
@@ -412,22 +641,21 @@ export default function ShootingCohortPage() {
                   <div className="flex flex-wrap gap-2">{!orderedAssessments.length ? <Button onClick={() => setShowAssessmentForm(true)} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]"><Target className="mr-2 h-4 w-4" />Set baseline</Button> : <Button variant="outline" onClick={() => setShowAssessmentForm(true)} className="border-[#68482e] bg-[#21180f] text-[#f0b17d] hover:bg-[#352416]"><Target className="mr-2 h-4 w-4" />{retestLabel}</Button>}</div>
                 </div>
                 {latestAssessment && <div className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${retestDue ? "border-[#df965c]/30 bg-[#df965c]/[0.08] text-[#f1bd8c]" : "border-[#3a3329] bg-[#100e0b] text-[#958878]"}`}><CalendarDays className="h-3.5 w-3.5 shrink-0" />{retestDue ? "A four-week retest is due. Put your progress on paper." : `Next suggested retest ${nextRetest?.toLocaleDateString(undefined, { month: "short", day: "numeric" })}. Retest every four weeks.`}</div>}
+                <AssessmentTrend assessments={orderedAssessments} />
                 {showAssessmentForm && <div className="mt-4"><AssessmentForm type={orderedAssessments.length ? "retest" : "baseline"} pending={submitAssessment.isPending} onCancel={() => setShowAssessmentForm(false)} onSubmit={(assessment) => void saveAssessment(assessment)} /></div>}
                 {assessmentQuery.isLoading && <div className="mt-4 space-y-3"><Skeleton className="h-36 rounded-2xl bg-[#29231c]" /><Skeleton className="h-36 rounded-2xl bg-[#29231c]" /></div>}
                 {assessmentQuery.isError && <div className="mt-4 rounded-xl border border-red-300/20 bg-red-300/[0.05] p-4 text-sm text-red-200"><p>Private test history could not load.</p><Button variant="ghost" onClick={() => assessmentQuery.refetch()} className="mt-1 px-0 text-red-200 hover:text-white">Retry</Button></div>}
                 {!assessmentQuery.isLoading && !assessmentQuery.isError && orderedAssessments.length === 0 && !showAssessmentForm && <div className="mt-4 flex flex-col items-center rounded-2xl border border-dashed border-[#514333] bg-[#100e0b] px-5 py-8 text-center"><Trophy className="h-6 w-6 text-[#8e6847]" /><p className="mt-3 text-sm font-semibold text-[#dfd0bd]">Your first mark is still ahead.</p><p className="mt-1 max-w-sm text-xs leading-5 text-[#817567]">Save a baseline to make your progress visible to you, not the room.</p></div>}
                 <div className="mt-4 space-y-3">{orderedAssessments.map((assessment, index) => <AssessmentCard key={assessment.id} assessment={assessment} index={orderedAssessments.length - index - 1} />)}</div>
               </section>
-              <div className="grid gap-3">
-                <button type="button" onClick={() => navigate("/custom-workouts")} className="group flex w-full items-center gap-3 rounded-2xl border border-[#493a2c] bg-[#17130f] p-4 text-left transition hover:-translate-y-0.5 hover:border-[#a96537] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef8a43]">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Target className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block font-heading text-xl uppercase text-[#f2e2ce]">Custom workouts</span><span className="mt-0.5 block text-[11px] text-[#85796a]">Training shaped around your shot</span></span><ArrowRight className="h-4 w-4 text-[#b78257] transition group-hover:translate-x-1" />
-                </button>
-              </div>
+              <CohortTrainingSection />
             </div>
             <div className="space-y-4">
               <div className="rounded-[22px] border border-[#46382b] bg-[#21180f] p-4 sm:p-5"><p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#d89156]">The assessment</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">60 shots. One honest snapshot.</h2><div className="mt-4 grid grid-cols-3 divide-x divide-[#4b3928] rounded-xl border border-[#503b28] bg-[#17120e] py-3 text-center"><div><p className="font-heading text-2xl text-[#f4b27c]">20</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">free throws</p></div><div><p className="font-heading text-2xl text-[#f4b27c]">25</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">spot-up</p></div><div><p className="font-heading text-2xl text-[#f4b27c]">15</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">off-dribble</p></div></div><p className="mt-3 text-xs leading-5 text-[#9d8f7e]">Record your makes at five spots and three dribble locations. Revisit the same test every four weeks.</p></div>
               <MemberChat />
             </div>
+          </div>
+          <ShootingCohortVideos />
           </div>
         )}
         {application?.status === "waitlisted" && <section className="mt-5 rounded-2xl border border-[#4a3d2e] bg-[#17130f] p-5"><p className="font-heading text-2xl uppercase text-[#f1e3d2]">Your application is in order.</p><p className="mt-1 max-w-2xl text-sm leading-6 text-[#9d8f7e]">There are {playerQuery.data.waitlistCount} {playerQuery.data.waitlistCount === 1 ? "player" : "players"} on the waitlist. Invitations are sent as seats open; accept or decline here when yours arrives.</p></section>}

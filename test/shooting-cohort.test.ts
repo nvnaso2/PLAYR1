@@ -7,6 +7,7 @@ import {
   getShootingCohortSenderDisplayName,
   shootingCohortApplicationSchema,
   shootingCohortAssessmentSchema,
+  shootingCohortVideoSubmissionSchema,
 } from "../shared/shooting-cohort";
 
 const validApplication = {
@@ -91,5 +92,18 @@ test("shooting cohort assessment rejects makes above the attempts for a location
   assert.equal(shootingCohortAssessmentSchema.safeParse({
     ...validAssessment,
     freeThrowsMade: 21,
+  }).success, false);
+});
+
+test("cohort video submissions accept only private cohort object paths", () => {
+  const validSubmission = {
+    title: "Corner catch and shoot",
+    videoUrl: "/objects/cohort-private/clip-123",
+    description: "Check my footwork on the catch.",
+  };
+  assert.equal(shootingCohortVideoSubmissionSchema.safeParse(validSubmission).success, true);
+  assert.equal(shootingCohortVideoSubmissionSchema.safeParse({
+    ...validSubmission,
+    videoUrl: "/objects/uploads/public-library-video",
   }).success, false);
 });

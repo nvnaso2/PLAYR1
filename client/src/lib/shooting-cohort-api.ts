@@ -8,6 +8,7 @@ import type {
   ShootingCohortSpotUpResults,
   ShootingCohortStatus,
   AdminShootingCohortStatus,
+  ShootingCohortVideoSubmissionInput,
 } from "@shared/shooting-cohort";
 
 export type ShootingCohortSettings = {
@@ -70,6 +71,16 @@ export type ShootingCohortChatMessage = {
   profilePhotoUrl?: string | null;
 };
 
+export type ShootingCohortVideoSubmission = {
+  id: string;
+  userId: string;
+  title: string;
+  mediaUrl: string;
+  thumbnailUrl?: string | null;
+  description?: string | null;
+  createdAt: string;
+};
+
 async function requestJson<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await apiRequest(method, path, body);
   return response.json() as Promise<T>;
@@ -113,6 +124,19 @@ export function useSubmitShootingCohortApplication() {
   });
 }
 
+export function useUpdateShootingCohortApplication() {
+  return useMutation({
+    mutationFn: (answers: ShootingCohortApplicationAnswers) =>
+      requestJson<{ application: ShootingCohortApplicationRecord }>("PATCH", "/api/shooting-cohort/application", answers),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/shooting-cohort"] }),
+      ]);
+    },
+  });
+}
+
 export function useRespondToShootingCohortInvitation() {
   return useMutation({
     mutationFn: (response: "accept" | "decline") =>
@@ -144,6 +168,32 @@ export function useSubmitShootingCohortAssessment() {
 export function useShootingCohortAssessmentsQuery() {
   return useQuery<ShootingCohortAssessmentRecord[]>({
     queryKey: ["/api/shooting-cohort/assessments"],
+  });
+}
+
+export function useShootingCohortVideoSubmissionsQuery() {
+  return useQuery<ShootingCohortVideoSubmission[]>({
+    queryKey: ["/api/shooting-cohort/videos"],
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useAdminShootingCohortVideoSubmissionsQuery(applicationId: string, enabled: boolean) {
+  return useQuery<ShootingCohortVideoSubmission[]>({
+    queryKey: [`/api/admin/shooting-cohort/applications/${encodeURIComponent(applicationId)}/videos`],
+    enabled,
+    refetchInterval: 30000,
+  });
+}
+
+export function useCreateShootingCohortVideoSubmission() {
+  return useMutation({
+    mutationFn: (submission: ShootingCohortVideoSubmissionInput) =>
+      requestJson<{ id: string }>("POST", "/api/shooting-cohort/videos", submission),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort/videos"] });
+    },
   });
 }
 

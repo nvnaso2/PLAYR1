@@ -701,6 +701,20 @@ export const userVideos = pgTable("user_videos", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// Private film submissions from active shooting-cohort members for founder review.
+export const shootingCohortVideoSubmissions = pgTable("shooting_cohort_video_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  title: varchar("title").notNull(),
+  videoUrl: varchar("video_url").notNull(),
+  thumbnailUrl: varchar("thumbnail_url"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ShootingCohortVideoSubmission = typeof shootingCohortVideoSubmissions.$inferSelect;
+export type InsertShootingCohortVideoSubmission = typeof shootingCohortVideoSubmissions.$inferInsert;
+
 // User drill progress - aggregated stats per drill
 export const drillProgress = pgTable("drill_progress", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
