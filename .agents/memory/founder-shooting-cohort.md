@@ -15,6 +15,8 @@ The Hub tool is named “Shooting Cohort.” The player-facing page keeps “Bui
 
 Active applicants and members may edit their interest-survey answers without changing their application status. Keep cohort video submissions separate from the general Film Room; playback is limited to the active member and authorized admin reviewer through short-lived URLs.
 
-**Why:** The user specified these cohort, access, messaging, privacy, video-review, survey-editing, and visual rules.
+The active player portal uses separate Requests, Film Room, Messaging, Baseline Assessment, Workouts, and Analytics tabs. Remove the active-status “You’re In” card and place “Edit Interest Survey” in the header action row. Keep member tools behind the active-membership check.
 
-**How to apply:** Preserve these choices when designing cohort intake, entitlements, assignments, messaging, video uploads, and admin management. Do not change the general Pro boundary for players outside the cohort.
+**Why:** The user specified these cohort access, navigation, messaging, privacy, video-review, survey-editing, and visual rules.
+
+**How to apply:** Preserve these choices when designing cohort intake, tabs, entitlements, assignments, messaging, video uploads, and admin management. Do not change the general Pro boundary for players outside the cohort.

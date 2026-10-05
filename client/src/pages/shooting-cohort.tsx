@@ -86,7 +86,6 @@ function toApplicationDraft(answers?: ShootingCohortApplicationAnswers): Applica
 }
 
 const statusCopy: Record<string, { label: string; detail: string; tone: string }> = {
-  active: { label: "You’re in", detail: "Your place is active. Start with your baseline and meet the cohort.", tone: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-200" },
   needs_review: { label: "Under review", detail: "A PLAYR1 admin is reviewing your application. Your portal will update when its status changes.", tone: "border-orange-300/25 bg-orange-300/[0.08] text-orange-100" },
   waitlisted: { label: "On the waitlist", detail: "The Founder invites players in application order when a place opens. Your portal will update if you’re invited.", tone: "border-amber-300/20 bg-amber-300/[0.07] text-amber-100" },
   invited: { label: "Your seat is held", detail: "An invitation is waiting for you. Accept to join, or decline to release your place.", tone: "border-orange-300/25 bg-orange-300/[0.08] text-orange-100" },
@@ -421,9 +420,8 @@ type AssignedCohortDrill = {
   drill?: { title: string; description?: string | null };
 };
 
-function CohortTrainingSection() {
-  const [, navigate] = useLocation();
-  const workoutsQuery = useQuery<{
+function useCohortWorkoutRequestsQuery() {
+  return useQuery<{
     eligible: boolean;
     requests: CohortWorkoutRequest[];
     assignments?: CohortDirectWorkoutAssignment[];
@@ -432,20 +430,67 @@ function CohortTrainingSection() {
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
   });
-  const drillsQuery = useQuery<AssignedCohortDrill[]>({
+}
+
+function useAssignedCohortDrillsQuery() {
+  return useQuery<AssignedCohortDrill[]>({
     queryKey: ["/api/assigned-drills"],
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
   });
+}
 
-  const workoutItems = [
-    ...(workoutsQuery.data?.requests ?? []).map((request) => ({
-      id: request.id,
-      name: request.workout?.workout?.name || request.improvementFocus,
-      detail: request.workout?.workout?.description || request.desiredOutcome,
-      status: request.status,
-      createdAt: request.createdAt,
-    })),
+function CohortRequestsSection() {
+  const [, navigate] = useLocation();
+  const workoutsQuery = useCohortWorkoutRequestsQuery();
+  const requests = workoutsQuery.data?.requests ?? [];
+
+  return (
+    <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Cohort workout requests">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><ClipboardList className="h-4 w-4" /></span>
+          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Workout requests</h2></div>
+        </div>
+        <Button onClick={() => navigate("/custom-workouts")} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">Request a workout <ArrowRight className="ml-2 h-4 w-4" /></Button>
+      </div>
+
+      {workoutsQuery.isLoading
+        ? <p className="mt-4 rounded-xl border border-[#3e3329] bg-[#100e0b] p-4 text-xs text-[#887c6e]">Loading your workout requests…</p>
+        : workoutsQuery.isError
+          ? <div className="mt-4 rounded-xl border border-red-300/20 bg-red-300/[0.05] p-4 text-xs text-red-200"><p>Workout requests could not load.</p><Button variant="ghost" onClick={() => workoutsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
+          : requests.length === 0
+            ? <p className="mt-4 rounded-xl border border-dashed border-[#514333] bg-[#100e0b] p-5 text-center text-xs leading-5 text-[#817567]">No requests yet. Tell the founder what you want to work on and get a custom session built for you.</p>
+            : <div className="mt-4 space-y-2">
+              {requests.map((request) => (
+                <article key={request.id} className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <h3 className="font-semibold text-sm text-[#e7dac8]">{request.improvementFocus}</h3>
+                    <span className="rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{request.status.replace(/_/g, " ")}</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#8f8274]">{request.desiredOutcome}</p>
+                  {request.workout?.workout?.name && <p className="mt-2 border-t border-[#342c24] pt-2 text-xs text-[#e8a16a]">Workout assigned: {request.workout.workout.name}</p>}
+                  <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.1em] text-[#756b60]">Requested {new Date(request.createdAt).toLocaleDateString()}</p>
+                </article>
+              ))}
+            </div>}
+    </section>
+  );
+}
+
+function CohortWorkoutsSection() {
+  const workoutsQuery = useCohortWorkoutRequestsQuery();
+  const drillsQuery = useAssignedCohortDrillsQuery();
+  const assignedWorkouts = [
+    ...(workoutsQuery.data?.requests ?? [])
+      .filter((request) => request.workout?.workout)
+      .map((request) => ({
+        id: `request-${request.id}`,
+        name: request.workout?.workout?.name || request.improvementFocus,
+        detail: request.workout?.workout?.description || request.desiredOutcome,
+        status: request.status,
+        createdAt: request.createdAt,
+      })),
     ...(workoutsQuery.data?.assignments ?? []).map((assignment) => ({
       id: `direct-${assignment.id}`,
       name: assignment.workout?.workout?.name || "Assigned workout",
@@ -456,61 +501,57 @@ function CohortTrainingSection() {
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
-    <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Assigned cohort training">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+    <div className="space-y-4">
+      <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Assigned workouts">
+        <div className="mb-4 flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Dumbbell className="h-4 w-4" /></span>
-          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Requests &amp; assignments</h2></div>
+          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Assigned workouts</h2></div>
         </div>
-        <Button onClick={() => navigate("/custom-workouts")} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">Request a workout <ArrowRight className="ml-2 h-4 w-4" /></Button>
-      </div>
-
-      <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        <section className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
-          <div className="mb-3 flex items-center gap-2"><ClipboardList className="h-4 w-4 text-[#df965c]" /><h3 className="font-heading text-lg uppercase text-[#e8dccb]">Custom workouts</h3></div>
-          {workoutsQuery.isLoading
-            ? <p className="text-xs text-[#887c6e]">Loading your workout requests…</p>
-            : workoutsQuery.isError
-              ? <div className="text-xs text-red-200"><p>Workout requests could not load.</p><Button variant="ghost" onClick={() => workoutsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
-              : workoutItems.length === 0
-                ? <p className="text-xs leading-5 text-[#817567]">No requests yet. Send the founder a focus and get a custom session built for you.</p>
-                : <div className="space-y-2">
-                  {workoutItems.slice(0, 4).map((workout) => (
-                    <div key={workout.id} className="rounded-lg border border-[#342c24] bg-[#17130f] p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="min-w-0 font-semibold text-sm text-[#e7dac8]">{workout.name}</p>
-                        <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{workout.status.replace(/_/g, " ")}</span>
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#8f8274]">{workout.detail}</p>
+        {workoutsQuery.isLoading
+          ? <p className="text-xs text-[#887c6e]">Loading your workouts…</p>
+          : workoutsQuery.isError
+            ? <div className="text-xs text-red-200"><p>Assigned workouts could not load.</p><Button variant="ghost" onClick={() => workoutsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
+            : assignedWorkouts.length === 0
+              ? <p className="rounded-xl border border-dashed border-[#514333] bg-[#100e0b] p-4 text-xs leading-5 text-[#817567]">Workouts assigned by the founder will appear here.</p>
+              : <div className="space-y-2">
+                {assignedWorkouts.map((workout) => (
+                  <article key={workout.id} className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="min-w-0 font-semibold text-sm text-[#e7dac8]">{workout.name}</h3>
+                      <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{workout.status.replace(/_/g, " ")}</span>
                     </div>
-                  ))}
-                  {workoutItems.length > 4 && <Button variant="ghost" onClick={() => navigate("/custom-workouts")} className="h-auto px-0 text-xs text-[#e8a16a]">See all {workoutItems.length} workouts <ChevronRight className="ml-1 h-3.5 w-3.5" /></Button>}
-                </div>}
-        </section>
+                    <p className="mt-1 text-xs leading-5 text-[#8f8274]">{workout.detail}</p>
+                  </article>
+                ))}
+              </div>}
+      </section>
 
-        <section className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
-          <div className="mb-3 flex items-center gap-2"><Target className="h-4 w-4 text-[#df965c]" /><h3 className="font-heading text-lg uppercase text-[#e8dccb]">Assigned drills</h3></div>
-          {drillsQuery.isLoading
-            ? <p className="text-xs text-[#887c6e]">Loading assigned drills…</p>
-            : drillsQuery.isError
-              ? <div className="text-xs text-red-200"><p>Assigned drills could not load.</p><Button variant="ghost" onClick={() => drillsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
-              : !drillsQuery.data?.length
-                ? <p className="text-xs leading-5 text-[#817567]">Drills assigned by your coach will show here.</p>
-                : <div className="space-y-2">
-                  {drillsQuery.data.slice(0, 4).map((assignment) => (
-                    <div key={assignment.id} className="rounded-lg border border-[#342c24] bg-[#17130f] p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="min-w-0 font-semibold text-sm text-[#e7dac8]">{assignment.drill?.title || "Assigned drill"}</p>
-                        <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{assignment.status.replace(/_/g, " ")}</span>
-                      </div>
-                      {assignment.dueDate && <p className="mt-1 text-[10px] text-[#817567]">Due {new Date(assignment.dueDate).toLocaleDateString()}</p>}
-                      {assignment.notes && <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#8f8274]">{assignment.notes}</p>}
+      <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Assigned drills">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Target className="h-4 w-4" /></span>
+          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Assigned drills</h2></div>
+        </div>
+        {drillsQuery.isLoading
+          ? <p className="text-xs text-[#887c6e]">Loading assigned drills…</p>
+          : drillsQuery.isError
+            ? <div className="text-xs text-red-200"><p>Assigned drills could not load.</p><Button variant="ghost" onClick={() => drillsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
+            : !drillsQuery.data?.length
+              ? <p className="rounded-xl border border-dashed border-[#514333] bg-[#100e0b] p-4 text-xs leading-5 text-[#817567]">Drills assigned by the founder will appear here.</p>
+              : <div className="space-y-2">
+                {drillsQuery.data.map((assignment) => (
+                  <article key={assignment.id} className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="min-w-0 font-semibold text-sm text-[#e7dac8]">{assignment.drill?.title || "Assigned drill"}</h3>
+                      <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{assignment.status.replace(/_/g, " ")}</span>
                     </div>
-                  ))}
-                </div>}
-        </section>
-      </div>
-    </section>
+                    {assignment.dueDate && <p className="mt-1 text-[10px] text-[#817567]">Due {new Date(assignment.dueDate).toLocaleDateString()}</p>}
+                    {assignment.notes && <p className="mt-1 text-xs leading-5 text-[#8f8274]">{assignment.notes}</p>}
+                    {assignment.drill?.description && <p className="mt-1 text-xs leading-5 text-[#8f8274]">{assignment.drill.description}</p>}
+                  </article>
+                ))}
+              </div>}
+      </section>
+    </div>
   );
 }
 
@@ -533,6 +574,7 @@ export default function ShootingCohortPage() {
   const orderedAssessments = useMemo(() => [...ownAssessments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [ownAssessments]);
   const latestAssessment = orderedAssessments[0];
   const isMember = application?.status === "active";
+  const isEditingSurvey = Boolean(application && !closedApplicationStatus);
   const nextRetest = latestAssessment ? new Date(new Date(latestAssessment.createdAt).getTime() + 28 * 24 * 60 * 60 * 1000) : null;
   const retestDue = nextRetest ? nextRetest <= new Date() : false;
   const invitationBusy = respondInvitation.isPending;
@@ -591,7 +633,7 @@ export default function ShootingCohortPage() {
               <h1 className="font-heading text-3xl uppercase leading-tight tracking-wide text-[#fff3e2] sm:text-4xl">Build an <span className="text-[#ee9652]">Effortless Shot</span></h1>
             </div>
             <div className="flex flex-wrap gap-2">
-              {canStartApplication && <Button onClick={toggleInterestSurvey} disabled={!settings?.applicationsOpen} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b] disabled:opacity-50">{showInterestSurvey ? "Close survey" : "Interest Survey"}</Button>}
+              {(canStartApplication || isEditingSurvey) && <Button onClick={toggleInterestSurvey} disabled={canStartApplication && !settings?.applicationsOpen && !showInterestSurvey} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b] disabled:opacity-50">{showInterestSurvey ? "Close survey" : isEditingSurvey ? "Edit Interest Survey" : "Interest Survey"}</Button>}
               <Button variant="outline" onClick={() => navigate("/contact?from=shooting-cohort")} className="border-[#68482e] bg-[#17130f] text-[#f0b17d] hover:bg-[#352416]"><MessageCircle className="mr-2 h-4 w-4" />Message Founder</Button>
               <Button variant="ghost" onClick={() => navigate("/hub")} className="text-[#918577] hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
             </div>
@@ -613,51 +655,69 @@ export default function ShootingCohortPage() {
           </div>
         </section>
 
-        {!application || (closedApplicationStatus && reapply) ? (
-          showInterestSurvey ? <div id="shooting-cohort-interest-survey" className="mt-5 space-y-4">
-            {!playerQuery.data.settings.applicationsOpen && <div className="flex items-start gap-3 rounded-2xl border border-[#5b4934] bg-[#211a13] p-4"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#e9a05e]" /><div><p className="text-sm font-semibold text-[#f0e1ce]">Applications are paused</p><p className="mt-1 text-xs leading-5 text-[#9d8f7e]">The survey stays here; you can submit when applications reopen.</p></div></div>}
-            <div className="flex justify-end"><Button variant="ghost" onClick={closeInterestSurvey} className="text-[#9d8f7e] hover:text-white"><X className="mr-1.5 h-4 w-4" />Close survey</Button></div>
-            <ApplicationForm onSubmit={(answers) => void apply(answers)} pending={submitApplication.isPending} isOpen={playerQuery.data.settings.applicationsOpen} />
-          </div> : null
-        ) : (
-          <div className="mt-5">
-            <section className={`flex flex-col gap-4 rounded-[22px] border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${status?.tone ?? "border-zinc-700 bg-zinc-900"}`}>
-              <div className="flex items-start gap-3"><span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20"><ShieldCheck className="h-4 w-4" /></span><div><p className="font-heading text-2xl uppercase leading-none">{status?.label}</p><p className="mt-1.5 max-w-xl text-sm leading-5 opacity-80">{status?.detail}</p>{application.appliedAt && <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.14em] opacity-60">Applied {formatDate(application.appliedAt)} · status updates in your portal</p>}</div></div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={toggleInterestSurvey} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="border-current/30 bg-black/10 text-current hover:bg-black/20">{showInterestSurvey ? "Close survey" : "Edit interest survey"}</Button>
-                {application.status === "invited" && <><Button variant="outline" onClick={() => void respond("decline")} disabled={invitationBusy} className="border-current/30 bg-black/10 text-current hover:bg-black/20">Decline</Button><Button onClick={() => void respond("accept")} disabled={invitationBusy} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">{invitationBusy ? "Updating…" : "Accept invitation"} <Check className="ml-2 h-4 w-4" /></Button></>}
-              </div>
-            </section>
-            {showInterestSurvey && <div id="shooting-cohort-interest-survey" className="mt-4"><ApplicationForm initialAnswers={application.answers} editing onCancel={closeInterestSurvey} onSubmit={(answers) => void apply(answers)} pending={updateApplication.isPending} isOpen /></div>}
+        {application && !closedApplicationStatus && !isMember && (
+          <section className={`mt-5 flex flex-col gap-4 rounded-[22px] border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${status?.tone ?? "border-zinc-700 bg-zinc-900"}`}>
+            <div className="flex items-start gap-3"><span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20"><ShieldCheck className="h-4 w-4" /></span><div><p className="font-heading text-2xl uppercase leading-none">{status?.label}</p><p className="mt-1.5 max-w-xl text-sm leading-5 opacity-80">{status?.detail}</p>{application.appliedAt && <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.14em] opacity-60">Applied {formatDate(application.appliedAt)} · status updates in your portal</p>}</div></div>
+            {application.status === "invited" && <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void respond("decline")} disabled={invitationBusy} className="border-current/30 bg-black/10 text-current hover:bg-black/20">Decline</Button><Button onClick={() => void respond("accept")} disabled={invitationBusy} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">{invitationBusy ? "Updating…" : "Accept invitation"} <Check className="ml-2 h-4 w-4" /></Button></div>}
+          </section>
+        )}
+
+        {showInterestSurvey && (!closedApplicationStatus || reapply) && (
+          <div id="shooting-cohort-interest-survey" className="mt-5">
+            {canStartApplication && !settings?.applicationsOpen && <div className="mb-4 flex items-start gap-3 rounded-2xl border border-[#5b4934] bg-[#211a13] p-4"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#e9a05e]" /><div><p className="text-sm font-semibold text-[#f0e1ce]">Applications are paused</p><p className="mt-1 text-xs leading-5 text-[#9d8f7e]">The survey stays here; you can submit when applications reopen.</p></div></div>}
+            <ApplicationForm
+              initialAnswers={isEditingSurvey ? application?.answers : undefined}
+              editing={isEditingSurvey}
+              onCancel={closeInterestSurvey}
+              onSubmit={(answers) => void apply(answers)}
+              pending={isEditingSurvey ? updateApplication.isPending : submitApplication.isPending}
+              isOpen={isEditingSurvey || Boolean(settings?.applicationsOpen)}
+            />
           </div>
         )}
 
         {isMember && (
-          <div className="mt-6 space-y-5">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.12fr)_minmax(330px,0.88fr)]">
-            <div className="space-y-5">
-              <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#df965c]">Your shooting log</p><h2 className="mt-1 font-heading text-3xl uppercase leading-none text-[#fff1de]">Progress, kept personal.</h2><p className="mt-2 max-w-xl text-xs leading-5 text-[#8f8274]">Your results are visible only to you and PLAYR1 admins. No leaderboard, no public scores.</p></div>
-                  <div className="flex flex-wrap gap-2">{!orderedAssessments.length ? <Button onClick={() => setShowAssessmentForm(true)} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]"><Target className="mr-2 h-4 w-4" />Set baseline</Button> : <Button variant="outline" onClick={() => setShowAssessmentForm(true)} className="border-[#68482e] bg-[#21180f] text-[#f0b17d] hover:bg-[#352416]"><Target className="mr-2 h-4 w-4" />{retestLabel}</Button>}</div>
+          <Tabs defaultValue="requests" className="mt-6">
+            <TabsList aria-label="Shooting Cohort player sections" className="grid h-auto w-full grid-cols-3 gap-1 rounded-xl border border-[#46382b] bg-[#17130f] p-1 md:grid-cols-6">
+              <TabsTrigger value="requests" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><ClipboardList className="h-4 w-4" /><span>Requests</span></TabsTrigger>
+              <TabsTrigger value="film-room" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Film className="h-4 w-4" /><span>Film Room</span></TabsTrigger>
+              <TabsTrigger value="messaging" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><MessageCircle className="h-4 w-4" /><span>Messaging</span></TabsTrigger>
+              <TabsTrigger value="baseline" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Target className="h-4 w-4" /><span>Baseline Assessment</span></TabsTrigger>
+              <TabsTrigger value="workouts" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Dumbbell className="h-4 w-4" /><span>Workouts</span></TabsTrigger>
+              <TabsTrigger value="analytics" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Activity className="h-4 w-4" /><span>Analytics</span></TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="requests" className="mt-4 focus-visible:outline-none"><CohortRequestsSection /></TabsContent>
+            <TabsContent value="film-room" className="mt-4 focus-visible:outline-none"><ShootingCohortVideos /></TabsContent>
+            <TabsContent value="messaging" className="mt-4 focus-visible:outline-none"><MemberChat /></TabsContent>
+            <TabsContent value="baseline" forceMount className="mt-4 focus-visible:outline-none">
+              <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Baseline shooting assessment">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#df965c]">Shooting check-in</p><h2 className="mt-1 font-heading text-3xl uppercase leading-none text-[#fff1de]">Baseline assessment</h2><p className="mt-2 max-w-xl text-xs leading-5 text-[#8f8274]">Record a consistent 60-shot snapshot. Your results remain private to you and PLAYR1 admins.</p></div>
+                  <Button onClick={() => setShowAssessmentForm(true)} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]"><Target className="mr-2 h-4 w-4" />{orderedAssessments.length ? retestLabel : "Set baseline"}</Button>
                 </div>
+                <div className="mt-5 grid grid-cols-3 divide-x divide-[#4b3928] rounded-xl border border-[#503b28] bg-[#100e0b] py-3 text-center">
+                  <div><p className="font-heading text-2xl text-[#f4b27c]">20</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">free throws</p></div>
+                  <div><p className="font-heading text-2xl text-[#f4b27c]">25</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">spot-up</p></div>
+                  <div><p className="font-heading text-2xl text-[#f4b27c]">15</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">off-dribble</p></div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-[#9d8f7e]">Record your makes at five spots and three dribble locations. Revisit the same test every four weeks.</p>
                 {latestAssessment && <div className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${retestDue ? "border-[#df965c]/30 bg-[#df965c]/[0.08] text-[#f1bd8c]" : "border-[#3a3329] bg-[#100e0b] text-[#958878]"}`}><CalendarDays className="h-3.5 w-3.5 shrink-0" />{retestDue ? "A four-week retest is due. Put your progress on paper." : `Next suggested retest ${nextRetest?.toLocaleDateString(undefined, { month: "short", day: "numeric" })}. Retest every four weeks.`}</div>}
-                <AssessmentTrend assessments={orderedAssessments} />
                 {showAssessmentForm && <div className="mt-4"><AssessmentForm type={orderedAssessments.length ? "retest" : "baseline"} pending={submitAssessment.isPending} onCancel={() => setShowAssessmentForm(false)} onSubmit={(assessment) => void saveAssessment(assessment)} /></div>}
+              </section>
+            </TabsContent>
+            <TabsContent value="workouts" className="mt-4 focus-visible:outline-none"><CohortWorkoutsSection /></TabsContent>
+            <TabsContent value="analytics" className="mt-4 focus-visible:outline-none">
+              <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Private shooting analytics">
+                <div className="mb-4"><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#df965c]">Your shooting log</p><h2 className="mt-1 font-heading text-3xl uppercase leading-none text-[#fff1de]">Progress, kept personal.</h2><p className="mt-2 max-w-xl text-xs leading-5 text-[#8f8274]">Your scores are visible only to you and PLAYR1 admins. No leaderboard, no public scores.</p></div>
+                <AssessmentTrend assessments={orderedAssessments} />
                 {assessmentQuery.isLoading && <div className="mt-4 space-y-3"><Skeleton className="h-36 rounded-2xl bg-[#29231c]" /><Skeleton className="h-36 rounded-2xl bg-[#29231c]" /></div>}
                 {assessmentQuery.isError && <div className="mt-4 rounded-xl border border-red-300/20 bg-red-300/[0.05] p-4 text-sm text-red-200"><p>Private test history could not load.</p><Button variant="ghost" onClick={() => assessmentQuery.refetch()} className="mt-1 px-0 text-red-200 hover:text-white">Retry</Button></div>}
-                {!assessmentQuery.isLoading && !assessmentQuery.isError && orderedAssessments.length === 0 && !showAssessmentForm && <div className="mt-4 flex flex-col items-center rounded-2xl border border-dashed border-[#514333] bg-[#100e0b] px-5 py-8 text-center"><Trophy className="h-6 w-6 text-[#8e6847]" /><p className="mt-3 text-sm font-semibold text-[#dfd0bd]">Your first mark is still ahead.</p><p className="mt-1 max-w-sm text-xs leading-5 text-[#817567]">Save a baseline to make your progress visible to you, not the room.</p></div>}
+                {!assessmentQuery.isLoading && !assessmentQuery.isError && orderedAssessments.length === 0 && <div className="mt-4 flex flex-col items-center rounded-2xl border border-dashed border-[#514333] bg-[#100e0b] px-5 py-8 text-center"><Trophy className="h-6 w-6 text-[#8e6847]" /><p className="mt-3 text-sm font-semibold text-[#dfd0bd]">Your first mark is still ahead.</p><p className="mt-1 max-w-sm text-xs leading-5 text-[#817567]">Open Baseline Assessment to record your first result.</p></div>}
                 <div className="mt-4 space-y-3">{orderedAssessments.map((assessment, index) => <AssessmentCard key={assessment.id} assessment={assessment} index={orderedAssessments.length - index - 1} />)}</div>
               </section>
-              <CohortTrainingSection />
-            </div>
-            <div className="space-y-4">
-              <div className="rounded-[22px] border border-[#46382b] bg-[#21180f] p-4 sm:p-5"><p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#d89156]">The assessment</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">60 shots. One honest snapshot.</h2><div className="mt-4 grid grid-cols-3 divide-x divide-[#4b3928] rounded-xl border border-[#503b28] bg-[#17120e] py-3 text-center"><div><p className="font-heading text-2xl text-[#f4b27c]">20</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">free throws</p></div><div><p className="font-heading text-2xl text-[#f4b27c]">25</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">spot-up</p></div><div><p className="font-heading text-2xl text-[#f4b27c]">15</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">off-dribble</p></div></div><p className="mt-3 text-xs leading-5 text-[#9d8f7e]">Record your makes at five spots and three dribble locations. Revisit the same test every four weeks.</p></div>
-              <MemberChat />
-            </div>
-          </div>
-          <ShootingCohortVideos />
-          </div>
+            </TabsContent>
+          </Tabs>
         )}
         {application?.status === "waitlisted" && <section className="mt-5 rounded-2xl border border-[#4a3d2e] bg-[#17130f] p-5"><p className="font-heading text-2xl uppercase text-[#f1e3d2]">Your application is in order.</p><p className="mt-1 max-w-2xl text-sm leading-6 text-[#9d8f7e]">There are {playerQuery.data.waitlistCount} {playerQuery.data.waitlistCount === 1 ? "player" : "players"} on the waitlist. Invitations are sent as seats open; accept or decline here when yours arrives.</p></section>}
       </div>
