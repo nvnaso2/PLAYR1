@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   getAssessmentTotals,
   getShootingCohortAdmissionStatus,
+  getShootingCohortSenderDisplayName,
   shootingCohortApplicationSchema,
   shootingCohortAssessmentSchema,
 } from "../shared/shooting-cohort";
@@ -52,6 +53,12 @@ test("shooting cohort applications fill open seats before using the waitlist", (
   assert.equal(getShootingCohortAdmissionStatus(0, 10), "active");
   assert.equal(getShootingCohortAdmissionStatus(9, 10), "active");
   assert.equal(getShootingCohortAdmissionStatus(10, 10), "waitlisted");
+});
+
+test("cohort chat sender names fall back safely when profile names are missing", () => {
+  assert.equal(getShootingCohortSenderDisplayName(null, true), "PLAYR1 Founder");
+  assert.equal(getShootingCohortSenderDisplayName(undefined, false), "PLAYR1 player");
+  assert.equal(getShootingCohortSenderDisplayName("  Maya Torres  ", false), "Maya Torres");
 });
 
 test("shooting cohort assessment enforces fixed-attempt makes and totals sixty shots", () => {

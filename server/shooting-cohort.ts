@@ -12,7 +12,7 @@ import type {
   ShootingCohortAssessmentInput,
   ShootingCohortStatus,
 } from "@shared/shooting-cohort";
-import { getShootingCohortAdmissionStatus } from "@shared/shooting-cohort";
+import { getShootingCohortAdmissionStatus, getShootingCohortSenderDisplayName } from "@shared/shooting-cohort";
 
 const ACTIVE_SEAT_STATUSES: readonly ShootingCohortStatus[] = ["active", "invited"];
 const VISIBLE_APPLICATION_STATUSES: readonly ShootingCohortStatus[] = ["active", "invited", "waitlisted"];
@@ -294,15 +294,9 @@ export async function getShootingCohortMessages(limit = 100) {
     .limit(limit);
   return rows.reverse().map(({ isAdmin, ...message }) => ({
     ...message,
-    displayName: getCohortMessageDisplayName(message.displayName, isAdmin),
+    displayName: getShootingCohortSenderDisplayName(message.displayName, isAdmin),
     profilePhotoUrl: message.profilePhotoUrl ?? null,
   }));
-}
-
-function getCohortMessageDisplayName(displayName: string | null, isAdmin: boolean | null) {
-  const trimmedName = displayName?.trim();
-  if (trimmedName) return trimmedName;
-  return isAdmin ? "PLAYR1 Founder" : "PLAYR1 player";
 }
 
 export async function createShootingCohortMessage(senderId: string, content: string) {
@@ -316,7 +310,7 @@ export async function createShootingCohortMessage(senderId: string, content: str
   }).from(userProfiles).where(eq(userProfiles.userId, senderId));
   return {
     ...created,
-    displayName: getCohortMessageDisplayName(profile?.displayName ?? null, profile?.isAdmin ?? null),
+    displayName: getShootingCohortSenderDisplayName(profile?.displayName, profile?.isAdmin),
     profilePhotoUrl: profile?.profilePhotoUrl || null,
   };
 }

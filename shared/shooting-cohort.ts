@@ -11,6 +11,15 @@ export const SHOOTING_COHORT_STATUSES = [
 
 export type ShootingCohortStatus = typeof SHOOTING_COHORT_STATUSES[number];
 
+export function getShootingCohortSenderDisplayName(
+  displayName: string | null | undefined,
+  isAdmin: boolean | null | undefined,
+): string {
+  const trimmedName = displayName?.trim();
+  if (trimmedName) return trimmedName;
+  return isAdmin ? "PLAYR1 Founder" : "PLAYR1 player";
+}
+
 export const SHOOTING_COHORT_FOCUS_AREAS = [
   "catch-and-shoot",
   "off-the-dribble",
