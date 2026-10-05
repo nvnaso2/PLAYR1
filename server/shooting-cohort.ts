@@ -285,13 +285,24 @@ export async function getShootingCohortMessages(limit = 100) {
     createdAt: shootingCohortMessages.createdAt,
     displayName: userProfiles.displayName,
     profilePhotoUrl: userProfiles.profilePhotoUrl,
+    isAdmin: userProfiles.isAdmin,
   })
     .from(shootingCohortMessages)
     .leftJoin(userProfiles, eq(userProfiles.userId, shootingCohortMessages.senderId))
     .where(isNull(shootingCohortMessages.deletedAt))
     .orderBy(desc(shootingCohortMessages.createdAt))
     .limit(limit);
-  return rows.reverse();
+  return rows.reverse().map(({ isAdmin, ...message }) => ({
+    ...message,
+    displayName: getCohortMessageDisplayName(message.displayName, isAdmin),
+    profilePhotoUrl: message.profilePhotoUrl ?? null,
+  }));
+}
+
+function getCohortMessageDisplayName(displayName: string | null, isAdmin: boolean | null) {
+  const trimmedName = displayName?.trim();
+  if (trimmedName) return trimmedName;
+  return isAdmin ? "PLAYR1 Founder" : "PLAYR1 player";
 }
 
 export async function createShootingCohortMessage(senderId: string, content: string) {
@@ -301,10 +312,11 @@ export async function createShootingCohortMessage(senderId: string, content: str
   const [profile] = await db.select({
     displayName: userProfiles.displayName,
     profilePhotoUrl: userProfiles.profilePhotoUrl,
+    isAdmin: userProfiles.isAdmin,
   }).from(userProfiles).where(eq(userProfiles.userId, senderId));
   return {
     ...created,
-    displayName: profile?.displayName || "PLAYR1 player",
+    displayName: getCohortMessageDisplayName(profile?.displayName ?? null, profile?.isAdmin ?? null),
     profilePhotoUrl: profile?.profilePhotoUrl || null,
   };
 }

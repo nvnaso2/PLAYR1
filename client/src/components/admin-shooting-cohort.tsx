@@ -97,10 +97,13 @@ function ReviewField({ label, value }: { label: string; value: string }) {
 }
 
 function ModerationRow({ message, onRemove, pending }: { message: ShootingCohortChatMessage; onRemove: () => void; pending: boolean }) {
+  const displayName = typeof message.displayName === "string" && message.displayName.trim()
+    ? message.displayName.trim()
+    : "PLAYR1 team";
   return <article className="flex items-start gap-3 border-b border-[#332c24] py-3 last:border-0">
-    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#5d422d] bg-[#261a11] text-xs font-bold text-[#e9a16a]">{message.displayName.slice(0, 1).toUpperCase()}</span>
-    <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><p className="text-xs font-semibold text-[#e4d7c7]">{message.displayName}</p><time className="font-mono text-[9px] text-[#74695d]">{new Date(message.createdAt).toLocaleString()}</time></div><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 text-[#bbae9d]">{message.content}</p></div>
-    <Button size="icon" variant="ghost" aria-label={`Delete message from ${message.displayName}`} onClick={onRemove} disabled={pending} className="h-8 w-8 shrink-0 text-[#8e7c68] hover:bg-red-300/10 hover:text-red-200"><Trash2 className="h-4 w-4" /></Button>
+    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#5d422d] bg-[#261a11] text-xs font-bold text-[#e9a16a]">{displayName.slice(0, 1).toUpperCase()}</span>
+    <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><p className="text-xs font-semibold text-[#e4d7c7]">{displayName}</p><time className="font-mono text-[9px] text-[#74695d]">{new Date(message.createdAt).toLocaleString()}</time></div><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 text-[#bbae9d]">{message.content}</p></div>
+    <Button size="icon" variant="ghost" aria-label={`Delete message from ${displayName}`} onClick={onRemove} disabled={pending} className="h-8 w-8 shrink-0 text-[#8e7c68] hover:bg-red-300/10 hover:text-red-200"><Trash2 className="h-4 w-4" /></Button>
   </article>;
 }
 
