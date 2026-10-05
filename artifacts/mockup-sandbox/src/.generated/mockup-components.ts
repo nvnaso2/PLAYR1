@@ -14,10 +14,10 @@ export const modules: ModuleMap = {
   "./components/mockups/player-setup/Current.tsx": () => import("../components/mockups/player-setup/Current.tsx"),
   "./components/mockups/profile-complete-flow/CompleteProfileAction.tsx": () => import("../components/mockups/profile-complete-flow/CompleteProfileAction.tsx"),
   "./components/mockups/profile-complete-flow/CompleteSetupEditor.tsx": () => import("../components/mockups/profile-complete-flow/CompleteSetupEditor.tsx"),
+  "./components/mockups/profile-editor-redesign/Current.tsx": () => import("../components/mockups/profile-editor-redesign/Current.tsx"),
+  "./components/mockups/profile-editor-redesign/Updated.tsx": () => import("../components/mockups/profile-editor-redesign/Updated.tsx"),
   "./components/mockups/profile-hub-redesign/Current.tsx": () => import("../components/mockups/profile-hub-redesign/Current.tsx"),
   "./components/mockups/profile-hub-redesign/Updated.tsx": () => import("../components/mockups/profile-hub-redesign/Updated.tsx"),
   "./components/mockups/settings-redesign/Current.tsx": () => import("../components/mockups/settings-redesign/Current.tsx"),
-  "./components/mockups/settings-redesign/Updated.tsx": () => import("../components/mockups/settings-redesign/Updated.tsx"),
-  "./components/mockups/profile-editor-redesign/Current.tsx": () => import("../components/mockups/profile-editor-redesign/Current.tsx"),
-  "./components/mockups/profile-editor-redesign/Updated.tsx": () => import("../components/mockups/profile-editor-redesign/Updated.tsx")
+  "./components/mockups/settings-redesign/Updated.tsx": () => import("../components/mockups/settings-redesign/Updated.tsx")
 };

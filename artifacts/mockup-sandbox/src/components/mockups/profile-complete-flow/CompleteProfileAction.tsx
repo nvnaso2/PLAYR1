@@ -7,10 +7,10 @@ export function CompleteProfileAction() {
       <div className="mx-auto max-w-[430px]">
         <button
           type="button"
-          className="group flex min-h-[88px] w-full items-center gap-3 rounded-xl border border-zinc-800 bg-black p-3.5 text-left text-zinc-100 transition hover:border-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+          className="group flex min-h-[88px] w-full items-center gap-3 rounded-xl border border-white/50 bg-black p-3.5 text-left text-zinc-100 transition hover:border-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           data-testid="button-complete-profile"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/10 text-orange-400">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
             <UserRound className="h-4 w-4" />
           </span>
           <span className="min-w-0 flex-1">

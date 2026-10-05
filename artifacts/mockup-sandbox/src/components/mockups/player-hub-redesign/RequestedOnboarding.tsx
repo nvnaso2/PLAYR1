@@ -41,10 +41,10 @@ export function RequestedOnboarding() {
         <button
           type="button"
           onClick={() => navigate("/profile/edit")}
-          className="group mt-3 flex min-h-[88px] w-full items-center gap-3 rounded-xl border border-zinc-800 bg-black p-3.5 text-left text-zinc-100 transition hover:border-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+          className="group mt-3 flex min-h-[88px] w-full items-center gap-3 rounded-xl border border-white/50 bg-black p-3.5 text-left text-zinc-100 transition hover:border-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           data-testid="button-complete-profile"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/10 text-orange-400"><UserRound className="h-4 w-4" /></span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400"><UserRound className="h-4 w-4" /></span>
           <span className="min-w-0 flex-1">
             <span className="block font-heading text-sm uppercase leading-tight tracking-wide">Complete Your Profile</span>
           </span>
@@ -66,11 +66,13 @@ export function RequestedOnboarding() {
                 <span><span className="block font-heading text-sm uppercase leading-tight tracking-wide">{label}</span><span className="mt-0.5 block text-[11px] text-zinc-500">{detail}</span></span>
               </button>
             ))}
-            <button type="button" onClick={() => navigate(`/coach-p?prompt=${encodeURIComponent(coachPrompt)}`)} aria-label={`Open Coach P with prompt: ${coachPrompt}`} className="group flex min-h-[104px] w-full flex-row items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800" data-testid="button-start-coach-p-prompt">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400"><MessageCircle className="h-4 w-4" /></span>
-              <span className="shrink-0 font-heading text-sm uppercase leading-tight tracking-wide text-white">Coach P</span>
+            <button type="button" onClick={() => navigate(`/coach-p?prompt=${encodeURIComponent(coachPrompt)}`)} aria-label={`Open Coach P with prompt: ${coachPrompt}`} className="group flex min-h-[104px] w-full flex-row items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800" data-testid="button-start-coach-p-prompt">
+              <span className="flex w-[58px] shrink-0 flex-col items-start gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400"><MessageCircle className="h-4 w-4" /></span>
+                <span className="whitespace-nowrap font-heading text-sm uppercase leading-tight tracking-wide text-white">Coach P</span>
+              </span>
               <span className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 py-1.5 pl-3 pr-1.5 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)]" aria-hidden="true">
-                <span className="line-clamp-2 min-w-0 flex-1 text-[10px] leading-snug text-zinc-400">{coachPrompt}</span>
+                <span className="block min-w-0 flex-1 whitespace-normal break-words text-[10px] leading-tight text-zinc-400">{coachPrompt}</span>
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.22)]"><ArrowUp className="h-4 w-4" /></span>
               </span>
             </button>

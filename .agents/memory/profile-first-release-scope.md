@@ -19,11 +19,11 @@ On the Profile tab, keep Share and the compact gold-glow Trophy Room button toge
 
 **How to apply:** render the Share/Trophy Room pair independently of card loading or profile setup, place it above Career Stats, and remove duplicate Trophy Room blocks below Stats and the Challenges in Progress block. Persist the Season Log's expanded/collapsed preference so it is restored after navigation. Preserve the existing record queries, forms, and CRUD behavior. Use orange for calculated game/season highs and gold for personal records. Keep Averages/Totals with the top Stats controls on one row, size and constrain the selected-season label/selector to prevent movement, and preserve the Season Log's management actions while adding its show/hide control.
 
-Keep the player's trading card on the page background without a separate frame or instruction line. Keep the Hub's Complete Your Profile action in its black area, with a concise orange Complete Profile CTA matching the glowing PLAYR1 Pro button; omit supporting copy.
+Keep the player's trading card on the page background without a separate frame or instruction line. Keep the Hub's Complete Your Profile action in its black area, with a white border, a Start Training-style icon, and a concise orange Complete Profile CTA matching the glowing PLAYR1 Pro button; omit supporting copy.
 
-**Why:** the user wants the Hub profile action to use the bright, glowing orange PLAYR1 Pro button treatment.
+**Why:** the user wants the Hub profile action to use the bright, glowing orange PLAYR1 Pro button treatment and match the Start Training icon styling, with a white outline around the black action area.
 
-**How to apply:** preserve the profile-edit destination and black action area, and use the established orange gradient pill treatment for the Complete Profile CTA.
+**How to apply:** preserve the profile-edit destination and black action area, use the same compact black/orange icon treatment as Start Training, and use the established orange gradient pill treatment for the Complete Profile CTA.
 
 Use the compact six-step editor for Profile edits: Player; Development; Team & Location; Physical & Academics; About; Card Stats. Fold editable onboarding answers into those steps instead of adding a separate stacked form. Omit Basketball Pathway from the editor without clearing stored values or requiring it to complete the profile. Keep account credentials separate from profile answers, and omit profile URL, social links, highlight video, season visibility, and ZIP/postal input from this flow while preserving existing stored ZIP values. Keep school under Academics and synchronize it to both career and player-profile records.
 
