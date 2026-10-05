@@ -123,6 +123,7 @@ export default function AdminShootingCohort() {
     }
   }, [adminQuery.data?.settings.capacity, adminQuery.data?.settings.applicationsOpen]);
   const applications = useMemo(() => [...(adminQuery.data?.applications ?? [])].sort((a, b) => new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime()), [adminQuery.data?.applications]);
+  const hasDevelopmentSampleData = applications.some((application) => application.userId.startsWith("playr1-demo-"));
   const seatCount = adminQuery.data?.counts.active ?? adminQuery.data?.settings.activeCount ?? 0;
   const reserved = adminQuery.data?.counts.invited ?? adminQuery.data?.settings.invitedCount ?? 0;
   const availableSeats = Math.max(0, Number(capacity || 0) - seatCount - reserved);
@@ -180,6 +181,7 @@ export default function AdminShootingCohort() {
   if (adminQuery.isLoading) return <div className="shooting-cohort-admin space-y-3"><Skeleton className="h-28 rounded-2xl bg-[#29231c]" /><Skeleton className="h-20 rounded-2xl bg-[#29231c]" /><Skeleton className="h-52 rounded-2xl bg-[#29231c]" /></div>;
   if (adminQuery.isError || !adminQuery.data) return <section className="shooting-cohort-admin rounded-2xl border border-red-300/20 bg-red-300/[0.04] p-6 text-center"><p className="text-sm text-red-200">Shooting cohort management could not load.</p><Button variant="ghost" onClick={() => adminQuery.refetch()} className="mt-2 text-red-200 hover:text-white">Retry</Button></section>;
   return <div className="shooting-cohort-admin space-y-5">
+    {hasDevelopmentSampleData && <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.05] px-4 py-3 text-xs leading-5 text-amber-100/80"><span className="mr-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-amber-200">Development preview</span>Sample applicants, scores, and chat activity are synthetic and only appear in development.</div>}
     <section className="rounded-[24px] border border-[#493a2c] bg-[#21180f] p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#df965c]">Program controls</p><h2 className="mt-1 font-heading text-3xl uppercase text-[#fff1de]">Shooting cohort</h2><p className="mt-1 max-w-xl text-sm leading-5 text-[#9d8f7e]">Manage capacity, invitations, private tests, and the shared member room.</p></div><span className="inline-flex items-center gap-1.5 rounded-full border border-[#5b4934] bg-black/20 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[#d5b08d]"><LockKeyhole className="h-3 w-3" />Admin controls</span></div>
       <div className="mt-5 grid gap-3 sm:grid-cols-3"><CountTile icon={<Users className="h-4 w-4" />} label="Active" value={adminQuery.data.counts.active} /><CountTile icon={<CalendarDays className="h-4 w-4" />} label="Invited · seat held" value={adminQuery.data.counts.invited} /><CountTile icon={<ClockShield />} label="Waitlist" value={adminQuery.data.counts.waitlisted} /></div>

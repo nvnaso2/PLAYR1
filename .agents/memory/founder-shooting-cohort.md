@@ -11,6 +11,8 @@ Manage roster, capacity, waitlist, and results in a Shooting Cohort tab within P
 
 No guardian consent rule is required for under-18 membership or messaging.
 
+The player-facing page should use a compact “Build an Effortless Shot” tagline, a Remaining Spots count, Interest Survey and Founder-message buttons, and Founder-led / Measurable Results highlights instead of a large hero banner. The Founder DM should show the Founder’s name with a small message icon, retain “Direct Message to the Founder” and “Talk Through Your Game,” omit the long intro, and provide a back link to the cohort.
+
 **Why:** The user specified these cohort, access, messaging, and privacy rules.
 
 **How to apply:** Preserve these choices when designing cohort intake, entitlements, assignments, messaging, and admin management. Do not change the general Pro boundary for players outside the cohort.

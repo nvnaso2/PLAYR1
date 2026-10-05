@@ -302,9 +302,11 @@ export default function ShootingCohortPage() {
   const respondInvitation = useRespondToShootingCohortInvitation();
   const submitAssessment = useSubmitShootingCohortAssessment();
   const [showAssessmentForm, setShowAssessmentForm] = useState(false);
+  const [showInterestSurvey, setShowInterestSurvey] = useState(false);
   const [reapply, setReapply] = useState(false);
   const application = playerQuery.data?.application;
   const closedApplicationStatus = ["withdrawn", "declined", "removed"].includes(application?.status ?? "");
+  const canStartApplication = !application || closedApplicationStatus;
   const ownAssessments = assessmentQuery.data ?? playerQuery.data?.assessments ?? [];
   const orderedAssessments = useMemo(() => [...ownAssessments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [ownAssessments]);
   const latestAssessment = orderedAssessments[0];
@@ -312,9 +314,22 @@ export default function ShootingCohortPage() {
   const nextRetest = latestAssessment ? new Date(new Date(latestAssessment.createdAt).getTime() + 28 * 24 * 60 * 60 * 1000) : null;
   const retestDue = nextRetest ? nextRetest <= new Date() : false;
   const invitationBusy = respondInvitation.isPending;
+  const settings = playerQuery.data?.settings;
+  const remainingSpots = Math.max(0, (settings?.capacity ?? 0) - (settings?.activeCount ?? 0) - (settings?.invitedCount ?? 0));
+  const toggleInterestSurvey = () => {
+    const nextOpen = !showInterestSurvey;
+    setShowInterestSurvey(nextOpen);
+    if (closedApplicationStatus) setReapply(nextOpen);
+  };
+  const closeInterestSurvey = () => {
+    setShowInterestSurvey(false);
+    if (closedApplicationStatus) setReapply(false);
+  };
   const apply = async (answers: ShootingCohortApplicationAnswers) => {
     try {
       await submitApplication.mutateAsync(answers);
+      setShowInterestSurvey(false);
+      setReapply(false);
       toast({ title: "Application received", description: "Your place is now reflected in your cohort status." });
     } catch (error) {
       toast({ title: "Application not sent", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
@@ -349,42 +364,48 @@ export default function ShootingCohortPage() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#cb7840]/40 bg-[#cb7840]/10 font-heading text-sm text-[#f3a56b]">P1</span>
             <span><span className="block font-mono text-[9px] uppercase tracking-[0.2em] text-[#c58a5e]">PLAYR1 / Founder-led</span><span className="block text-xs font-semibold text-[#e4d8c8]">Shooting cohort</span></span>
           </button>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" onClick={() => navigate("/contact")} className="text-[#c6a98a] hover:bg-white/[0.04] hover:text-white"><MessageCircle className="mr-1.5 h-4 w-4" />Message Founder</Button>
-            <Button variant="ghost" onClick={() => navigate("/hub")} className="text-[#918577] hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
-          </div>
+          <Button variant="ghost" onClick={() => navigate("/hub")} className="text-[#918577] hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
         </header>
-        <section className="relative isolate overflow-hidden rounded-[28px] border border-[#493729] bg-[#21180f] px-5 py-7 sm:px-9 sm:py-10">
-          <div className="absolute inset-y-0 right-0 -z-10 hidden w-[48%] bg-[radial-gradient(ellipse_at_80%_40%,rgba(221,119,54,0.24),transparent_58%),linear-gradient(115deg,transparent,rgba(16,14,11,0.25))] sm:block" />
-          <div className="absolute right-8 top-8 hidden h-44 w-44 rotate-12 rounded-[38px] border border-[#d89a66]/15 sm:block" />
-          <div className="absolute right-[72px] top-[68px] hidden h-36 w-36 rotate-12 rounded-[30px] border border-[#d89a66]/10 sm:block" />
-          <div className="relative max-w-2xl">
-            <p className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.23em] text-[#e4a06a]"><Target className="h-3.5 w-3.5" /> PLAYR1 Shooting Cohort</p>
-            <h1 className="mt-4 font-heading text-5xl uppercase leading-[0.89] tracking-wide text-[#fff3e2] sm:text-7xl">Build a shot<br /><span className="text-[#ee9652]">you trust.</span></h1>
-            <p className="mt-5 max-w-lg text-sm leading-6 text-[#c0ae99] sm:text-base">Individual shooting coaching from the founder. Track your own work, find a shared rhythm, and keep every score private.</p>
-            <div className="mt-6 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-[0.12em]">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#594331] bg-[#17120e]/70 px-3 py-2 text-[#e5c9ac]"><LockKeyhole className="h-3 w-3 text-[#ed9b5f]" /> Private results</span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#594331] bg-[#17120e]/70 px-3 py-2 text-[#e5c9ac]"><MessageCircle className="h-3 w-3 text-[#ed9b5f]" /> Real cohort</span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#594331] bg-[#17120e]/70 px-3 py-2 text-[#e5c9ac]"><BadgeCheck className="h-3 w-3 text-[#ed9b5f]" /> Founder-led</span>
+        <section className="border-b border-[#382e24] pb-5">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#c58a5e]"><Target className="h-3.5 w-3.5" /> PLAYR1 Shooting Cohort</p>
+              <h1 className="mt-2 font-heading text-3xl uppercase leading-tight tracking-wide text-[#fff3e2] sm:text-4xl">Build an <span className="text-[#ee9652]">Effortless Shot</span></h1>
+              <p className="mt-2 text-sm text-[#a99b89]">Founder-led coaching. Progress you can measure.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {canStartApplication && <Button onClick={toggleInterestSurvey} disabled={!settings?.applicationsOpen} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b] disabled:opacity-50">{showInterestSurvey ? "Close survey" : "Interest Survey"}</Button>}
+              <Button variant="outline" onClick={() => navigate("/contact?from=shooting-cohort")} className="border-[#68482e] bg-[#17130f] text-[#f0b17d] hover:bg-[#352416]"><MessageCircle className="mr-2 h-4 w-4" />Message Founder</Button>
             </div>
           </div>
-          <div className="relative mt-7 flex items-center gap-3 border-t border-[#58402e] pt-4 sm:mt-0 sm:absolute sm:bottom-8 sm:right-9 sm:border-0 sm:pt-0">
-            <span className="font-heading text-4xl text-[#f2a365]">{playerQuery.data.settings.activeCount ?? "—"}</span>
-            <span className="max-w-[110px] font-mono text-[9px] uppercase leading-4 tracking-[0.15em] text-[#a99179]">players on the floor<br />capacity {playerQuery.data.settings.capacity}</span>
+          {canStartApplication && !settings?.applicationsOpen && <p className="mt-3 text-xs text-[#9d8f7e]">Applications are paused right now.</p>}
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#493a2c] bg-[#17130f] px-4 py-3">
+              <div><p className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[#9d8f7e]">Remaining spots</p><p className="mt-1 text-xs text-[#817567]">of {settings?.capacity ?? 0} total</p></div>
+              <p className="font-heading text-3xl leading-none text-[#f2a365]">{remainingSpots}</p>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-[#493a2c] bg-[#17130f] px-4 py-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#bf753f]/10 text-[#e79960]"><BadgeCheck className="h-4 w-4" /></span>
+              <div><p className="font-heading text-lg uppercase leading-none text-[#f2e2ce]">Founder-led</p><p className="mt-1 text-[11px] text-[#85796a]">Guidance built around your game</p></div>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-[#493a2c] bg-[#17130f] px-4 py-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#bf753f]/10 text-[#e79960]"><Target className="h-4 w-4" /></span>
+              <div><p className="font-heading text-lg uppercase leading-none text-[#f2e2ce]">Measurable results</p><p className="mt-1 text-[11px] text-[#85796a]">Private scores and regular retests</p></div>
+            </div>
           </div>
         </section>
 
         {!application || (closedApplicationStatus && reapply) ? (
-          <div className="mt-5 space-y-4">
+          showInterestSurvey ? <div id="shooting-cohort-interest-survey" className="mt-5 space-y-4">
             {!playerQuery.data.settings.applicationsOpen && <div className="flex items-start gap-3 rounded-2xl border border-[#5b4934] bg-[#211a13] p-4"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#e9a05e]" /><div><p className="text-sm font-semibold text-[#f0e1ce]">Applications are paused</p><p className="mt-1 text-xs leading-5 text-[#9d8f7e]">The survey stays here; you can submit when applications reopen.</p></div></div>}
+            <div className="flex justify-end"><Button variant="ghost" onClick={closeInterestSurvey} className="text-[#9d8f7e] hover:text-white"><X className="mr-1.5 h-4 w-4" />Close survey</Button></div>
             <ApplicationForm onSubmit={(answers) => void apply(answers)} pending={submitApplication.isPending} isOpen={playerQuery.data.settings.applicationsOpen} />
-          </div>
+          </div> : null
         ) : (
           <div className="mt-5">
             <section className={`flex flex-col gap-4 rounded-[22px] border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${status?.tone ?? "border-zinc-700 bg-zinc-900"}`}>
               <div className="flex items-start gap-3"><span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20"><ShieldCheck className="h-4 w-4" /></span><div><p className="font-heading text-2xl uppercase leading-none">{status?.label}</p><p className="mt-1.5 max-w-xl text-sm leading-5 opacity-80">{status?.detail}</p>{application.appliedAt && <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.14em] opacity-60">Applied {formatDate(application.appliedAt)} · status updates in your portal</p>}</div></div>
               {application.status === "invited" && <div className="flex gap-2"><Button variant="outline" onClick={() => void respond("decline")} disabled={invitationBusy} className="border-current/30 bg-black/10 text-current hover:bg-black/20">Decline</Button><Button onClick={() => void respond("accept")} disabled={invitationBusy} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">{invitationBusy ? "Updating…" : "Accept invitation"} <Check className="ml-2 h-4 w-4" /></Button></div>}
-              {closedApplicationStatus && <Button onClick={() => setReapply(true)} disabled={!playerQuery.data.settings.applicationsOpen} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">{playerQuery.data.settings.applicationsOpen ? "Apply again" : "Applications paused"} <ArrowRight className="ml-2 h-4 w-4" /></Button>}
             </section>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { ArrowLeft, ArrowUp, ClipboardList, Flame, Inbox, Loader2, MessageCircle, ShieldCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -160,6 +160,9 @@ function MessageComposer({
 export default function SupportMessagesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const search = useSearch();
+  const isFromShootingCohort = new URLSearchParams(search).get("from") === "shooting-cohort";
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messageText, setMessageText] = useState("");
 
@@ -195,16 +198,20 @@ export default function SupportMessagesPage() {
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col bg-[#080808] px-4 pb-8 pt-5 sm:px-6 sm:pt-7">
-      <div className="mb-5 flex items-center gap-3">
-        <SupportIcon large />
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-300/80">DIRECT MESSAGE TO THE FOUNDER</p>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">Talk through your game</h1>
+      <header className="mb-5 flex flex-col gap-3 border-b border-zinc-800/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <SupportIcon />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-white">{recipient?.displayName || "Founder"}</p>
+            <p className="mt-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-orange-300/80">Direct Message to the Founder</p>
+            <h1 className="mt-0.5 text-base font-semibold tracking-tight text-zinc-200">Talk Through Your Game</h1>
+          </div>
         </div>
-      </div>
-      <p className="mb-5 max-w-xl text-sm leading-6 text-zinc-500">
-          Yo, it’s Nick, founder of The PLAYR1 Project. I’m here to talk about anything: your game, confidence, goals, the game of basketball, or just whatever you’re working through. Shoot me a message. I respond to every message.
-      </p>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Badge variant="outline" className="border-emerald-500/30 text-emerald-300"><ShieldCheck className="mr-1 h-3 w-3" />Private</Badge>
+          {isFromShootingCohort && <Button variant="outline" size="sm" onClick={() => navigate("/shooting-cohort")} className="border-orange-500/25 text-zinc-300 hover:bg-orange-500/10 hover:text-white"><ArrowLeft className="mr-1.5 h-3.5 w-3.5" />Back to cohort</Button>}
+        </div>
+      </header>
 
       <section className="flex min-h-[min(650px,calc(100vh-12rem))] flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
@@ -224,16 +231,6 @@ export default function SupportMessagesPage() {
             </div>
           ) : (
             <>
-              <div className="mb-4 flex items-center gap-3 border-b border-zinc-800/80 pb-4">
-                <div className="min-w-0">
-                  <h2 className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-orange-300/80">{recipient?.displayName || "Your basketball coach"}</h2>
-                  <p className="text-xs text-zinc-600">Personal conversation about your game</p>
-                </div>
-                <Badge variant="outline" className="ml-auto hidden border-emerald-500/30 text-emerald-300 sm:flex">
-                  <ShieldCheck className="mr-1 h-3 w-3" /> Private
-                </Badge>
-              </div>
-
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1" data-testid="support-messages-container">
                 {supportQuery.isError ? (
                   <div className="py-16 text-center text-sm text-red-300" data-testid="support-messages-error">
