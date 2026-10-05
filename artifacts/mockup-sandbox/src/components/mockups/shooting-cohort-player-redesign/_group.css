@@ -1,0 +1,15 @@
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+@import "../shooting-cohort-admin/_group.css";
+
+.shooting-cohort-player-current {
+  color-scheme: dark;
+  font-family: "DM Sans", sans-serif;
+}
+
+.shooting-cohort-player-current * {
+  scrollbar-width: none;
+}
+
+.shooting-cohort-player-current *::-webkit-scrollbar {
+  display: none;
+}

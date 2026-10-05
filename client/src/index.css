@@ -337,8 +337,87 @@ html.plt-capacitor textarea {
   background: linear-gradient(to bottom, rgb(251 146 60 / 0.9), rgb(113 113 122 / 0.9));
 }
 
-.shooting-cohort-page,
+.shooting-cohort-page {
+  color-scheme: dark;
+  font-family: 'Inter', sans-serif;
+}
+
 .shooting-cohort-admin {
   font-family: 'DM Sans', sans-serif;
+}
+
+/* Keep the player Cohort surfaces in the same charcoal and orange system as PLAYR1. */
+.shooting-cohort-page [class*="#100e0b"] {
+  background-color: #080808 !important;
+}
+
+.shooting-cohort-page [class*="#17130f"] {
+  background-color: #111113 !important;
+}
+
+.shooting-cohort-page [class*="#211c17"],
+.shooting-cohort-page [class*="#21180f"],
+.shooting-cohort-page [class*="#211a13"] {
+  background-color: #18181b !important;
+}
+
+.shooting-cohort-page [class*="#493a2c"],
+.shooting-cohort-page [class*="#493e32"],
+.shooting-cohort-page [class*="#46382b"],
+.shooting-cohort-page [class*="#3e3329"],
+.shooting-cohort-page [class*="#382e24"],
+.shooting-cohort-page [class*="#3a3329"],
+.shooting-cohort-page [class*="#41372d"],
+.shooting-cohort-page [class*="#3b3228"],
+.shooting-cohort-page [class*="#4b3b2b"],
+.shooting-cohort-page [class*="#514333"],
+.shooting-cohort-page [class*="#68482e"],
+.shooting-cohort-page [class*="#5b4934"],
+.shooting-cohort-page [class*="#493c2e"] {
+  border-color: #27272a !important;
+}
+
+.shooting-cohort-page [class*="#fff1de"],
+.shooting-cohort-page [class*="#fff3e2"],
+.shooting-cohort-page [class*="#f3e6d5"],
+.shooting-cohort-page [class*="#f0e3d2"],
+.shooting-cohort-page [class*="#e8dccb"],
+.shooting-cohort-page [class*="#e7dac8"],
+.shooting-cohort-page [class*="#e2d6c7"],
+.shooting-cohort-page [class*="#dfd0bd"],
+.shooting-cohort-page [class*="#f2e2ce"] {
+  color: #f4f4f5 !important;
+}
+
+.shooting-cohort-page [class*="#a99b89"],
+.shooting-cohort-page [class*="#9d8f7e"],
+.shooting-cohort-page [class*="#8f8274"],
+.shooting-cohort-page [class*="#817567"],
+.shooting-cohort-page [class*="#887c6e"],
+.shooting-cohort-page [class*="#85796a"],
+.shooting-cohort-page [class*="#756b60"],
+.shooting-cohort-page [class*="#6e6357"],
+.shooting-cohort-page [class*="#6c6256"],
+.shooting-cohort-page [class*="#675d51"],
+.shooting-cohort-page [class*="#958574"],
+.shooting-cohort-page [class*="#918577"],
+.shooting-cohort-page [class*="#877b6e"],
+.shooting-cohort-page [class*="#74695d"],
+.shooting-cohort-page [class*="#70533d"] {
+  color: #a1a1aa !important;
+}
+
+.shooting-cohort-page [class*="#d89156"],
+.shooting-cohort-page [class*="#e79960"],
+.shooting-cohort-page [class*="#e8a16a"],
+.shooting-cohort-page [class*="#df965c"],
+.shooting-cohort-page [class*="#f4b27c"],
+.shooting-cohort-page [class*="#d77e3d"],
+.shooting-cohort-page [class*="#f0a367"],
+.shooting-cohort-page [class*="#e9a16a"],
+.shooting-cohort-page [class*="#d88a50"],
+.shooting-cohort-page [class*="#e89a5a"],
+.shooting-cohort-page [class*="#e79a5c"] {
+  color: #fb923c !important;
 }
 

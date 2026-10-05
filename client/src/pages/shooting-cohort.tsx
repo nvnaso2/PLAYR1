@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
-  Activity, ArrowRight, BadgeCheck, CalendarDays, Check, ChevronRight, CircleHelp,
-  ClipboardList, Clock3, Dumbbell, Film, LockKeyhole, MessageCircle, Send,
-  ShieldCheck, Target, Trophy, X,
+  Activity, ArrowRight, ArrowUp, BadgeCheck, CalendarDays, Check, ChevronRight, CircleHelp,
+  ClipboardList, Clock3, Dumbbell, Film, Loader2, LockKeyhole, MessageCircle, Send,
+  ShieldCheck, Target, Trophy, Users, X,
 } from "lucide-react";
 import {
   CartesianGrid,
@@ -16,13 +16,18 @@ import {
   YAxis,
 } from "recharts";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmojiPicker } from "@/components/emoji-picker";
 import { ShootingCohortVideos } from "@/components/shooting-cohort-videos";
+import { ShootingCohortPrivateChat } from "@/components/shooting-cohort-private-chat";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { getObjectUrl } from "@/lib/queryClient";
 import {
   getAssessmentTotals,
   SHOOTING_COHORT_FOCUS_AREAS,
@@ -285,9 +290,18 @@ function ApplicationForm({ onSubmit, pending, isOpen, initialAnswers, editing = 
   );
 }
 
-function MemberChat({ isAdmin = false }: { isAdmin?: boolean }) {
+function MemberChat({
+  isAdmin = false,
+  activeChannel = "group",
+  onChannelChange,
+}: {
+  isAdmin?: boolean;
+  activeChannel?: "group" | "founder";
+  onChannelChange?: (channel: "group" | "founder") => void;
+}) {
   const { toast } = useToast();
-  const query = useShootingCohortMessagesQuery(true);
+  const { user } = useAuth();
+  const query = useShootingCohortMessagesQuery(isAdmin || activeChannel === "group");
   const sendMessage = useSendShootingCohortMessage();
   const [text, setText] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -303,6 +317,166 @@ function MemberChat({ isAdmin = false }: { isAdmin?: boolean }) {
       toast({ title: "Message not sent", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
     }
   };
+
+  if (!isAdmin) {
+    const latestGroupMessage = messages[messages.length - 1];
+    return (
+      <section className="rounded-3xl border border-zinc-800/90 bg-zinc-950/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-6" aria-label="Shooting Cohort messages">
+        <header className="mb-5 border-b border-white/[0.06] pb-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300/80">Stay close to the work</p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Conversations</h2>
+              <p className="mt-2 max-w-2xl text-xs leading-5 text-zinc-500">The group room is shared with active cohort members. Your direct thread stays private between you and the Founder.</p>
+            </div>
+          </div>
+        </header>
+
+        <div className="grid overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 md:grid-cols-[240px_minmax(0,1fr)]">
+          <aside className="border-b border-zinc-800 p-3 md:border-b-0 md:border-r" aria-label="Choose a conversation">
+            <p className="px-3 pb-2 pt-1 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-zinc-600">Your conversations</p>
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 md:grid-cols-1">
+              <button
+                type="button"
+                aria-pressed={activeChannel === "group"}
+                onClick={() => onChannelChange?.("group")}
+                className={`flex min-w-0 items-start gap-3 rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60 ${activeChannel === "group" ? "border-orange-400/20 bg-orange-500/[0.07]" : "border-transparent hover:bg-white/[0.035]"}`}
+                data-testid="shooting-cohort-group-channel"
+              >
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${activeChannel === "group" ? "bg-orange-500/15 text-orange-200" : "bg-zinc-800 text-zinc-400"}`}><Users className="h-4 w-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2"><span className="truncate text-xs font-bold text-zinc-100">The shooting room</span>{activeChannel === "group" && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />}</span>
+                  <span className="mt-1 block text-[10px] text-zinc-500">Shared · active members</span>
+                  <span className="mt-1.5 block truncate text-[10px] text-zinc-600">{latestGroupMessage ? `${latestGroupMessage.displayName}: ${latestGroupMessage.content}` : "Start a conversation with the cohort"}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={activeChannel === "founder"}
+                onClick={() => onChannelChange?.("founder")}
+                className={`mt-0 flex min-w-0 items-start gap-3 rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60 ${activeChannel === "founder" ? "border-orange-400/20 bg-orange-500/[0.07]" : "border-transparent hover:bg-white/[0.035]"}`}
+                data-testid="shooting-cohort-founder-channel"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-orange-300/30 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 text-zinc-950 shadow-[0_4px_14px_rgba(249,115,22,0.2)]"><MessageCircle className="h-4 w-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2"><span className="truncate text-xs font-bold text-zinc-100">Founder</span><LockKeyhole className="h-3 w-3 shrink-0 text-orange-300/70" /></span>
+                  <span className="mt-1 block text-[10px] text-zinc-500">Direct · private 1:1</span>
+                  <span className="mt-1.5 block truncate text-[10px] text-zinc-600">A private conversation with the Founder</span>
+                </span>
+              </button>
+            </div>
+            <div className="mx-2 mt-4 border-t border-zinc-800 pt-3"><p className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.11em] text-zinc-600"><LockKeyhole className="h-3 w-3" />Member-only conversations</p></div>
+          </aside>
+
+          <div className="flex min-h-[480px] min-w-0 flex-col bg-zinc-950/35">
+            {activeChannel === "founder" ? (
+              <div className="flex min-h-[480px] flex-1 flex-col p-4 sm:p-5">
+                <ShootingCohortPrivateChat />
+              </div>
+            ) : (
+              <>
+                <div className="flex min-h-[66px] items-center justify-between gap-3 border-b border-zinc-800/80 px-4 py-3 sm:px-5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-300/30 bg-orange-500/10 text-orange-300"><Users className="h-[17px] w-[17px]" /></span>
+                    <div className="min-w-0"><p className="truncate text-sm font-semibold text-zinc-100">The shooting room</p><p className="mt-0.5 truncate text-[10px] text-zinc-500">Shared cohort conversation · active members only</p></div>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-500/[0.05] px-2.5 py-1 font-mono text-[8px] font-semibold uppercase tracking-[0.1em] text-orange-200"><LockKeyhole className="h-3 w-3" />Member-only</span>
+                </div>
+
+                <div className="min-h-[260px] flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6" data-testid="shooting-cohort-messages">
+                  {query.isLoading ? (
+                    <div className="space-y-4" aria-label="Loading cohort conversation">
+                      <Skeleton className="h-14 w-3/4 rounded-2xl bg-zinc-900" />
+                      <Skeleton className="ml-auto h-16 w-2/3 rounded-2xl bg-zinc-900" />
+                      <Skeleton className="h-12 w-1/2 rounded-2xl bg-zinc-900" />
+                    </div>
+                  ) : query.isError ? (
+                    <div className="flex h-full min-h-[260px] flex-col items-center justify-center text-center">
+                      <MessageCircle className="mb-3 h-7 w-7 text-orange-400/70" />
+                      <p className="text-sm text-zinc-300">The group chat could not load.</p>
+                      <Button variant="ghost" onClick={() => query.refetch()} className="mt-2 text-orange-300 hover:bg-orange-500/10 hover:text-orange-200">Try again</Button>
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="flex h-full min-h-[260px] flex-col items-center justify-center text-center">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full border border-orange-400/20 bg-orange-500/[0.08] text-orange-300"><MessageCircle className="h-5 w-5" /></span>
+                      <p className="mt-3 text-sm font-semibold text-zinc-200">Set the tone for the room.</p>
+                      <p className="mt-1 max-w-xs text-xs leading-5 text-zinc-500">Share a win, a question, or something you’re working through.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {messages.map((message) => {
+                        const isMine = message.senderId === user?.id;
+                        const displayName = message.displayName || "Cohort member";
+                        return isMine ? (
+                          <div key={message.id} className="group flex justify-end py-1" data-testid={`shooting-cohort-message-${message.id}`} title={new Date(message.createdAt).toLocaleString()}>
+                            <div className="max-w-[88%] rounded-2xl rounded-tr-md bg-gradient-to-br from-orange-400 to-orange-600 px-3.5 py-2.5 text-sm font-medium leading-[1.55] text-zinc-950 shadow-[0_8px_28px_rgba(249,115,22,0.18)]">
+                              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                              <p className="mt-0.5 max-h-0 overflow-hidden text-[9px] font-normal leading-normal text-orange-950/60 opacity-0 transition-all group-hover:max-h-4 group-hover:opacity-100 group-focus-within:max-h-4 group-focus-within:opacity-100">
+                                {new Date(message.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={message.id} className="group flex items-start gap-2.5 py-1" data-testid={`shooting-cohort-message-${message.id}`} title={new Date(message.createdAt).toLocaleString()}>
+                            <Avatar className="mt-0.5 h-9 w-9 shrink-0 border border-orange-300/20">
+                              {message.profilePhotoUrl && <AvatarImage src={getObjectUrl(message.profilePhotoUrl)} alt="" />}
+                              <AvatarFallback className="bg-zinc-900 text-xs font-semibold text-orange-200">{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 max-w-[88%] flex-1">
+                              <div className="mb-1.5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-300/80">
+                                <span className="truncate">{displayName}</span><span className="h-px w-8 bg-orange-400/30" />
+                                <time className="shrink-0 font-normal tracking-normal text-zinc-600">{new Date(message.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>
+                              </div>
+                              <p className="whitespace-pre-wrap break-words text-sm leading-[1.55] text-zinc-200">{message.content}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={endRef} />
+                    </>
+                  )}
+                </div>
+
+                <div className="border-t border-zinc-800/80 p-3 sm:p-4">
+                  <div className="relative flex min-h-[58px] items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 px-3 py-2 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)] transition-colors focus-within:border-orange-400/45 focus-within:shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_34px_rgba(249,115,22,0.16)]">
+                    <EmojiPicker onEmojiSelect={(emoji) => setText((current) => current + emoji)} />
+                    <Textarea
+                      value={text}
+                      onChange={(event) => setText(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          void send();
+                        }
+                      }}
+                      maxLength={2000}
+                      placeholder="Add to the group conversation…"
+                      className="min-h-[40px] max-h-32 resize-none rounded-none border-0 bg-transparent px-2 py-2.5 text-[15px] text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-0"
+                      disabled={sendMessage.isPending}
+                      aria-label="Message to shooting cohort"
+                      data-testid="shooting-cohort-message-input"
+                    />
+                    <Button
+                      onClick={() => void send()}
+                      disabled={!text.trim() || sendMessage.isPending}
+                      size="icon"
+                      aria-label="Send group message"
+                      className="h-10 w-10 shrink-0 rounded-full bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.22)] hover:bg-orange-400"
+                      data-testid="shooting-cohort-message-send"
+                    >
+                      {sendMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-center text-[10px] tracking-wide text-zinc-700">Enter to send · Shift + Enter for a new line</p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="overflow-hidden rounded-[24px] border border-[#46382b] bg-[#17130f]">
       <div className="flex items-center justify-between gap-3 border-b border-[#382e24] px-4 py-4 sm:px-5">
@@ -567,6 +741,8 @@ export default function ShootingCohortPage() {
   const [showAssessmentForm, setShowAssessmentForm] = useState(false);
   const [showInterestSurvey, setShowInterestSurvey] = useState(false);
   const [reapply, setReapply] = useState(false);
+  const [activeTab, setActiveTab] = useState("requests");
+  const [messageChannel, setMessageChannel] = useState<"group" | "founder">("group");
   const application = playerQuery.data?.application;
   const closedApplicationStatus = ["withdrawn", "declined", "removed"].includes(application?.status ?? "");
   const canStartApplication = !application || closedApplicationStatus;
@@ -575,6 +751,14 @@ export default function ShootingCohortPage() {
   const latestAssessment = orderedAssessments[0];
   const isMember = application?.status === "active";
   const isEditingSurvey = Boolean(application && !closedApplicationStatus);
+  const openFounderMessages = () => {
+    if (!isMember) {
+      navigate("/contact?from=shooting-cohort");
+      return;
+    }
+    setActiveTab("messaging");
+    setMessageChannel("founder");
+  };
   const nextRetest = latestAssessment ? new Date(new Date(latestAssessment.createdAt).getTime() + 28 * 24 * 60 * 60 * 1000) : null;
   const retestDue = nextRetest ? nextRetest <= new Date() : false;
   const invitationBusy = respondInvitation.isPending;
@@ -625,17 +809,17 @@ export default function ShootingCohortPage() {
   const status = application ? statusCopy[application.status] : null;
   const retestLabel = latestAssessment?.type === "baseline" ? "Record a retest" : "Record another retest";
   return (
-    <main className="shooting-cohort-page min-h-full bg-[#100e0b] px-4 pb-12 pt-5 text-[#fff1de] sm:px-7 sm:pt-8">
+    <main className="shooting-cohort-page min-h-full bg-[#080808] px-4 pb-12 pt-5 text-zinc-100 sm:px-7 sm:pt-8">
       <div className="mx-auto max-w-6xl">
-        <section className="border-b border-[#382e24] pb-5">
+        <section className="border-b border-zinc-800 pb-5">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="font-heading text-3xl uppercase leading-tight tracking-wide text-[#fff3e2] sm:text-4xl">Build an <span className="text-[#ee9652]">Effortless Shot</span></h1>
+              <h1 className="font-heading text-3xl uppercase leading-tight tracking-wide text-white sm:text-4xl">Build an <span className="text-orange-400">Effortless Shot</span></h1>
             </div>
             <div className="flex flex-wrap gap-2">
-              {(canStartApplication || isEditingSurvey) && <Button onClick={toggleInterestSurvey} disabled={canStartApplication && !settings?.applicationsOpen && !showInterestSurvey} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b] disabled:opacity-50">{showInterestSurvey ? "Close survey" : isEditingSurvey ? "Edit Interest Survey" : "Interest Survey"}</Button>}
-              <Button variant="outline" onClick={() => navigate("/contact?from=shooting-cohort")} className="border-[#68482e] bg-[#17130f] text-[#f0b17d] hover:bg-[#352416]"><MessageCircle className="mr-2 h-4 w-4" />Message Founder</Button>
-              <Button variant="ghost" onClick={() => navigate("/hub")} className="text-[#918577] hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
+              {(canStartApplication || isEditingSurvey) && <Button onClick={toggleInterestSurvey} disabled={canStartApplication && !settings?.applicationsOpen && !showInterestSurvey} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="bg-orange-500 font-bold text-black hover:bg-orange-400 disabled:opacity-50">{showInterestSurvey ? "Close survey" : isEditingSurvey ? "Edit Interest Survey" : "Interest Survey"}</Button>}
+              <Button variant="outline" onClick={openFounderMessages} className="border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-orange-400/40 hover:bg-orange-500/10 hover:text-white"><MessageCircle className="mr-2 h-4 w-4" />Message Founder</Button>
+              <Button variant="ghost" onClick={() => navigate("/hub")} className="text-zinc-500 hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
             </div>
           </div>
           {canStartApplication && !settings?.applicationsOpen && <p className="mt-3 text-xs text-[#9d8f7e]">Applications are paused right now.</p>}
@@ -677,8 +861,8 @@ export default function ShootingCohortPage() {
         )}
 
         {isMember && (
-          <Tabs defaultValue="requests" className="mt-6">
-            <TabsList aria-label="Shooting Cohort player sections" className="grid h-auto w-full grid-cols-3 gap-1 rounded-xl border border-[#46382b] bg-[#17130f] p-1 md:grid-cols-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+            <TabsList aria-label="Shooting Cohort player sections" className="grid h-auto w-full grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950 p-1 md:grid-cols-6">
               <TabsTrigger value="requests" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><ClipboardList className="h-4 w-4" /><span>Requests</span></TabsTrigger>
               <TabsTrigger value="film-room" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Film className="h-4 w-4" /><span>Film Room</span></TabsTrigger>
               <TabsTrigger value="messaging" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><MessageCircle className="h-4 w-4" /><span>Messaging</span></TabsTrigger>
@@ -689,7 +873,7 @@ export default function ShootingCohortPage() {
 
             <TabsContent value="requests" className="mt-4 focus-visible:outline-none"><CohortRequestsSection /></TabsContent>
             <TabsContent value="film-room" className="mt-4 focus-visible:outline-none"><ShootingCohortVideos /></TabsContent>
-            <TabsContent value="messaging" className="mt-4 focus-visible:outline-none"><MemberChat /></TabsContent>
+            <TabsContent value="messaging" className="mt-4 focus-visible:outline-none"><MemberChat activeChannel={messageChannel} onChannelChange={setMessageChannel} /></TabsContent>
             <TabsContent value="baseline" forceMount className="mt-4 focus-visible:outline-none">
               <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Baseline shooting assessment">
                 <div className="flex flex-wrap items-start justify-between gap-4">
