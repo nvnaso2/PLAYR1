@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  canAssignShootingCohortSeat,
   getAssessmentTotals,
   getShootingCohortAdmissionStatus,
   getShootingCohortSenderDisplayName,
@@ -53,6 +54,14 @@ test("shooting cohort applications fill open seats before using the waitlist", (
   assert.equal(getShootingCohortAdmissionStatus(0, 10), "active");
   assert.equal(getShootingCohortAdmissionStatus(9, 10), "active");
   assert.equal(getShootingCohortAdmissionStatus(10, 10), "waitlisted");
+});
+
+test("admin status changes reserve seats only for accepted or invited applications", () => {
+  assert.equal(canAssignShootingCohortSeat("waitlisted", "active", 10, 10), false);
+  assert.equal(canAssignShootingCohortSeat("needs_review", "invited", 9, 10), true);
+  assert.equal(canAssignShootingCohortSeat("invited", "active", 10, 10), true);
+  assert.equal(canAssignShootingCohortSeat("active", "needs_review", 10, 10), true);
+  assert.equal(canAssignShootingCohortSeat("needs_review", "waitlisted", 10, 10), true);
 });
 
 test("cohort chat sender names fall back safely when profile names are missing", () => {

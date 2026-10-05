@@ -7,6 +7,7 @@ import type {
   ShootingCohortOffDribbleResults,
   ShootingCohortSpotUpResults,
   ShootingCohortStatus,
+  AdminShootingCohortStatus,
 } from "@shared/shooting-cohort";
 
 export type ShootingCohortSettings = {
@@ -56,7 +57,7 @@ export type ShootingCohortAdminApplication = ShootingCohortApplicationRecord & {
 
 export type ShootingCohortAdminData = {
   settings: ShootingCohortSettings;
-  counts: { active: number; invited: number; waitlisted: number };
+  counts: { active: number; invited: number; waitlisted: number; needsReview: number };
   applications: ShootingCohortAdminApplication[];
 };
 
@@ -93,7 +94,8 @@ export function useShootingCohortMessagesQuery(enabled = true) {
   return useQuery<ShootingCohortChatMessage[]>({
     queryKey: ["/api/shooting-cohort/messages"],
     enabled,
-    refetchInterval: 10000,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -171,6 +173,24 @@ export function useInviteShootingCohortApplicant() {
   });
 }
 
+export function useSetShootingCohortApplicationStatus() {
+  return useMutation({
+    mutationFn: ({ applicationId, status }: { applicationId: string; status: AdminShootingCohortStatus }) =>
+      requestJson<{ application: ShootingCohortApplicationRecord }>(
+        "PATCH",
+        `/api/admin/shooting-cohort/applications/${encodeURIComponent(applicationId)}/status`,
+        { status },
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/shooting-cohort"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/custom-workout-requests"] }),
+      ]);
+    },
+  });
+}
+
 export function useRemoveShootingCohortApplication() {
   return useMutation({
     mutationFn: (applicationId: string) =>
@@ -179,6 +199,7 @@ export function useRemoveShootingCohortApplication() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/admin/shooting-cohort"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/custom-workout-requests"] }),
       ]);
     },
   });

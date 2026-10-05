@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const SHOOTING_COHORT_STATUSES = [
   "active",
+  "needs_review",
   "waitlisted",
   "invited",
   "withdrawn",
@@ -10,6 +11,8 @@ export const SHOOTING_COHORT_STATUSES = [
 ] as const;
 
 export type ShootingCohortStatus = typeof SHOOTING_COHORT_STATUSES[number];
+export const ADMIN_SHOOTING_COHORT_STATUSES = ["active", "invited", "waitlisted", "needs_review"] as const;
+export type AdminShootingCohortStatus = typeof ADMIN_SHOOTING_COHORT_STATUSES[number];
 
 export function getShootingCohortSenderDisplayName(
   displayName: string | null | undefined,
@@ -89,6 +92,17 @@ export type ShootingCohortOffDribbleResults = ShootingCohortAssessmentInput["off
 
 export function getShootingCohortAdmissionStatus(occupiedSeats: number, capacity: number): "active" | "waitlisted" {
   return occupiedSeats < capacity ? "active" : "waitlisted";
+}
+
+export function canAssignShootingCohortSeat(
+  currentStatus: ShootingCohortStatus,
+  nextStatus: AdminShootingCohortStatus,
+  occupiedSeats: number,
+  capacity: number,
+): boolean {
+  const currentReservesSeat = currentStatus === "active" || currentStatus === "invited";
+  const nextReservesSeat = nextStatus === "active" || nextStatus === "invited";
+  return !nextReservesSeat || currentReservesSeat || occupiedSeats < capacity;
 }
 
 export function getAssessmentTotals(assessment: Pick<ShootingCohortAssessmentInput, "freeThrowsMade" | "spotUp" | "offDribble">) {

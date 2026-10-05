@@ -59,6 +59,7 @@ const initialAnswers: ApplicationDraft = {
 
 const statusCopy: Record<string, { label: string; detail: string; tone: string }> = {
   active: { label: "You’re in", detail: "Your place is active. Start with your baseline and meet the cohort.", tone: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-200" },
+  needs_review: { label: "Under review", detail: "A PLAYR1 admin is reviewing your application. Your portal will update when its status changes.", tone: "border-orange-300/25 bg-orange-300/[0.08] text-orange-100" },
   waitlisted: { label: "On the waitlist", detail: "The Founder invites players in application order when a place opens. Your portal will update if you’re invited.", tone: "border-amber-300/20 bg-amber-300/[0.07] text-amber-100" },
   invited: { label: "Your seat is held", detail: "An invitation is waiting for you. Accept to join, or decline to release your place.", tone: "border-orange-300/25 bg-orange-300/[0.08] text-orange-100" },
   withdrawn: { label: "Application withdrawn", detail: "This application is no longer active.", tone: "border-zinc-700 bg-zinc-900 text-zinc-300" },

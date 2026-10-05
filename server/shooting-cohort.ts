@@ -8,14 +8,15 @@ import {
   userProfiles,
 } from "@shared/schema";
 import type {
+  AdminShootingCohortStatus,
   ShootingCohortApplicationAnswers,
   ShootingCohortAssessmentInput,
   ShootingCohortStatus,
 } from "@shared/shooting-cohort";
-import { getShootingCohortAdmissionStatus, getShootingCohortSenderDisplayName } from "@shared/shooting-cohort";
+import { canAssignShootingCohortSeat, getShootingCohortAdmissionStatus, getShootingCohortSenderDisplayName } from "@shared/shooting-cohort";
 
 const ACTIVE_SEAT_STATUSES: readonly ShootingCohortStatus[] = ["active", "invited"];
-const VISIBLE_APPLICATION_STATUSES: readonly ShootingCohortStatus[] = ["active", "invited", "waitlisted"];
+const VISIBLE_APPLICATION_STATUSES: readonly ShootingCohortStatus[] = ["active", "invited", "waitlisted", "needs_review"];
 
 export class ShootingCohortError extends Error {
   constructor(message: string, readonly statusCode: number = 400) {
@@ -194,6 +195,47 @@ export async function inviteShootingCohortApplicant(applicationId: string) {
   });
 }
 
+export async function updateShootingCohortApplicationStatus(
+  applicationId: string,
+  status: AdminShootingCohortStatus,
+) {
+  return db.transaction(async (tx) => {
+    await tx.insert(shootingCohortSettings).values({ id: 1 }).onConflictDoNothing();
+    const [settings] = await tx.select().from(shootingCohortSettings)
+      .where(eq(shootingCohortSettings.id, 1))
+      .for("update");
+    if (!settings) throw new Error("Shooting cohort settings could not be loaded");
+
+    const [application] = await tx.select().from(shootingCohortApplications)
+      .where(eq(shootingCohortApplications.id, applicationId))
+      .for("update");
+    if (!application || !VISIBLE_APPLICATION_STATUSES.includes(application.status)) {
+      throw new ShootingCohortError("Application not found.", 404);
+    }
+    if (application.status === status) return { application, changed: false };
+
+    const [seatCount] = await tx.select({ value: count() })
+      .from(shootingCohortApplications)
+      .where(inArray(shootingCohortApplications.status, [...ACTIVE_SEAT_STATUSES]));
+    const occupiedSeats = Number(seatCount?.value || 0);
+    if (!canAssignShootingCohortSeat(application.status, status, occupiedSeats, settings.capacity)) {
+      throw new ShootingCohortError("The cohort is at capacity. Increase the cap or free a seat before assigning this status.", 409);
+    }
+
+    const now = new Date();
+    const [updated] = await tx.update(shootingCohortApplications)
+      .set({
+        status,
+        invitedAt: status === "invited" ? now : null,
+        acceptedAt: status === "active" ? now : null,
+        updatedAt: now,
+      })
+      .where(eq(shootingCohortApplications.id, application.id))
+      .returning();
+    return { application: updated, changed: true };
+  });
+}
+
 export async function respondToShootingCohortInvitation(userId: string, response: "accept" | "decline") {
   return db.transaction(async (tx) => {
     const [application] = await tx.select().from(shootingCohortApplications)
@@ -243,6 +285,7 @@ export async function getShootingCohortAdminOverview() {
   })
     .from(shootingCohortApplications)
     .leftJoin(userProfiles, eq(userProfiles.userId, shootingCohortApplications.userId))
+    .where(inArray(shootingCohortApplications.status, [...VISIBLE_APPLICATION_STATUSES]))
     .orderBy(asc(shootingCohortApplications.appliedAt), asc(shootingCohortApplications.id));
 
   const cohortUserIds = applications.map((application) => application.userId);
@@ -256,10 +299,11 @@ export async function getShootingCohortAdminOverview() {
     assessmentMap.set(assessment.userId, [...(assessmentMap.get(assessment.userId) || []), assessment]);
   }
 
-  const [activeCount, invitedCount, waitlistCount] = await Promise.all([
+  const [activeCount, invitedCount, waitlistCount, needsReviewCount] = await Promise.all([
     countApplications(["active"]),
     countApplications(["invited"]),
     countApplications(["waitlisted"]),
+    countApplications(["needs_review"]),
   ]);
 
   return {
@@ -269,7 +313,7 @@ export async function getShootingCohortAdminOverview() {
       updatedAt: settings.updatedAt,
       updatedBy: settings.updatedBy,
     },
-    counts: { active: activeCount, invited: invitedCount, waitlisted: waitlistCount },
+    counts: { active: activeCount, invited: invitedCount, waitlisted: waitlistCount, needsReview: needsReviewCount },
     applications: applications.map((application) => ({
       ...application,
       assessments: assessmentMap.get(application.userId) || [],

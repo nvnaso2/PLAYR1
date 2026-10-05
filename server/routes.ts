@@ -62,7 +62,7 @@ import { canTransitionCustomWorkoutRequest, hasUniqueDrillIds, isPlayr1CatalogDr
 import { NOTIFICATION_CATALOG } from "@shared/notification-catalog";
 import { selectHubRecommendation, type HubRecommendationCandidate } from "./hub-recommendations";
 import type { HubRecommendationResponse } from "@shared/hub-recommendations";
-import { shootingCohortApplicationSchema, shootingCohortAssessmentSchema } from "@shared/shooting-cohort";
+import { ADMIN_SHOOTING_COHORT_STATUSES, shootingCohortApplicationSchema, shootingCohortAssessmentSchema } from "@shared/shooting-cohort";
 import {
   createShootingCohortAssessment,
   createShootingCohortMessage,
@@ -77,6 +77,7 @@ import {
   respondToShootingCohortInvitation,
   ShootingCohortError,
   submitShootingCohortApplication,
+  updateShootingCohortApplicationStatus,
   updateShootingCohortSettings,
 } from "./shooting-cohort";
 
@@ -3367,6 +3368,28 @@ ${JSON.stringify(catalogForPrompt)}
     } catch (error) {
       console.error("Error updating shooting cohort settings:", error);
       res.status(500).json({ message: "Failed to update shooting cohort settings" });
+    }
+  });
+
+  app.patch("/api/admin/shooting-cohort/applications/:id/status", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    const parsed = z.object({ status: z.enum(ADMIN_SHOOTING_COHORT_STATUSES) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Choose Accepted, Invited, Waitlisted, or Needs Review." });
+    try {
+      const result = await updateShootingCohortApplicationStatus(req.params.id, parsed.data.status);
+      if (result.changed && parsed.data.status === "invited") {
+        sendPushNotification(result.application.userId, {
+          title: "Your shooting cohort invitation is ready",
+          body: "Open the Shooting Cohort to accept your place.",
+          url: "/shooting-cohort",
+        }, "messages").catch(() => {});
+      }
+      res.json({ application: result.application });
+    } catch (error) {
+      if (error instanceof ShootingCohortError) {
+        return res.status(error.statusCode).json({ message: error.message });
+      }
+      console.error("Error updating shooting cohort application status:", error);
+      res.status(500).json({ message: "Failed to update shooting cohort application status" });
     }
   });
 
