@@ -72,12 +72,14 @@ describe("personalized shot heatmap baselines", () => {
     assert.equal(result.workoutWindow, 10);
   });
 
-  it("centers each player's average and moves one color band per five percentage points", () => {
+  it("spans actual 0–100% rates with each player's baseline at the yellow midpoint", () => {
     assert.equal(getPersonalHeatBandIndex(20, 20), 5);
     assert.equal(getPersonalHeatBandIndex(80, 80), 5);
-    assert.equal(getPersonalHeatBandIndex(25, 20), 6);
-    assert.equal(getPersonalHeatBandIndex(75, 80), 4);
-    assert.equal(getPersonalHeatBandIndex(0, 80), 0);
-    assert.equal(getPersonalHeatBandIndex(100, 20), 10);
+    assert.equal(getPersonalHeatBandIndex(0, 60), 0);
+    assert.equal(getPersonalHeatBandIndex(100, 60), 10);
+    assert.equal(getPersonalHeatBandIndex(30, 60), 3);
+    assert.equal(getPersonalHeatBandIndex(80, 60), 8);
+    assert.equal(getPersonalHeatBandIndex(0, 0), 5);
+    assert.equal(getPersonalHeatBandIndex(100, 100), 5);
   });
 });

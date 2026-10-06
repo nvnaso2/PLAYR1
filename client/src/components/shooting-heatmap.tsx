@@ -24,7 +24,6 @@ type ShootingHeatmapProps = {
   className?: string;
   personalizedScale?: boolean;
   personalBaselines?: ShotHeatmapBaselines;
-  baselineWindow?: number;
   baselineLoading?: boolean;
   baselineError?: boolean;
 };
@@ -300,25 +299,18 @@ export const SHOT_HEAT_COLOR_BANDS = [
 ] as const;
 
 const PERSONAL_SHOT_HEAT_COLORS = [
-  "#6B0E0E",
-  "#9B1F0A",
-  "#C03410",
-  "#C86020",
-  "#9B7820",
-  "#E98E2E",
-  "#6B7A20",
-  "#3D7A2A",
-  "#2E8E2E",
-  "#1AA81A",
-  "#0DC80D",
+  "#7F1D1D",
+  "#991B1B",
+  "#B91C1C",
+  "#DC2626",
+  "#EF4444",
+  "#FACC15",
+  "#A3E635",
+  "#84CC16",
+  "#4ADE80",
+  "#22C55E",
+  "#15803D",
 ] as const;
-
-const PERSONAL_SECTION_LABELS: Record<ShotHeatmapSection, string> = {
-  "three-pointers": "3-Point",
-  "mid-range": "Mid-Range",
-  "free-throws": "Free Throws",
-  layups: "Layups",
-};
 
 const UNGRADED_ZONE_COLOR = "#52525B";
 
@@ -672,7 +664,6 @@ export function ShootingHeatmap({
   className = "",
   personalizedScale = false,
   personalBaselines,
-  baselineWindow = 10,
   baselineLoading = false,
   baselineError = false,
 }: ShootingHeatmapProps) {
@@ -735,7 +726,7 @@ export function ShootingHeatmap({
               ? "Your personal scale could not load; zones without a recent baseline are left ungraded."
               : baselineLoading
                 ? "Loading your recent shooting averages…"
-                : `The center color is your average for that shot type, based on up to ${baselineWindow} recent workouts.`}
+                : "Zone numbers show actual shooting percentages. Colors run from 0% red through your recent shot-type average in yellow to 100% green."}
           </p>
         )}
       </CardHeader>
@@ -749,25 +740,24 @@ export function ShootingHeatmap({
         {personalizedScale ? (
           <div className="mt-3 space-y-1" data-testid="heatmap-legend">
             <div className="flex items-center justify-center gap-1">
-              <span className="text-[10px] text-zinc-500 mr-1">−25 pp</span>
+              <span className="text-[10px] text-zinc-500 mr-1">0%</span>
               <div className="flex h-3 rounded overflow-hidden" data-testid="heatmap-color-scale">
                 {PERSONAL_SHOT_HEAT_COLORS.map((color, index) => (
                   <div
                     key={`${color}-${index}`}
                     className="w-4 sm:w-5"
                     style={{ background: color }}
-                    title={index === 5 ? "Your recent average" : `${(index - 5) * 5 > 0 ? "+" : ""}${(index - 5) * 5} percentage points from your average`}
+                    title={index === 5 ? "Your recent shot-type average" : `${index * 10}% scale position`}
                   />
                 ))}
               </div>
-              <span className="text-[10px] text-zinc-500 ml-1">+25 pp</span>
+              <span className="text-[10px] text-zinc-500 ml-1">100%</span>
             </div>
             <div className="flex justify-center gap-1 text-[10px] text-zinc-500">
-              <span>Below average</span>
-              <span className="mx-2 text-orange-300">Your average</span>
-              <span>Above average</span>
+              <span>Lower</span>
+              <span className="mx-2 text-yellow-300">Your section average</span>
+              <span>Higher</span>
             </div>
-            <p className="text-center text-[10px] text-zinc-600">One color step per 5 percentage points; colors stop at ±25 pp.</p>
             <p className="text-center text-[10px] text-zinc-600">Gray zones need more recent data for every shot type they contain.</p>
           </div>
         ) : (
@@ -779,33 +769,6 @@ export function ShootingHeatmap({
               ))}
             </div>
             <span className="text-xs text-zinc-500 ml-1">Hot</span>
-          </div>
-        )}
-
-        {personalizedScale && (
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-1.5" data-testid="heatmap-personal-baselines">
-            {SHOT_HEATMAP_SECTIONS.map((section) => {
-              const baseline = personalBaselines?.[section];
-              const average = baseline?.averagePct;
-              const workouts = baseline?.workouts ?? 0;
-              return (
-                <div
-                  key={section}
-                  className="rounded-md border border-zinc-800 bg-zinc-950/70 px-2.5 py-2"
-                  data-testid={`heatmap-baseline-${section}`}
-                >
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                    {PERSONAL_SECTION_LABELS[section]}
-                  </div>
-                  <div className="mt-0.5 text-sm font-bold text-white">
-                    {baselineLoading ? "…" : average === null || average === undefined ? "—" : `${average.toFixed(1)}%`}
-                  </div>
-                  <div className="text-[10px] text-zinc-600">
-                    {baselineError ? "Unavailable" : workouts > 0 ? `${workouts} workout${workouts === 1 ? "" : "s"}` : "No recent shots"}
-                  </div>
-                </div>
-              );
-            })}
           </div>
         )}
 

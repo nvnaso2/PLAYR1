@@ -132,11 +132,23 @@ export function buildRecentShotHeatmapBaselines(
   return { workoutWindow, sections: sectionAverages };
 }
 
-// Eleven equal bands center the player's recent average and move one color
-// for every five percentage points above or below it.
+// Map a real 0–100% shooting rate across eleven bands, with the shot-type
+// baseline always at the yellow midpoint. The lower and upper spans adapt to
+// the baseline so the legend can retain meaningful percentage endpoints.
 export function getPersonalHeatBandIndex(observedPct: number, baselinePct: number): number {
   const center = 5;
-  const stepSizePct = 5;
-  const deviationSteps = Math.round((observedPct - baselinePct) / stepSizePct);
-  return Math.max(0, Math.min(10, center + deviationSteps));
+  const observed = Math.max(0, Math.min(100, observedPct));
+  const baseline = Math.max(0, Math.min(100, baselinePct));
+  if (observed === baseline) return center;
+
+  if (observed < baseline) {
+    if (baseline === 0) return 0;
+    return Math.max(0, Math.min(center, Math.round((observed / baseline) * center)));
+  }
+
+  if (baseline === 100) return 10;
+  return Math.max(
+    center,
+    Math.min(10, center + Math.round(((observed - baseline) / (100 - baseline)) * center)),
+  );
 }

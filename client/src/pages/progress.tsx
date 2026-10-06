@@ -541,7 +541,6 @@ export default function ProgressPage() {
                   title="Shooting Heatmap"
                   personalizedScale
                   personalBaselines={shotHeatmapBaselines?.sections ?? EMPTY_SHOT_HEATMAP_BASELINES}
-                  baselineWindow={shotHeatmapBaselines?.workoutWindow ?? 10}
                   baselineLoading={shotHeatmapBaselinesLoading}
                   baselineError={shotHeatmapBaselinesError}
                 />
