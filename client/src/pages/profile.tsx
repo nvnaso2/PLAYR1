@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Crown, Fingerprint, Pencil, Settings, Target, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ShareMenu } from "@/components/share-menu";
+import { ProfileCardShareButton } from "@/components/profile-card-share-button";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { queryClient } from "@/lib/queryClient";
 import { BaseballCard, StatsTab } from "@/pages/career";
@@ -14,6 +14,7 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const { openProOffer } = useProUpgrade();
   const [, setLocation] = useLocation();
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const { data: userProfile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const { data: playerProfile, isLoading: isPlayerProfileLoading } = useQuery<any>({
@@ -32,9 +33,6 @@ export default function ProfilePage() {
       setLocation("/profile/edit?returnTo=%2Fprofile");
     }
   }, [setLocation]);
-  const slug =
-    playerProfile?.slug ||
-    `${displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "player"}${user?.id ? `-${user.id.slice(-5)}` : ""}`;
   if (isCareerLoading || isPlayerProfileLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-5 px-4 pb-24 pt-5">
@@ -107,14 +105,15 @@ export default function ProfilePage() {
               playerProfile={playerProfile}
               userProfile={userProfile || { profileImageUrl: user?.profileImageUrl }}
               userName={displayName}
+              rootRef={cardRef}
               onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })}
             />
           </div>
           <div className="flex w-full flex-wrap items-center justify-center gap-2">
-            <ShareMenu
-              url={`/player/${slug}`}
-              title={`${displayName} - PLAYR1 Player Profile`}
-              description="Check out my basketball profile on PLAYR1!"
+            <ProfileCardShareButton
+              cardRef={cardRef}
+              slug={playerProfile?.slug}
+              canShareInteractiveCard={playerProfile?.isPublic === true && playerProfile?.cardShowPlayerCard !== false}
               testId="button-share-profile"
               className="h-10 border-zinc-700 bg-zinc-900 px-4 text-zinc-200 hover:bg-zinc-800 hover:text-white"
             />

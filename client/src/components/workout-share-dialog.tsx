@@ -9,7 +9,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Download, Copy, Share2, Twitter, Instagram, Facebook, Youtube } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { shareToSocialPlatform } from "@/lib/share-utils";
+import { shareToSocialPlatform, shareWorkoutStoryImage } from "@/lib/share-utils";
+import { WorkoutStoryCard } from "@/components/workout-story-card";
+import { WORKOUT_STORY_SIZE } from "@shared/workout-story-data";
+import type { WorkoutShareDrill } from "@shared/workout-story-data";
 import playr1Logo from "@assets/Playr1_App_Logo_1774122925857.png";
 
 // ─── Platform Config ──────────────────────────────────────────────────────────
@@ -388,11 +391,10 @@ function ZoneTable({ shotData, fs, maxRows = 6 }: {
 // ─── Data types ───────────────────────────────────────────────────────────────
 interface WorkoutData {
   sessionId: string; date: string; playerName: string; displayName?: string | null;
-  teamName?: string | null; jerseyNumber?: number | null;
+  positions?: string[]; teamName?: string | null; jerseyNumber?: number | null;
   totalDuration: number; drillCount: number;
   totalShotsAttempted: number; totalShotsMade: number; shootingPct?: number | null;
-  drills: Array<{ title: string; category: string; duration: number; reps?: number | null;
-    shotsAttempted?: number | null; shotsMade?: number | null; score?: number | null }>;
+  drills: WorkoutShareDrill[];
   shotData: Array<{ location: string; made: number; attempted: number }>;
   categoryBreakdown: Array<{ category: string; count: number }>;
 }
@@ -881,13 +883,18 @@ function SeasonCard({ data, platform }: { data: SeasonData; platform: Platform }
 }
 
 // ─── Capture helpers ──────────────────────────────────────────────────────────
-async function captureCard(ref: React.RefObject<HTMLDivElement>, platform: Platform): Promise<HTMLCanvasElement | null> {
+async function captureCard(
+  ref: React.RefObject<HTMLDivElement>,
+  platform: Platform,
+  selector = "[data-share-card]",
+  dimensions?: { width: number; height: number },
+): Promise<HTMLCanvasElement | null> {
   if (!ref.current) return null;
-  const el = ref.current.querySelector("[data-share-card]") as HTMLElement;
+  const el = ref.current.querySelector(selector) as HTMLElement;
   if (!el) return null;
   const cfg = PLATFORMS.find(p => p.id === platform)!;
   return html2canvas(el, {
-    width: cfg.w, height: cfg.h, scale: 1,
+    width: dimensions?.width ?? cfg.w, height: dimensions?.height ?? cfg.h, scale: 1,
     backgroundColor: null, logging: false, useCORS: true, allowTaint: true,
   });
 }
@@ -938,19 +945,20 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
   const cardRef = useRef<HTMLDivElement>(null);
   const [platform, setPlatform] = useState<Platform>("instagram");
   const [isBusy, setIsBusy] = useState(false);
+  const workoutOnly = Boolean(workoutSessionId && (!defaultTab || defaultTab === "workout"));
   const initialTab: CardType = defaultTab || (workoutSessionId ? "workout" : seasonId ? "season" : "week");
   const [activeTab, setActiveTab] = useState<CardType>(initialTab);
 
   const { data: streakData } = useQuery<{ currentStreak: number; longestStreak: number }>({
     queryKey: ["/api/streak/me"],
     queryFn: async () => (await apiRequest("GET", "/api/streak/me")).json(),
-    enabled: open,
+    enabled: open && !workoutOnly,
   });
 
   const { data: workoutData, isLoading: lW } = useQuery<WorkoutData>({
-    queryKey: ["/api/share/workout-session", workoutSessionId],
-    queryFn: async () => (await apiRequest("GET", `/api/share/workout-session/${workoutSessionId}`)).json(),
-    enabled: open && !!workoutSessionId && activeTab === "workout",
+    queryKey: ["/api/share/workout-session/v2", workoutSessionId],
+    queryFn: async () => (await apiRequest("GET", `/api/share/workout-session/${workoutSessionId}?v=2`)).json(),
+    enabled: open && !!workoutSessionId && (workoutOnly || activeTab === "workout"),
   });
   const { data: weekData,   isLoading: lWk } = useQuery<PeriodData>({
     queryKey: ["/api/share/training-summary", "week"],
@@ -973,9 +981,10 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
     enabled: open && !!seasonId && activeTab === "season",
   });
 
-  const currentData = activeTab==="workout" ? workoutData : activeTab==="week" ? weekData
+  const currentData = workoutOnly ? workoutData : activeTab==="workout" ? workoutData : activeTab==="week" ? weekData
     : activeTab==="month" ? monthData : activeTab==="year" ? yearData : seasonData;
-  const isLoading = (activeTab==="workout"&&lW)||(activeTab==="week"&&lWk)||(activeTab==="month"&&lMo)||(activeTab==="year"&&lYr)||(activeTab==="season"&&lSn);
+  const isLoading = (workoutOnly || activeTab==="workout") ? lW
+    : (activeTab==="week"&&lWk)||(activeTab==="month"&&lMo)||(activeTab==="year"&&lYr)||(activeTab==="season"&&lSn);
 
   const getCanvas = async () => {
     const canvas = await captureCard(cardRef, platform);
@@ -1002,6 +1011,37 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
     } finally { setIsBusy(false); }
   };
 
+  const getWorkoutStoryCanvas = async () => {
+    const canvas = await captureCard(cardRef, "tiktok", "[data-workout-story-card]", WORKOUT_STORY_SIZE);
+    if (!canvas) toast({ title: "Could not capture story image", description: "Try again or download the image.", variant: "destructive" });
+    return canvas;
+  };
+
+  const handleWorkoutStoryShare = async () => {
+    setIsBusy(true);
+    try {
+      const canvas = await getWorkoutStoryCanvas();
+      if (canvas) await shareWorkoutStoryImage(canvas, toast);
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleWorkoutStoryDownload = async () => {
+    setIsBusy(true);
+    try {
+      const canvas = await getWorkoutStoryCanvas();
+      if (!canvas) return;
+      const link = document.createElement("a");
+      link.download = "playr1-workout-story.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      toast({ title: "Workout story downloaded" });
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const tabs: Array<{ value: CardType; label: string }> = [
     ...(workoutSessionId ? [{ value:"workout" as CardType, label:"Workout" }] : []),
     { value:"week",  label:"Week"  },
@@ -1019,6 +1059,72 @@ export function WorkoutShareDialog({ open, onOpenChange, workoutSessionId, defau
     if (tab==="season"  && seasonData)   return <div ref={cardRef}><SeasonCard  data={seasonData} platform={platform} /></div>;
     return null;
   };
+
+  if (workoutOnly) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="w-[96vw] max-w-md max-h-[94vh] overflow-y-auto" data-testid="dialog-workout-share">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-primary" />
+              Share workout story
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex justify-center overflow-hidden rounded-xl border border-border bg-[#111] p-2 sm:p-3">
+            {lW ? (
+              <Skeleton className="w-full max-w-[324px] aspect-[9/16] rounded-lg" />
+            ) : workoutData ? (
+              <div
+                ref={cardRef}
+                className="relative shrink-0 overflow-hidden rounded-lg"
+                style={{ width: 324, height: 576 }}
+                data-testid="workout-story-preview"
+              >
+                <div style={{
+                  width: WORKOUT_STORY_SIZE.width,
+                  height: WORKOUT_STORY_SIZE.height,
+                  transform: `scale(${324 / WORKOUT_STORY_SIZE.width})`,
+                  transformOrigin: "top left",
+                }}>
+                  <WorkoutStoryCard data={workoutData} />
+                </div>
+              </div>
+            ) : (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                {workoutSessionId ? "Workout recap could not be loaded." : "No workout session selected."}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Button
+              onClick={handleWorkoutStoryShare}
+              disabled={isBusy || lW || !workoutData}
+              className="w-full gap-2"
+              data-testid="button-share-workout-story"
+            >
+              <Share2 className="h-4 w-4" />
+              {isBusy ? "Preparing image…" : "Share image"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleWorkoutStoryDownload}
+              disabled={isBusy || lW || !workoutData}
+              className="w-full gap-2"
+              data-testid="button-download-workout-story"
+            >
+              <Download className="h-4 w-4" />
+              Download story image
+            </Button>
+            <p className="text-center text-xs leading-relaxed text-muted-foreground">
+              Choose Instagram, TikTok, WhatsApp, or Messages in your phone’s share sheet. If image sharing is unavailable, the story image downloads instead.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

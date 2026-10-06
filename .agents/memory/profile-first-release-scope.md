@@ -44,3 +44,9 @@ Keep the established Profile header title “My Profile” and group Edit Profil
 **Why:** The user objected when the heading and action placement changed; ZIP/postal code is not needed in the editor.
 
 **How to apply:** Preserve the header grouping and Settings route when adjusting the Profile editor. Removing the input is a UI-only change and must not clear stored location data.
+
+The Profile and Profile Hub Share action shares only the player's card front and back, not the full profile or a generic set of sharing choices. Include the interactive card link only when the profile is already public and card sharing is enabled; never change visibility to make sharing work. If file sharing is unavailable, download both card images.
+
+**Why:** The user wants recipients to be able to view and flip the real card when the existing public settings allow it, while still sharing card images to Stories and messaging apps.
+
+**How to apply:** Use the native share sheet for both card faces. Keep the public interactive card route card-only and pass it only data permitted by current profile visibility settings. Do not publish private cards or claim a canceled/failed share was sent.

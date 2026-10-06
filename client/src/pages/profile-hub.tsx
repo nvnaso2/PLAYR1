@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { BaseballCard, StatsTab } from "@/pages/career";
@@ -6,7 +7,7 @@ import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Fingerprint, Target, Trophy, Settings, Pencil, Crown } from "lucide-react";
-import { ShareMenu } from "@/components/share-menu";
+import { ProfileCardShareButton } from "@/components/profile-card-share-button";
 import type { CareerProfile } from "@shared/schema";
 
 type CareerNumbers = {
@@ -41,6 +42,7 @@ export default function ProfileHubPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { openProOffer } = useProUpgrade();
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const { data: profile, isLoading: profileLoading } = useQuery<any>({
     queryKey: ["/api/profile"],
@@ -57,21 +59,18 @@ export default function ProfileHubPage() {
     enabled: !!user,
     staleTime: 30_000,
   });
-  const { data: playerProfile } = useQuery<any>({
+  const { data: playerProfile, isLoading: playerProfileLoading } = useQuery<any>({
     queryKey: ["/api/player-profile"],
     enabled: !!user,
     staleTime: 30_000,
   });
 
-  const loadingCard = profileLoading || careerLoading || careerStatsLoading;
+  const loadingCard = profileLoading || careerLoading || careerStatsLoading || playerProfileLoading;
   const displayName =
     profile?.displayName ||
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
     user?.email?.split("@")[0] ||
     "Player";
-  const slug =
-    playerProfile?.slug ||
-    `${displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "player"}${user?.id ? `-${user.id.slice(-5)}` : ""}`;
   return (
     <main className="mx-auto min-h-[100dvh] max-w-6xl space-y-8 px-4 pb-12 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
       <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
@@ -120,32 +119,36 @@ export default function ProfileHubPage() {
               <Skeleton className="h-[340px] w-[240px] rounded-md bg-zinc-800" />
               <p className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-600">Loading player card</p>
             </div>
-          ) : career ? (
+          ) : (
             <>
               <BaseballCard
-                profile={career}
+                profile={(career || { cardPhotoUrl: null, jerseyNumber: null, positions: [], teamName: null, schoolName: null }) as CareerProfile}
                 careerStats={careerStats as any}
+                playerProfile={playerProfile}
+                userProfile={profile}
                 userName={displayName}
+                rootRef={cardRef}
               />
+              {!career && (
+                <div className="mt-5 flex min-h-[180px] w-full max-w-md flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-6 text-center">
+                  <Trophy className="h-8 w-8 text-orange-400" />
+                  <p className="mt-3 font-display text-lg font-bold">Your player card is waiting</p>
+                  <p className="mt-1 max-w-xs text-sm text-zinc-500">Add your player details to put your identity on the court.</p>
+                  <Button onClick={() => navigate("/profile/edit?returnTo=%2Fprofile-hub")} className="mt-4 bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400">
+                    Set up player profile
+                  </Button>
+                </div>
+              )}
             </>
-          ) : (
-            <div className="flex min-h-[250px] w-full max-w-md flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-6 text-center">
-              <Trophy className="h-8 w-8 text-orange-400" />
-              <p className="mt-3 font-display text-lg font-bold">Your player card is waiting</p>
-              <p className="mt-1 max-w-xs text-sm text-zinc-500">Add your player details to put your identity on the court.</p>
-              <Button onClick={() => navigate("/profile/edit?returnTo=%2Fprofile-hub")} className="mt-4 bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400">
-                Set up player profile
-              </Button>
-            </div>
           )}
         </div>
       </section>
 
       <section className="flex w-full flex-wrap items-center justify-center gap-2" aria-label="Profile actions" data-testid="section-profile-actions">
-        <ShareMenu
-          url={`/player/${slug}`}
-          title={`${displayName} - PLAYR1 Player Profile`}
-          description="Check out my basketball profile on PLAYR1!"
+        <ProfileCardShareButton
+          cardRef={cardRef}
+          slug={playerProfile?.slug}
+          canShareInteractiveCard={playerProfile?.isPublic === true && playerProfile?.cardShowPlayerCard !== false}
           testId="button-share-profile"
           className="h-10 border-zinc-700 bg-zinc-900 px-4 text-zinc-200 hover:bg-zinc-800 hover:text-white"
         />

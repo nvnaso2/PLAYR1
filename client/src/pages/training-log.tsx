@@ -1461,7 +1461,9 @@ export default function TrainingLogPage() {
           // get 0. SUM(duration) across the session = real total time, no inflation.
           duration: entryIdx === 0 ? totalSessionMinutes : 0,
           notes: entry.notes || undefined,
-          workoutSessionId: entriesToSave.length > 1 ? sessionId : undefined,
+          // Give single-drill sessions the same durable share/history identity
+          // as multi-drill sessions.
+          workoutSessionId: sessionId,
           shotLocation: workoutMode === "track" && isShootingDrill ? entry.shotLocation : undefined,
           shotsAttempted: workoutMode === "track" ? (derivedAttempted ?? entry.shotsAttempted) : undefined,
           shotsMade: workoutMode === "track" ? (derivedMade ?? entry.shotsMade) : undefined,
@@ -1514,7 +1516,7 @@ export default function TrainingLogPage() {
         setManualDurationMinutes("");
         setQuickCompletedDrillIds(new Set());
         setWorkoutMode("track");
-        setShareSessionId(entriesToSave.length > 1 ? sessionId : null);
+        setShareSessionId(bulkRes?.ok ? sessionId : null);
         setShowFavoriteDialog(true);
       });
 
@@ -4083,6 +4085,19 @@ export default function TrainingLogPage() {
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setShareSessionId(group.sessionId || log.id);
+                                          setShowShareDialog(true);
+                                        }}
+                                        title="Share workout story"
+                                        data-testid={`button-share-log-${log.id}`}
+                                      >
+                                        <Share2 className="h-4 w-4 text-zinc-500 hover:text-orange-300" />
+                                      </Button>
                                       <Button 
                                         variant="ghost" 
                                         size="icon"

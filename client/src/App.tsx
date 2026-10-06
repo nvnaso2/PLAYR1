@@ -47,6 +47,7 @@ const TrophyRoom = lazy(() => import("@/pages/trophy-room"));
 const MySeason = lazy(pageLoaders.mySeason);
 const Development = lazy(pageLoaders.development);
 const PlayerPublic = lazy(pageLoaders.playerPublic);
+const PlayerCardPublic = lazy(pageLoaders.playerCardPublic);
 const PlayerProfile = lazy(() => import("@/pages/player-profile"));
 const TrainerPublic = lazy(pageLoaders.trainerPublic);
 const Admin = lazy(pageLoaders.admin);
@@ -341,6 +342,7 @@ function Router() {
   const currentPath = typeof window === "undefined" ? location : window.location.pathname;
   const isQuizDeepLink = currentPath === "/quiz" || currentPath.startsWith("/quiz/");
   const isLeadMagnetDeepLink = currentPath === "/lead-magnets" || currentPath.startsWith("/lead-magnets/");
+  const isPublicPlayerCardDeepLink = /^\/player\/[^/]+\/card\/?$/.test(currentPath);
 
   if (isLeadMagnetDeepLink) {
     return isAuthenticated
@@ -348,7 +350,7 @@ function Router() {
       : <Suspense fallback={<LoadingScreen />}><LeadMagnets /></Suspense>;
   }
 
-  if (!splashDone && !isQuizDeepLink) {
+  if (!splashDone && !isQuizDeepLink && !isPublicPlayerCardDeepLink) {
     return (
       <SplashScreen
         isAuthLoading={isLoading}
@@ -360,6 +362,7 @@ function Router() {
 
   return (
     <Switch>
+      <Route path="/player/:slug/card">{() => <Suspense fallback={<LoadingScreen />}><PlayerCardPublic /></Suspense>}</Route>
       <Route path="/player/:slug">{() => <Suspense fallback={<LoadingScreen />}><PlayerPublic /></Suspense>}</Route>
       <Route path="/t/:id">{() => <Suspense fallback={<LoadingScreen />}><TrainerPublic /></Suspense>}</Route>
       <Route path="/teams/:slug">{() => <Suspense fallback={<LoadingScreen />}><TeamProfile /></Suspense>}</Route>

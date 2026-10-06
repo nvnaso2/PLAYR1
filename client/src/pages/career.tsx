@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type Ref } from "react";
 import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -110,8 +110,8 @@ import {
   COUNTRIES,
   CANADIAN_PROVINCES,
 } from "@shared/schema";
-import { ShareCardDialog } from "@/components/share-card";
-import { WorkoutShareDialog } from "@/components/workout-share-dialog";
+import { BasketballStatsShareDialog } from "@/components/basketball-stats-share-dialog";
+import type { BasketballStoryIdentity } from "@/components/basketball-story-cards";
 import CsvImportDialog from "@/components/csv-import-dialog";
 import TrophyRoomPage from "@/pages/trophy-room";
 import { PlayerProfileSection } from "@/pages/player-profile";
@@ -2425,6 +2425,8 @@ export function BaseballCard({
   userName,
   playerProfile,
   userProfile,
+  rootRef,
+  hidePhotoUpload = false,
 }: {
   profile: CareerProfile;
   careerStats?: CareerStats;
@@ -2432,6 +2434,8 @@ export function BaseballCard({
   userName?: string;
   playerProfile?: PlayerProfile | null;
   userProfile?: any;
+  rootRef?: Ref<HTMLDivElement>;
+  hidePhotoUpload?: boolean;
 }) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -2542,6 +2546,7 @@ export function BaseballCard({
   return (
     <div
       className="cursor-pointer select-none relative"
+      ref={rootRef}
       style={{
         perspective: "1200px",
         width: maxW,
@@ -2552,6 +2557,7 @@ export function BaseballCard({
     >
       <div
         className="absolute"
+        data-player-card-flipper
         style={{
           width: maxW,
           height: maxH,
@@ -2563,6 +2569,7 @@ export function BaseballCard({
         {/* FRONT - Portrait */}
         <div
           className="absolute rounded-md overflow-hidden"
+          data-player-card-face="front"
           style={{
             backfaceVisibility: "hidden",
             width: frontW,
@@ -2592,20 +2599,23 @@ export function BaseballCard({
               </div>
             )}
 
-            <label
-              className="absolute top-2 right-2 flex items-center justify-center w-8 h-8 rounded-full bg-black/60 text-white/70 hover:text-white hover:bg-black/80 transition-colors cursor-pointer"
-              onClick={(e) => e.stopPropagation()}
-              data-testid="button-upload-card-photo"
-            >
-              <Camera className="w-4 h-4" />
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handlePhotoUpload}
-                disabled={uploading}
-              />
-            </label>
+            {!hidePhotoUpload && (
+              <label
+                className="absolute top-2 right-2 flex items-center justify-center w-8 h-8 rounded-full bg-black/60 text-white/70 hover:text-white hover:bg-black/80 transition-colors cursor-pointer"
+                onClick={(e) => e.stopPropagation()}
+                data-testid="button-upload-card-photo"
+                data-profile-card-share-ignore
+              >
+                <Camera className="w-4 h-4" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                  disabled={uploading}
+                />
+              </label>
+            )}
 
             <div className="absolute bottom-0 left-0 right-0">
               <div className="px-3 py-2 text-left" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 60%, rgba(0,0,0,0.7) 85%, transparent 100%)" }}>
@@ -2633,6 +2643,7 @@ export function BaseballCard({
         {/* BACK - Portrait, matching the front dimensions */}
         <div
           className="absolute rounded-md overflow-hidden"
+          data-player-card-face="back"
           style={{
             backfaceVisibility: "hidden",
             transform: "rotateY(180deg)",
@@ -2741,6 +2752,7 @@ function StatsOverviewCard({
   onCreateSeason,
   onLogGame,
   onImportStats,
+  onShareCareer,
   onShareGame,
   onEditGame,
   onDeleteGame,
@@ -2762,6 +2774,7 @@ function StatsOverviewCard({
   onCreateSeason: () => void;
   onLogGame: () => void;
   onImportStats: () => void;
+  onShareCareer: () => void;
   onShareGame: (gameId: string) => void;
   onEditGame: (game: Game) => void;
   onDeleteGame: (gameId: string) => void;
@@ -2895,6 +2908,33 @@ function StatsOverviewCard({
               <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-600">{item.label}</p>
             </div>
           ))}
+        </div>
+        <div className="flex justify-end">
+          {statsScope === "career" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onShareCareer}
+              className="h-8 border-orange-500/30 px-3 text-[11px] font-semibold text-orange-200 hover:bg-orange-500/10 hover:text-orange-100"
+              data-testid="button-share-career-story"
+            >
+              <Share2 className="mr-1.5 h-3.5 w-3.5" />
+              Share career story
+            </Button>
+          ) : selectedSeason ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => onShareSeason(selectedSeason.id)}
+              className="h-8 border-orange-500/30 px-3 text-[11px] font-semibold text-orange-200 hover:bg-orange-500/10 hover:text-orange-100"
+              data-testid={`button-share-selected-season-${selectedSeason.id}`}
+            >
+              <Share2 className="mr-1.5 h-3.5 w-3.5" />
+              Share season story
+            </Button>
+          ) : null}
         </div>
         {hasShootingData && (
           <div className="grid grid-cols-3 divide-x divide-white/[0.07] rounded-lg border border-white/[0.06] bg-black/15 py-2">
@@ -3097,7 +3137,23 @@ function StatsOverviewCard({
 
 export function StatsTab() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const { data: careerProfile } = useQuery<CareerProfile | null>({
+    queryKey: ["/api/career"],
+  });
+  const { data: userProfile } = useQuery<{ displayName?: string | null }>({
+    queryKey: ["/api/profile"],
+  });
+  const playerName = user ? [user.firstName, user.lastName].filter(Boolean).join(" ") : null;
+  const storyIdentity: BasketballStoryIdentity = {
+    playerName: playerName || null,
+    displayName: userProfile?.displayName || null,
+    positions: careerProfile?.positions || [],
+    teamName: careerProfile?.teamName || null,
+    jerseyNumber: careerProfile?.jerseyNumber ?? null,
+    schoolName: careerProfile?.schoolName || null,
+  };
   const [statsScope, setStatsScope] = useState<"career" | "season">("career");
   const [statsSeasonId, setStatsSeasonId] = useState<string>("");
   const [isManaging, setIsManaging] = useState(false);
@@ -3108,6 +3164,7 @@ export function StatsTab() {
   const [shareGameId, setShareGameId] = useState<string | null>(null);
   const [shareSeasonId, setShareSeasonId] = useState<string | null>(null);
   const [showSeasonShareDialog, setShowSeasonShareDialog] = useState(false);
+  const [showCareerShareDialog, setShowCareerShareDialog] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [postJournalGameId, setPostJournalGameId] = useState<string | null>(null);
 
@@ -3400,6 +3457,7 @@ export function StatsTab() {
           openGameDialog();
         }}
         onImportStats={() => setShowCsvImport(true)}
+        onShareCareer={() => setShowCareerShareDialog(true)}
         onShareGame={setShareGameId}
         onEditGame={(game) => openGameDialog(game)}
         onDeleteGame={(gameId) => {
@@ -3892,21 +3950,31 @@ export function StatsTab() {
 
       <CsvImportDialog open={showCsvImport} onOpenChange={setShowCsvImport} />
 
-      <WorkoutShareDialog
+      <BasketballStatsShareDialog
         open={showSeasonShareDialog}
         onOpenChange={(open) => {
           setShowSeasonShareDialog(open);
           if (!open) setShareSeasonId(null);
         }}
+        mode="season"
         seasonId={shareSeasonId}
-        defaultTab="season"
+        identity={storyIdentity}
+      />
+
+      <BasketballStatsShareDialog
+        open={showCareerShareDialog}
+        onOpenChange={setShowCareerShareDialog}
+        mode="career"
+        identity={storyIdentity}
       />
 
       {shareGameId && (
-        <ShareCardDialog
+        <BasketballStatsShareDialog
           open={!!shareGameId}
           onOpenChange={(open) => { if (!open) setShareGameId(null); }}
+          mode="game"
           gameId={shareGameId}
+          identity={storyIdentity}
         />
       )}
     </div>

@@ -4,6 +4,12 @@ import { spawn } from "child_process";
 import path from "path";
 import { storage } from "./storage";
 import { FREE_SAVED_WORKOUT_LIMIT } from "@shared/workout-limits";
+import {
+  buildWorkoutShareDrills,
+  calculateWorkoutShareTotals,
+  getWorkoutShareLogShootingTotals,
+} from "@shared/workout-story-data";
+import { getWorkoutShareScope, resolveWorkoutShareSessionId } from "./workout-share-scope";
 import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { ObjectStorageService, registerObjectStorageRoutes, processVideoObject } from "./replit_integrations/object_storage";
 import { users } from "@shared/models/auth";
@@ -6987,6 +6993,19 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
       const userId = req.user!.claims.sub;
       const { sessionId } = req.params;
 
+      const scopeCandidates = await db.select({
+        id: trainingLogs.id,
+        workoutSessionId: trainingLogs.workoutSessionId,
+      }).from(trainingLogs)
+        .where(and(
+          eq(trainingLogs.userId, userId),
+          or(
+            eq(trainingLogs.workoutSessionId, sessionId),
+            eq(trainingLogs.id, sessionId),
+          ),
+        ));
+      const resolvedSessionId = resolveWorkoutShareSessionId(sessionId, scopeCandidates);
+
       const sessionLogs = await db.select({
         id: trainingLogs.id,
         drillId: trainingLogs.drillId,
@@ -7002,13 +7021,42 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
         drillCategory: drills.category,
       }).from(trainingLogs)
         .leftJoin(drills, eq(drills.id, trainingLogs.drillId))
-        .where(and(
-          eq(trainingLogs.userId, userId),
-          eq(trainingLogs.workoutSessionId, sessionId)
-        ))
+        .where(getWorkoutShareScope(userId, resolvedSessionId))
         .orderBy(trainingLogs.completedAt);
 
       if (!sessionLogs.length) return res.status(404).json({ message: "Session not found" });
+
+      const logIds = sessionLogs.map((log) => log.id);
+      const [storedMetrics, metricTemplates] = await Promise.all([
+        db.select().from(trainingLogMetrics)
+          .where(inArray(trainingLogMetrics.trainingLogId, logIds)),
+        storage.getMetricTemplates(),
+      ]);
+      const metricTemplateById = new Map(metricTemplates.map((template) => [template.id, template]));
+      const metricsByLog = new Map<string, Array<{
+        id: string;
+        name: string;
+        label: string;
+        unit: string | null;
+        value: string | null;
+      }>>();
+      for (const metric of storedMetrics) {
+        const template = metricTemplateById.get(metric.metricId);
+        if (!template) continue;
+        const values = metricsByLog.get(metric.trainingLogId) ?? [];
+        values.push({
+          id: metric.metricId,
+          name: template.name,
+          label: template.label,
+          unit: template.unit,
+          value: metric.value,
+        });
+        metricsByLog.set(metric.trainingLogId, values);
+      }
+      const shareLogs = sessionLogs.map((log) => ({
+        ...log,
+        metrics: metricsByLog.get(log.id) ?? [],
+      }));
 
       const [user] = await db.select().from(users).where(eq(users.id, userId));
       const profile = await storage.getUserProfile(userId);
@@ -7016,11 +7064,12 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
 
       // Aggregate shot data by location
       const shotMap: Record<string, { made: number; attempted: number }> = {};
-      for (const l of sessionLogs) {
-        if (l.shotLocation && (l.shotsAttempted || 0) > 0) {
+      for (const l of shareLogs) {
+        const shootingTotals = getWorkoutShareLogShootingTotals(l);
+        if (l.shotLocation && shootingTotals) {
           if (!shotMap[l.shotLocation]) shotMap[l.shotLocation] = { made: 0, attempted: 0 };
-          shotMap[l.shotLocation].made += l.shotsMade || 0;
-          shotMap[l.shotLocation].attempted += l.shotsAttempted || 0;
+          shotMap[l.shotLocation].made += shootingTotals.made;
+          shotMap[l.shotLocation].attempted += shootingTotals.attempted;
         }
       }
 
@@ -7031,31 +7080,18 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
         catMap[cat] = (catMap[cat] || 0) + 1;
       }
 
-      const totalShots = sessionLogs.reduce((s, l) => s + (l.shotsAttempted || 0), 0);
-      const totalMade = sessionLogs.reduce((s, l) => s + (l.shotsMade || 0), 0);
+      const recap = calculateWorkoutShareTotals(shareLogs);
 
       res.json({
-        sessionId,
+        sessionId: resolvedSessionId,
         date: sessionLogs[0].completedAt,
-        playerName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Player',
+        playerName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
         displayName: profile?.displayName || null,
+        positions: career?.positions || [],
         teamName: career?.teamName || null,
-        jerseyNumber: career?.jerseyNumber || null,
-        totalDuration: sessionLogs.reduce((s, l) => s + l.duration, 0),
-        drillCount: sessionLogs.length,
-        totalShotsAttempted: totalShots,
-        totalShotsMade: totalMade,
-        shootingPct: totalShots > 0 ? Math.round((totalMade / totalShots) * 100) : null,
-        drills: sessionLogs.map(l => ({
-          title: l.drillTitle || 'Drill',
-          category: l.drillCategory || 'general',
-          duration: l.duration,
-          reps: l.reps,
-          sets: l.sets,
-          score: l.score,
-          shotsAttempted: l.shotsAttempted,
-          shotsMade: l.shotsMade,
-        })),
+        jerseyNumber: career?.jerseyNumber ?? null,
+        ...recap,
+        drills: buildWorkoutShareDrills(shareLogs),
         shotData: Object.entries(shotMap).map(([location, d]) => ({ location, ...d })),
         categoryBreakdown: Object.entries(catMap).map(([category, count]) => ({ category, count })),
       });

@@ -263,17 +263,22 @@ const LOCATION_TO_ZONE: Record<string, string> = {
 
 // ── Color scale matching the PLAYR1 reference heatmap ───────────────────────
 // Dark maroon (cold/poor) → orange → olive → bright green (hot/excellent)
+export const SHOT_HEAT_COLOR_BANDS = [
+  { maxPct: 30, label: "≤30%", color: "#6B0E0E" },
+  { maxPct: 38, label: "31–38%", color: "#9B1F0A" },
+  { maxPct: 45, label: "39–45%", color: "#C03410" },
+  { maxPct: 52, label: "46–52%", color: "#C86020" },
+  { maxPct: 58, label: "53–58%", color: "#9B7820" },
+  { maxPct: 65, label: "59–65%", color: "#6B7A20" },
+  { maxPct: 72, label: "66–72%", color: "#3D7A2A" },
+  { maxPct: 80, label: "73–80%", color: "#2E8E2E" },
+  { maxPct: 88, label: "81–88%", color: "#1AA81A" },
+  { maxPct: Infinity, label: ">88%", color: "#0DC80D" },
+] as const;
+
 function getHeatColor(pct: number): string {
-  if (pct <= 30) return "#6B0E0E"; // dark maroon
-  if (pct <= 38) return "#9B1F0A"; // dark red
-  if (pct <= 45) return "#C03410"; // red-orange
-  if (pct <= 52) return "#C86020"; // burnt orange
-  if (pct <= 58) return "#9B7820"; // dark olive/khaki
-  if (pct <= 65) return "#6B7A20"; // olive green
-  if (pct <= 72) return "#3D7A2A"; // medium green
-  if (pct <= 80) return "#2E8E2E"; // green
-  if (pct <= 88) return "#1AA81A"; // bright green
-  return "#0DC80D";               // very bright green (elite)
+  return SHOT_HEAT_COLOR_BANDS.find((band) => pct <= band.maxPct)?.color
+    ?? SHOT_HEAT_COLOR_BANDS[SHOT_HEAT_COLOR_BANDS.length - 1].color;
 }
 
 // Zone opacity — ramp up from 0.72 to 0.90 with volume
@@ -286,11 +291,53 @@ function toSvgPoints(pts: { x: number; y: number }[]): string {
   return pts.map(p => `${p.x},${p.y}`).join(" ");
 }
 
+function getZoneData(shotData: ShotData[]) {
+  const result: Record<string, { made: number; missed: number; percentage: number }> = {};
+
+  Object.keys(COURT_ZONES).forEach(zone => {
+    result[zone] = { made: 0, missed: 0, percentage: 0 };
+  });
+
+  shotData.forEach(shot => {
+    const zoneName = LOCATION_TO_ZONE[shot.location] || shot.location;
+    if (!result[zoneName]) return;
+
+    result[zoneName].made += shot.made;
+    const missed =
+      shot.missed !== undefined
+        ? shot.missed
+        : shot.attempted !== undefined
+        ? Math.max(0, shot.attempted - shot.made)
+        : 0;
+    result[zoneName].missed += missed;
+  });
+
+  Object.keys(result).forEach(zone => {
+    const total = result[zone].made + result[zone].missed;
+    result[zone].percentage = total > 0 ? Math.round((result[zone].made / total) * 100) : 0;
+  });
+
+  return result;
+}
+
+export function hasMappedWorkoutShotData(
+  shotData: Array<{ location: string; attempted: number }>,
+) {
+  return shotData.some(shot => {
+    const zoneName = LOCATION_TO_ZONE[shot.location] || shot.location;
+    return shot.attempted > 0 && Boolean(COURT_ZONES[zoneName]);
+  });
+}
+
 // ── Court SVG (black background, white lines) ────────────────────────────────
 function HeatmapCourtSVG({
   zoneData,
+  showLogo = true,
+  blendIntoBackground = false,
 }: {
   zoneData: Record<string, { made: number; missed: number; percentage: number }>;
+  showLogo?: boolean;
+  blendIntoBackground?: boolean;
 }) {
   const maxTotal = useMemo(
     () => Math.max(1, ...Object.values(zoneData).map(d => d.made + d.missed)),
@@ -303,23 +350,27 @@ function HeatmapCourtSVG({
       className="w-full h-full"
       preserveAspectRatio="xMidYMid meet"
     >
-      {/* ── Black court background (stops at baseline — logo strip below is transparent) ── */}
-      <rect x="0" y="0" width="500" height="435" fill="#000000" />
+      {/* Keep the workout map on the story surface; the dashboard retains its black court. */}
+      {!blendIntoBackground && <rect x="0" y="0" width="500" height="435" fill="#000000" />}
 
-      {/* ── PLAYR1 logo in the strip below the baseline ── */}
-      <defs>
-        <clipPath id="heatmapLogoClip">
-          <rect x="0" y="435" width="500" height="35" />
-        </clipPath>
-      </defs>
-      {/* Render the square logo large, clipped to the 35px strip — shows the centred text portion */}
-      <image
-        href={playr1Logo}
-        x="175" y="378"
-        width="150" height="150"
-        clipPath="url(#heatmapLogoClip)"
-        preserveAspectRatio="xMidYMid meet"
-      />
+      {showLogo && (
+        <>
+          {/* ── PLAYR1 logo in the strip below the baseline ── */}
+          <defs>
+            <clipPath id="heatmapLogoClip">
+              <rect x="0" y="435" width="500" height="35" />
+            </clipPath>
+          </defs>
+          {/* Render the square logo large, clipped to the 35px strip — shows the centred text portion */}
+          <image
+            href={playr1Logo}
+            x="175" y="378"
+            width="150" height="150"
+            clipPath="url(#heatmapLogoClip)"
+            preserveAspectRatio="xMidYMid meet"
+          />
+        </>
+      )}
 
 
       {/* ── Base zone fills — dim dark tint so all zones are always visible ── */}
@@ -328,10 +379,10 @@ function HeatmapCourtSVG({
           key={`base-${zoneName}`}
           points={toSvgPoints(zone.points)}
           fill="#1a1a2e"
-          opacity={0.85}
+          opacity={blendIntoBackground ? 0.32 : 0.85}
           stroke={zone.noStroke ? "none" : "white"}
           strokeWidth={zone.noStroke ? "0" : "0.8"}
-          strokeOpacity={zone.noStroke ? "0" : "0.25"}
+          strokeOpacity={zone.noStroke ? "0" : blendIntoBackground ? "0.12" : "0.25"}
         />
       ))}
 
@@ -360,7 +411,7 @@ function HeatmapCourtSVG({
               opacity={alpha}
               stroke={zone.noStroke ? "none" : "white"}
               strokeWidth={zone.noStroke ? "0" : "1"}
-              strokeOpacity={zone.noStroke ? "0" : "0.5"}
+              strokeOpacity={zone.noStroke ? "0" : blendIntoBackground ? "0.28" : "0.5"}
             >
               <title>{`${zone.label}: ${data.made}/${total} (${data.percentage}%)`}</title>
             </polygon>
@@ -403,7 +454,7 @@ function HeatmapCourtSVG({
       })}
 
       {/* ── White court lines (drawn ON TOP of zone fills) ── */}
-      <g>
+      <g opacity={blendIntoBackground ? 0.68 : 1}>
         {/* Court border */}
         <rect x="5" y="5" width="490" height="460" fill="none" stroke="white" strokeWidth="2.5" />
 
@@ -468,6 +519,32 @@ function HeatmapCourtSVG({
 }
 
 // ── Public component ─────────────────────────────────────────────────────────
+/**
+ * Dashboard shooting-court visualization without the dashboard card wrapper.
+ * Reuses the same section polygons, location aggregation, percentages, and heat colors.
+ */
+export function WorkoutShootingCourt({
+  shotData,
+  blendIntoBackground = false,
+}: {
+  shotData: Array<{ location: string; made: number; attempted: number }>;
+  blendIntoBackground?: boolean;
+}) {
+  const zoneData = useMemo(
+    () => getZoneData(shotData.map(shot => ({ ...shot, missed: Math.max(0, shot.attempted - shot.made) }))),
+    [shotData],
+  );
+
+  return (
+    <div
+      data-testid="workout-shooting-court"
+      style={{ width: "100%", height: "100%" }}
+    >
+      <HeatmapCourtSVG zoneData={zoneData} showLogo={false} blendIntoBackground={blendIntoBackground} />
+    </div>
+  );
+}
+
 export function ShootingHeatmap({
   shotData,
   title = "Shooting Heatmap",
@@ -490,34 +567,7 @@ export function ShootingHeatmap({
     return map;
   }, [shotLocationOptions]);
 
-  const zoneData = useMemo(() => {
-    const result: Record<string, { made: number; missed: number; percentage: number }> = {};
-
-    Object.keys(COURT_ZONES).forEach(zone => {
-      result[zone] = { made: 0, missed: 0, percentage: 0 };
-    });
-
-    shotData.forEach(shot => {
-      const zoneName = LOCATION_TO_ZONE[shot.location] || shot.location;
-      if (result[zoneName]) {
-        result[zoneName].made += shot.made;
-        const missed =
-          shot.missed !== undefined
-            ? shot.missed
-            : shot.attempted !== undefined
-            ? Math.max(0, shot.attempted - shot.made)
-            : 0;
-        result[zoneName].missed += missed;
-      }
-    });
-
-    Object.keys(result).forEach(zone => {
-      const total = result[zone].made + result[zone].missed;
-      result[zone].percentage = total > 0 ? Math.round((result[zone].made / total) * 100) : 0;
-    });
-
-    return result;
-  }, [shotData]);
+  const zoneData = useMemo(() => getZoneData(shotData), [shotData]);
 
   const totals = useMemo(() => {
     let made = 0, attempted = 0;
@@ -560,16 +610,9 @@ export function ShootingHeatmap({
         <div className="flex items-center justify-center gap-1 mt-3" data-testid="heatmap-legend">
           <span className="text-xs text-zinc-500 mr-1">Cold</span>
           <div className="flex h-3 rounded overflow-hidden" data-testid="heatmap-color-scale">
-            <div className="w-5" style={{ background: "#6B0E0E" }} title="≤30%" />
-            <div className="w-5" style={{ background: "#9B1F0A" }} title="31–38%" />
-            <div className="w-5" style={{ background: "#C03410" }} title="39–45%" />
-            <div className="w-5" style={{ background: "#C86020" }} title="46–52%" />
-            <div className="w-5" style={{ background: "#9B7820" }} title="53–58%" />
-            <div className="w-5" style={{ background: "#6B7A20" }} title="59–65%" />
-            <div className="w-5" style={{ background: "#3D7A2A" }} title="66–72%" />
-            <div className="w-5" style={{ background: "#2E8E2E" }} title="73–80%" />
-            <div className="w-5" style={{ background: "#1AA81A" }} title="81–88%" />
-            <div className="w-5" style={{ background: "#0DC80D" }} title=">88%" />
+            {SHOT_HEAT_COLOR_BANDS.map((band) => (
+              <div key={band.label} className="w-5" style={{ background: band.color }} title={band.label} />
+            ))}
           </div>
           <span className="text-xs text-zinc-500 ml-1">Hot</span>
         </div>

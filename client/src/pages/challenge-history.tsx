@@ -191,7 +191,7 @@ export default function ChallengeHistory() {
                     </div>
                   </button>
 
-                  {/* Share button — only shown when a saved session exists */}
+                  {/* Share button — the API also accepts legacy single-log IDs. */}
                   {hasSession && (
                     <Button
                       variant="ghost"

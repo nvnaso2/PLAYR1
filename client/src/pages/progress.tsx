@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { StatsCard } from "@/components/stats-card";
 import { ShootingHeatmap, type ShotData } from "@/components/shooting-heatmap";
+import { DashboardShareDialog } from "@/components/dashboard-share-dialog";
 import {
   BarChart,
   Bar,
@@ -40,6 +41,7 @@ import {
   LineChart,
   ChevronLeft,
   ChevronRight,
+  Share2,
 } from "lucide-react";
 
 const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444"];
@@ -187,6 +189,7 @@ export default function ProgressPage() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("weekly");
   const [activeSkill, setActiveSkill] = useState("all");
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("shotsMade");
+  const [shareOpen, setShareOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const fromHub = location.includes("from=hub");
 
@@ -331,15 +334,26 @@ export default function ProgressPage() {
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setLocation(`/progress/customize${fromHub ? "?from=hub" : ""}`)}
-            className="h-10 w-full border-white/35 bg-white/5 text-white hover:bg-white/10 hover:text-white sm:min-w-[136px] sm:w-auto"
-            data-testid="button-customize-dashboard-stats"
-          >
-            Customize Hub
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              size="sm"
+              onClick={() => setShareOpen(true)}
+              className="h-10 w-full gap-2 bg-orange-500 font-bold text-black hover:bg-orange-400 sm:w-auto"
+              data-testid="button-share-dashboard"
+            >
+              <Share2 className="h-4 w-4" />
+              Share Dashboard
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setLocation(`/progress/customize${fromHub ? "?from=hub" : ""}`)}
+              className="h-10 w-full border-white/35 bg-white/5 text-white hover:bg-white/10 hover:text-white sm:min-w-[136px] sm:w-auto"
+              data-testid="button-customize-dashboard-stats"
+            >
+              Customize Hub
+            </Button>
+          </div>
           <div className="grid w-full grid-cols-4 gap-1 sm:flex sm:w-auto" role="group" aria-label="Choose dashboard time range">
             {(["daily", "weekly", "monthly", "annual"] as TimePeriod[]).map((period) => (
               <Button
@@ -759,6 +773,11 @@ export default function ProgressPage() {
           </div>
         </>
       )}
+      <DashboardShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        initialPeriod={timePeriod}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ export const pageLoaders = {
   mySeason: () => import("@/pages/my-season"),
   development: () => import("@/pages/development"),
   playerPublic: () => import("@/pages/player-public"),
+  playerCardPublic: () => import("@/pages/player-card-public"),
   trainerPublic: () => import("@/pages/trainer-public"),
   admin: () => import("@/pages/admin"),
   trainerDashboard: () => import("@/pages/trainer/index"),

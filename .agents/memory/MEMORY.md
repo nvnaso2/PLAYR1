@@ -14,6 +14,7 @@
 - [Subscription entitlement boundary](subscription-entitlement-boundary.md) — effective plan and Stripe status are read from the users table, while Pro Infinity bypasses Stripe activity
 - [Training streak activity](training-streak-activity.md) — any saved workout advances the streak once per server day; daily challenge completion remains drill-specific
 - [Workout builder flow](workout-builder-flow.md) — Start and Create Workout both enter the Drill Library card selector before save or logging-mode choice
+- [PLAYR1 story sharing](workout-story-sharing.md) — workout, dashboard, and Career/Season/Game cards are distinct 9:16 flows with separate content
 - [PLAYR1 Project goal system](playr1-project-goal-system.md) — player-owned projects are broader than workouts; discovery is free, while ongoing coaching is Pro
 - [Community feed baseline](community-feed-baseline.md) — uniform, multi-item activity feed is the approved rollback baseline before single-activity browsing
 - [Community first-release navigation](community-first-release-navigation.md) — preserve Community code while keeping its entry point in the admin menu, not player tabs
