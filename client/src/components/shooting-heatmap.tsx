@@ -284,32 +284,32 @@ const LOCATION_TO_ZONE: Record<string, string> = {
 };
 
 // ── Color scale matching the PLAYR1 reference heatmap ───────────────────────
-// Muted maroon (cold/poor) → subdued gold → dark olive → deep green (hot/excellent)
+// Rich maroon (cold/poor) → warm gold → fresh green → saturated emerald (hot/excellent)
 export const SHOT_HEAT_COLOR_BANDS = [
-  { maxPct: 30, label: "≤30%", color: "#49191B" },
-  { maxPct: 38, label: "31–38%", color: "#671D0D" },
-  { maxPct: 45, label: "39–45%", color: "#79250F" },
-  { maxPct: 52, label: "46–52%", color: "#82401B" },
-  { maxPct: 58, label: "53–58%", color: "#6F551B" },
-  { maxPct: 65, label: "59–65%", color: "#505D20" },
-  { maxPct: 72, label: "66–72%", color: "#365F27" },
-  { maxPct: 80, label: "73–80%", color: "#2A7029" },
-  { maxPct: 88, label: "81–88%", color: "#207D24" },
-  { maxPct: Infinity, label: ">88%", color: "#167E1B" },
+  { maxPct: 30, label: "≤30%", color: "#681C2B" },
+  { maxPct: 38, label: "31–38%", color: "#85231F" },
+  { maxPct: 45, label: "39–45%", color: "#A52C1B" },
+  { maxPct: 52, label: "46–52%", color: "#BC421C" },
+  { maxPct: 58, label: "53–58%", color: "#B6781D" },
+  { maxPct: 65, label: "59–65%", color: "#7C8C22" },
+  { maxPct: 72, label: "66–72%", color: "#467D26" },
+  { maxPct: 80, label: "73–80%", color: "#2F8A2D" },
+  { maxPct: 88, label: "81–88%", color: "#239638" },
+  { maxPct: Infinity, label: ">88%", color: "#178C54" },
 ] as const;
 
 const PERSONAL_SHOT_HEAT_STOPS = [
-  "#4F2026",
-  "#5F272B",
-  "#70302F",
-  "#7D3B35",
-  "#89533F",
-  "#82935E",
-  "#71864F",
-  "#607B4A",
-  "#50714B",
-  "#41664B",
-  "#315744",
+  "#842537",
+  "#A02C3A",
+  "#B9363C",
+  "#CF4B37",
+  "#DA7040",
+  "#A9CF59",
+  "#91C84A",
+  "#76BF43",
+  "#59B447",
+  "#3CA451",
+  "#258B5C",
 ] as const;
 const PERSONAL_SHOT_HEAT_GRADIENT = `linear-gradient(90deg, ${PERSONAL_SHOT_HEAT_STOPS
   .map((color, index) => `${color} ${index * 10}%`)
@@ -771,7 +771,7 @@ export function ShootingHeatmap({
             </div>
             <div className="flex justify-center gap-1 text-[10px] text-zinc-500">
               <span>Lower</span>
-              <span className="mx-2" style={{ color: "#879768" }}>Your section average</span>
+              <span className="mx-2" style={{ color: "#A9CF59" }}>Your section average</span>
               <span>Higher</span>
             </div>
             <p className="text-center text-[10px] text-zinc-600">Gray zones need more recent data for every shot type they contain.</p>
