@@ -6,6 +6,7 @@ import { useAdmin } from "@/hooks/use-admin";
 import { useRole } from "@/hooks/use-role";
 
 import { preloadRoute, preloadCommonPages } from "@/lib/pageLoaders";
+import { useShootingCohortAdminNotificationCounts } from "@/lib/shooting-cohort-api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,10 @@ export function AppSidebar() {
   });
   const hasLinkedChildren = (parentChildren?.length || 0) > 0;
   const isParentOnly = hasLinkedChildren && (!careerData || !careerData.onboardingCompleted);
+  const { data: shootingCohortNotifications } = useShootingCohortAdminNotificationCounts(!!user && isAdmin);
+  const shootingCohortNotificationTotal = (shootingCohortNotifications?.applications ?? 0)
+    + (shootingCohortNotifications?.filmReview ?? 0)
+    + (shootingCohortNotifications?.customRequests ?? 0);
   const { data: playerHelpUnread } = useQuery<{ available: boolean; unreadCount: number }>({
     queryKey: ["/api/admin/support-messages/unread", user?.id],
     queryFn: async () => {
@@ -331,7 +336,16 @@ export function AppSidebar() {
                         >
                           <Link href="/admin/shooting-cohort" onClick={closeSidebar}>
                             <Target className="w-4 h-4" />
-                            <span>Shooting Cohort</span>
+                            <span className="flex-1">Shooting Cohort</span>
+                            {shootingCohortNotificationTotal > 0 && (
+                              <span
+                                aria-label={`${shootingCohortNotificationTotal} outstanding shooting cohort notifications`}
+                                className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 font-mono text-[10px] font-bold leading-none text-black shadow-[0_0_12px_hsl(var(--primary)/0.65)] motion-safe:animate-pulse"
+                                data-testid="badge-sidebar-shooting-cohort-notifications"
+                              >
+                                {shootingCohortNotificationTotal > 99 ? "99+" : shootingCohortNotificationTotal}
+                              </span>
+                            )}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

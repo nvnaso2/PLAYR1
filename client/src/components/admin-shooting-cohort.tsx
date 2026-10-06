@@ -106,7 +106,7 @@ function AssessmentReview({ application }: { application: ShootingCohortAdminApp
         return (
           <details key={assessment.id} className="group rounded-xl border border-white/[0.07] bg-[#11110f]">
             <summary className="flex cursor-pointer list-none items-center gap-3 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-400/10 text-orange-300"><Target className="h-4 w-4" /></span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><Target className="h-4 w-4" /></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-xs font-semibold text-stone-100">
                   {assessment.type === "baseline" ? "Baseline" : `Retest ${assessments.length - index}`} · {formatDate(assessment.createdAt)}
@@ -255,7 +255,7 @@ function ApplicantCard({
               disabled={pending || disabledForCapacity}
               title={disabledForCapacity ? "No open seat. Increase capacity or free a reserved seat first." : `${actionLabel} applicant`}
               className={status === "active" || status === "invited"
-                ? "h-8 bg-orange-400 px-3 text-[11px] font-bold text-[#17120d] hover:bg-orange-300"
+                ? "h-8 bg-primary px-3 text-[11px] font-bold text-black hover:bg-primary/90"
                 : "h-8 border-white/10 bg-transparent px-3 text-[11px] text-stone-300 hover:border-orange-300/30 hover:bg-orange-300/[0.05] hover:text-orange-100"}
             >
               {status === "active" && <Check className="mr-1.5 h-3.5 w-3.5" />}
@@ -424,7 +424,7 @@ function CohortOverview({
           </div>
           <div className="space-y-2">
             <p className="text-[10px] leading-4 text-stone-600">Changes affect new applications. Existing invitations still hold their reserved seats.</p>
-            <Button onClick={saveSettings} disabled={saving} className="h-10 w-full bg-orange-400 font-bold text-[#17120d] hover:bg-orange-300">
+            <Button onClick={saveSettings} disabled={saving} className="h-10 w-full bg-primary font-bold text-black hover:bg-primary/90">
               {saving ? "Saving settings…" : "Save program settings"} <Check className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -653,7 +653,7 @@ function SharedConversation({
               <span className="text-[9px] leading-4 text-stone-600">Enter to post · Shift + Enter for a new line</span>
               <span className="font-mono text-[9px] text-stone-700">{messageText.length}/2000</span>
             </div>
-            <Button onClick={() => void submit()} disabled={!messageText.trim() || sending} className="mt-3 h-10 w-full bg-orange-400 font-bold text-[#17120d] hover:bg-orange-300">
+            <Button onClick={() => void submit()} disabled={!messageText.trim() || sending} className="mt-3 h-10 w-full bg-primary font-bold text-black hover:bg-primary/90">
               {sending ? "Posting…" : "Post to the room"} <Send className="ml-2 h-4 w-4" />
             </Button>
             <p className="mt-3 border-t border-white/[0.07] pt-3 text-[9px] leading-4 text-stone-600">Admins can remove shared messages. Player Inbox conversations stay private and separate.</p>

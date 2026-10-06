@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { SHOOTING_COHORT_NOTIFICATION_COUNTS_QUERY_KEY } from "@/lib/shooting-cohort-api";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -205,6 +206,7 @@ export function AdminCustomWorkoutRequests() {
       apiRequest("PATCH", `/api/admin/custom-workout-requests/${id}/status`, { status, declineReason }),
     onSuccess: (_response, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/custom-workout-requests"] });
+      queryClient.invalidateQueries({ queryKey: SHOOTING_COHORT_NOTIFICATION_COUNTS_QUERY_KEY });
       if (variables.status === "declined") closeDialog();
       toast({ title: "Request updated" });
     },
@@ -233,9 +235,10 @@ export function AdminCustomWorkoutRequests() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/custom-workout-requests"] });
+      queryClient.invalidateQueries({ queryKey: SHOOTING_COHORT_NOTIFICATION_COUNTS_QUERY_KEY });
       closeDialog();
       setActiveTab("assigned");
-      toast({ title: "Workout assigned", description: "The player can now start it from their request history." });
+      toast({ title: "Workout assigned", description: "The player can start it from Assigned Workouts." });
     },
     onError: (error: Error) => toast({ title: "Could not assign workout", description: error.message, variant: "destructive" }),
   });

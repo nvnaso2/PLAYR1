@@ -76,6 +76,7 @@ import {
   getAllActiveShootingCohortVideoSubmissionsForAdmin,
   getPlayerShootingCohortAssessments,
   getShootingCohortAdminOverview,
+  getShootingCohortNotificationCounts,
   getShootingCohortStatus,
   getShootingCohortVideoSubmissionForPlayer,
   getShootingCohortVideoSubmissionsForAdmin,
@@ -3393,6 +3394,16 @@ ${JSON.stringify(catalogForPrompt)}
     } catch (error) {
       console.error("Error starting shooting cohort video processing:", error);
       res.status(500).json({ message: "Failed to start video compatibility processing" });
+    }
+  });
+
+  app.get("/api/admin/shooting-cohort/notification-counts", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.json(await getShootingCohortNotificationCounts());
+    } catch (error) {
+      console.error("Error loading shooting cohort notifications:", error);
+      res.status(500).json({ message: "Failed to load shooting cohort notifications" });
     }
   });
 

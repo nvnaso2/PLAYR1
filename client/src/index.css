@@ -373,7 +373,8 @@ html.plt-capacitor textarea {
 .shooting-cohort-page [class*="#514333"],
 .shooting-cohort-page [class*="#68482e"],
 .shooting-cohort-page [class*="#5b4934"],
-.shooting-cohort-page [class*="#493c2e"] {
+.shooting-cohort-page [class*="#493c2e"],
+.shooting-cohort-page [class*="#df7e39"] {
   border-color: #27272a !important;
 }
 
@@ -417,7 +418,10 @@ html.plt-capacitor textarea {
 .shooting-cohort-page [class*="#e9a16a"],
 .shooting-cohort-page [class*="#d88a50"],
 .shooting-cohort-page [class*="#e89a5a"],
-.shooting-cohort-page [class*="#e79a5c"] {
-  color: #fb923c !important;
+.shooting-cohort-page [class*="#e79a5c"],
+.shooting-cohort-page [class*="#f0a05c"],
+.shooting-cohort-page [class*="#ef8a43"],
+.shooting-cohort-page [class*="#ff9e5b"] {
+  color: hsl(var(--primary)) !important;
 }
 

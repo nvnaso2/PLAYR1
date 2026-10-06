@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "./db";
 import {
   shootingCohortApplications,
@@ -500,6 +500,32 @@ export async function getShootingCohortAdminOverview() {
       assessments: assessmentMap.get(application.userId) || [],
     })),
   };
+}
+
+export async function getShootingCohortNotificationCounts() {
+  const [applicationRows, filmReviewRows, customRequestRows] = await Promise.all([
+    db.select({ value: count() })
+      .from(shootingCohortApplications)
+      .where(inArray(shootingCohortApplications.status, ["needs_review", "waitlisted"])),
+    db.select({ value: count() })
+      .from(shootingCohortVideoSubmissions)
+      .innerJoin(shootingCohortApplications, and(
+        eq(shootingCohortApplications.userId, shootingCohortVideoSubmissions.userId),
+        eq(shootingCohortApplications.status, "active"),
+      ))
+      .where(or(
+        isNull(shootingCohortVideoSubmissions.founderFeedback),
+        eq(shootingCohortVideoSubmissions.founderFeedback, ""),
+      )),
+    db.select({ value: count() })
+      .from(customWorkoutRequests)
+      .where(inArray(customWorkoutRequests.status, ["submitted", "in_progress"])),
+  ]);
+
+  const applications = Number(applicationRows[0]?.value ?? 0);
+  const filmReview = Number(filmReviewRows[0]?.value ?? 0);
+  const customRequests = Number(customRequestRows[0]?.value ?? 0);
+  return { applications, filmReview, customRequests };
 }
 
 export async function getShootingCohortMessages(limit = 100) {

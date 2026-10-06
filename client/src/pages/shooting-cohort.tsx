@@ -150,6 +150,30 @@ function ResultLine({ label, value }: { label: string; value: string }) {
   return <div className="flex justify-between gap-2 text-[10px] text-[#877b6e]"><span>{label}</span><span className="font-mono text-[#b8ab9c]">{value}</span></div>;
 }
 
+function AssessmentCountField({ label, value, max, onChange }: {
+  label: string;
+  value: string;
+  max: number;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-3 border-b border-[#342c24] py-2 last:border-0">
+      <span className="text-sm text-[#c9bba9]">{label} <span className="font-mono text-[10px] text-[#74695d]">/{max}</span></span>
+      <Input
+        aria-label={`${label} makes`}
+        type="number"
+        inputMode="numeric"
+        step="1"
+        min="0"
+        max={max}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-9 w-[78px] border-[#493e32] bg-[#100e0b] text-center font-mono text-[#fff1de]"
+      />
+    </label>
+  );
+}
+
 function AssessmentForm({ type, pending, onCancel, onSubmit }: {
   type: "baseline" | "retest";
   pending: boolean;
@@ -177,14 +201,8 @@ function AssessmentForm({ type, pending, onCancel, onSubmit }: {
       notes: notes.trim(),
     });
   };
-  const CountField = ({ label, value, max, onChange }: { label: string; value: string; max: number; onChange: (next: string) => void }) => (
-    <label className="flex items-center justify-between gap-3 border-b border-[#342c24] py-2 last:border-0">
-      <span className="text-sm text-[#c9bba9]">{label} <span className="font-mono text-[10px] text-[#74695d]">/{max}</span></span>
-      <Input aria-label={`${label} makes`} type="number" min="0" max={max} value={value} onChange={(event) => onChange(event.target.value)} className="h-9 w-[78px] border-[#493e32] bg-[#100e0b] text-center font-mono text-[#fff1de]" />
-    </label>
-  );
   return (
-    <section className="rounded-[22px] border border-[#df7e39]/40 bg-[#211810] p-4 sm:p-6" aria-label={`${type} assessment form`}>
+    <section className="rounded-[22px] border border-primary/40 bg-[#211810] p-4 sm:p-6" aria-label={`${type} assessment form`}>
       <div className="flex items-start justify-between gap-4">
         <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#e89a5a]">Shooting check-in</p><h3 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">{type === "baseline" ? "Set your baseline" : "Log a retest"}</h3></div>
         <button type="button" onClick={onCancel} aria-label="Close assessment form" className="rounded-full p-2 text-[#9c8d7b] transition hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
@@ -193,20 +211,20 @@ function AssessmentForm({ type, pending, onCancel, onSubmit }: {
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-[#3e3329] bg-[#17120e] p-4">
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Free throws · 50 attempts</p>
-          <div className="mt-2"><CountField label="Free throws made" value={freeThrowsMade} max={50} onChange={setFreeThrowsMade} /></div>
+          <div className="mt-2"><AssessmentCountField label="Free throws made" value={freeThrowsMade} max={50} onChange={setFreeThrowsMade} /></div>
         </div>
         <div className="rounded-xl border border-[#3e3329] bg-[#17120e] p-4">
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Three-pointers · 20 attempts at each spot</p>
-          <div className="mt-2">{spotLocations.map(([key, label]) => <CountField key={key} label={label} value={threePoint[key] ?? ""} max={20} onChange={(next) => setThreePoint((current) => ({ ...current, [key]: next }))} />)}</div>
+          <div className="mt-2">{spotLocations.map(([key, label]) => <AssessmentCountField key={key} label={label} value={threePoint[key] ?? ""} max={20} onChange={(next) => setThreePoint((current) => ({ ...current, [key]: next }))} />)}</div>
         </div>
         <div className="rounded-xl border border-[#3e3329] bg-[#17120e] p-4 sm:col-span-2">
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Mid-range pull-ups · 8 attempts at each spot</p>
-          <div className="mt-2 grid gap-x-6 sm:grid-cols-2">{spotLocations.map(([key, label]) => <CountField key={key} label={label} value={midRange[key] ?? ""} max={8} onChange={(next) => setMidRange((current) => ({ ...current, [key]: next }))} />)}</div>
+          <div className="mt-2 grid gap-x-6 sm:grid-cols-2">{spotLocations.map(([key, label]) => <AssessmentCountField key={key} label={label} value={midRange[key] ?? ""} max={8} onChange={(next) => setMidRange((current) => ({ ...current, [key]: next }))} />)}</div>
         </div>
         <div className="space-y-2 sm:col-span-2"><Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Notes <span className="font-normal normal-case tracking-normal text-[#837668]">optional</span></Label><Textarea maxLength={1000} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="What felt different today?" className="min-h-20 border-[#493e32] bg-[#100e0b] text-[#f3e6d5] placeholder:text-[#675d51]" /></div>
       </div>
       {!allEntered && <p className="mt-3 text-xs text-[#d4a47a]">Enter makes for all five spots and free throws to save the full baseline.</p>}
-      <div className="mt-5 flex flex-wrap justify-end gap-2"><Button variant="ghost" onClick={onCancel} className="text-[#a99b89] hover:text-white">Cancel</Button><Button onClick={save} disabled={!valid || pending} className="bg-[#ef8a43] font-bold text-[#1b120a] hover:bg-[#ff9e5b]">{pending ? "Saving assessment…" : "Save results"} <Check className="ml-2 h-4 w-4" /></Button></div>
+      <div className="mt-5 flex flex-wrap justify-end gap-2"><Button variant="ghost" onClick={onCancel} className="text-[#a99b89] hover:text-white">Cancel</Button><Button onClick={save} disabled={!valid || pending} className="bg-primary font-bold text-black hover:bg-primary/90">{pending ? "Saving assessment…" : "Save results"} <Check className="ml-2 h-4 w-4" /></Button></div>
     </section>
   );
 }
@@ -250,10 +268,10 @@ function ApplicationForm({ onSubmit, pending, isOpen, initialAnswers, editing = 
       <div className="grid gap-x-7 gap-y-6 p-5 sm:grid-cols-2 sm:p-7">
         <fieldset className="space-y-3 sm:col-span-2">
           <legend className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">When do you usually practice?</legend>
-          <div className="flex flex-wrap gap-2">{practiceDays.map((day) => <button key={day} type="button" aria-pressed={answers.practiceDays.includes(day)} onClick={() => toggleDay(day)} className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${answers.practiceDays.includes(day) ? "border-[#ef8a43] bg-[#ef8a43] text-[#21150c]" : "border-[#473b30] bg-[#100e0b] text-[#b8ab9c] hover:border-[#ad7449]"}`}>{day.slice(0, 3)}</button>)}</div>
+          <div className="flex flex-wrap gap-2">{practiceDays.map((day) => <button key={day} type="button" aria-pressed={answers.practiceDays.includes(day)} onClick={() => toggleDay(day)} className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${answers.practiceDays.includes(day) ? "border-primary bg-primary text-black" : "border-[#473b30] bg-[#100e0b] text-[#b8ab9c] hover:border-[#ad7449]"}`}>{day.slice(0, 3)}</button>)}</div>
         </fieldset>
-        <div className="space-y-2"><Label className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">Typical session length</Label><select value={answers.sessionMinutes} onChange={(event) => setAnswers({ ...answers, sessionMinutes: event.target.value })} className="h-11 w-full rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#f3e6d5] focus:outline-none focus:ring-2 focus:ring-[#ef8a43]"><option value="" disabled>Choose a length</option>{[20, 30, 45, 60, 75, 90, 120].map((minute) => <option key={minute} value={minute}>{minute} minutes</option>)}</select></div>
-        <div className="space-y-2"><Label className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">Hoop access</Label><select value={answers.hoopAccess} onChange={(event) => setAnswers({ ...answers, hoopAccess: event.target.value as ApplicationDraft["hoopAccess"] })} className="h-11 w-full rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#f3e6d5] focus:outline-none focus:ring-2 focus:ring-[#ef8a43]"><option value="" disabled>Choose access</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option><option value="both">Both</option><option value="limited">Limited / shared access</option></select></div>
+        <div className="space-y-2"><Label className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">Typical session length</Label><select value={answers.sessionMinutes} onChange={(event) => setAnswers({ ...answers, sessionMinutes: event.target.value })} className="h-11 w-full rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#f3e6d5] focus:outline-none focus:ring-2 focus:ring-primary"><option value="" disabled>Choose a length</option>{[20, 30, 45, 60, 75, 90, 120].map((minute) => <option key={minute} value={minute}>{minute} minutes</option>)}</select></div>
+        <div className="space-y-2"><Label className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">Hoop access</Label><select value={answers.hoopAccess} onChange={(event) => setAnswers({ ...answers, hoopAccess: event.target.value as ApplicationDraft["hoopAccess"] })} className="h-11 w-full rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#f3e6d5] focus:outline-none focus:ring-2 focus:ring-primary"><option value="" disabled>Choose access</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option><option value="both">Both</option><option value="limited">Limited / shared access</option></select></div>
         <div className="space-y-2"><Label htmlFor="weekly-shots" className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">Approx. shots per week</Label><Input id="weekly-shots" type="number" min="0" max="10000" value={answers.weeklyShots} onChange={(event) => setAnswers({ ...answers, weeklyShots: event.target.value })} className="h-11 border-[#493e32] bg-[#100e0b] text-[#f3e6d5]" /></div>
         <fieldset className="space-y-3">
           <legend className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">What do you want to work on? <span className="normal-case tracking-normal text-[#817567]">choose 1 or 2</span></legend>
@@ -261,7 +279,7 @@ function ApplicationForm({ onSubmit, pending, isOpen, initialAnswers, editing = 
         </fieldset>
         <fieldset className="space-y-3">
           <legend className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">How confident are you in your shot today?</legend>
-          <div className="mt-2 flex gap-2">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" aria-label={`Confidence ${value} out of 5`} aria-pressed={answers.confidence === value} onClick={() => setAnswers({ ...answers, confidence: value })} className={`flex h-11 flex-1 items-center justify-center rounded-lg border font-mono text-sm transition ${answers.confidence === value ? "border-[#ef8a43] bg-[#ef8a43] font-bold text-[#21150c]" : "border-[#473b30] bg-[#100e0b] text-[#b8ab9c] hover:border-[#ad7449]"}`}>{value}</button>)}</div>
+          <div className="mt-2 flex gap-2">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" aria-label={`Confidence ${value} out of 5`} aria-pressed={answers.confidence === value} onClick={() => setAnswers({ ...answers, confidence: value })} className={`flex h-11 flex-1 items-center justify-center rounded-lg border font-mono text-sm transition ${answers.confidence === value ? "border-primary bg-primary font-bold text-black" : "border-[#473b30] bg-[#100e0b] text-[#b8ab9c] hover:border-[#ad7449]"}`}>{value}</button>)}</div>
           <p className="text-[10px] text-[#817567]">1 · still finding it <span className="float-right">5 · ready to let it fly</span></p>
         </fieldset>
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="cohort-goal" className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d2c2ae]">What’s one shooting goal you care about?</Label><Textarea id="cohort-goal" maxLength={1000} value={answers.goal} onChange={(event) => setAnswers({ ...answers, goal: event.target.value })} placeholder="Be specific about what you want to change in your game." className="min-h-24 border-[#493e32] bg-[#100e0b] text-[#f3e6d5] placeholder:text-[#675d51]" /><p className="text-right font-mono text-[10px] text-[#74695d]">{answers.goal.length}/1000</p></div>
@@ -279,7 +297,7 @@ function ApplicationForm({ onSubmit, pending, isOpen, initialAnswers, editing = 
               weeklyShots: Number(answers.weeklyShots),
               confidence: answers.confidence,
             });
-          }} disabled={!canSubmit || (!editing && !isOpen) || pending} className="shrink-0 bg-[#ef8a43] px-5 font-bold text-[#21150c] hover:bg-[#ff9e5b]">{pending ? (editing ? "Saving changes…" : "Sending application…") : (editing ? "Save survey" : "Apply to the cohort")} <ArrowRight className="ml-2 h-4 w-4" /></Button>
+          }} disabled={!canSubmit || (!editing && !isOpen) || pending} className="shrink-0 bg-primary px-5 font-bold text-black hover:bg-primary/90">{pending ? (editing ? "Saving changes…" : "Sending application…") : (editing ? "Save survey" : "Apply to the cohort")} <ArrowRight className="ml-2 h-4 w-4" /></Button>
           </div>
         </div>
       </div>
@@ -490,7 +508,7 @@ function MemberChat({
       <div className="border-t border-[#382e24] p-3 sm:p-4">
         <div className="flex items-end gap-2 rounded-2xl border border-[#4b3b2b] bg-[#100e0b] p-2 focus-within:border-[#c9783e]/70">
           <Textarea value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} maxLength={2000} placeholder="Add to the conversation…" className="min-h-10 max-h-28 resize-none border-0 bg-transparent text-sm text-[#f3e6d5] placeholder:text-[#6c6256] focus-visible:ring-0" aria-label="Message to shooting cohort" />
-          <Button onClick={() => void send()} disabled={!text.trim() || sendMessage.isPending} size="icon" aria-label="Send message" className="h-9 w-9 shrink-0 rounded-xl bg-[#ef8a43] text-[#21150c] hover:bg-[#ff9e5b]"><Send className="h-4 w-4" /></Button>
+          <Button onClick={() => void send()} disabled={!text.trim() || sendMessage.isPending} size="icon" aria-label="Send message" className="h-9 w-9 shrink-0 rounded-xl bg-primary text-black hover:bg-primary/90"><Send className="h-4 w-4" /></Button>
         </div>
         <p className="mt-2 text-center font-mono text-[9px] uppercase tracking-[0.12em] text-[#6e6357]">Enter to send · Shift + Enter for a new line</p>
       </div>
@@ -600,21 +618,16 @@ type CohortWorkoutRequest = {
   availableTime: number;
   createdAt: string;
   workout?: { workout?: { name: string; description?: string | null } } | null;
+  assignment?: { workoutId: string; status: string } | null;
 };
 
 type CohortDirectWorkoutAssignment = {
   id: string;
+  workoutId: string;
+  requestId?: string | null;
   status: string;
   createdAt: string;
-  workout?: { workout?: { name: string; description?: string | null; estimatedDuration?: number | null } } | null;
-};
-
-type AssignedCohortDrill = {
-  id: string;
-  status: string;
-  dueDate?: string | null;
-  notes?: string | null;
-  drill?: { title: string; description?: string | null };
+  workout?: { workout?: { id: string; name: string; description?: string | null; estimatedDuration?: number | null } } | null;
 };
 
 function useCohortWorkoutRequestsQuery() {
@@ -624,14 +637,6 @@ function useCohortWorkoutRequestsQuery() {
     assignments?: CohortDirectWorkoutAssignment[];
   }>({
     queryKey: ["/api/custom-workout-requests"],
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-  });
-}
-
-function useAssignedCohortDrillsQuery() {
-  return useQuery<AssignedCohortDrill[]>({
-    queryKey: ["/api/assigned-drills"],
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
   });
@@ -649,7 +654,7 @@ function CohortRequestsSection() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><ClipboardList className="h-4 w-4" /></span>
           <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Workout requests</h2></div>
         </div>
-        <Button onClick={() => navigate("/custom-workouts")} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">Request a workout <ArrowRight className="ml-2 h-4 w-4" /></Button>
+        <Button onClick={() => navigate("/custom-workouts")} className="bg-primary font-bold text-black hover:bg-primary/90">Request a workout <ArrowRight className="ml-2 h-4 w-4" /></Button>
       </div>
 
       {workoutsQuery.isLoading
@@ -793,7 +798,7 @@ function CohortWorkoutRequestForm({
                   type="button"
                   aria-pressed={selected}
                   onClick={() => setSkills((current) => selected ? current.filter((item) => item !== skill) : [...current, skill])}
-                  className={`rounded-full border px-3 py-2 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef8a43] ${selected ? "border-[#ef8a43]/60 bg-[#ef8a43]/15 text-[#ffd2a8]" : "border-[#493e32] bg-[#100e0b] text-[#a99b89] hover:border-[#8c6542]"}`}
+                  className={`rounded-full border px-3 py-2 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${selected ? "border-primary/60 bg-primary/15 text-primary" : "border-[#493e32] bg-[#100e0b] text-[#a99b89] hover:border-[#8c6542]"}`}
                 >
                   {SHOOTING_COHORT_FOCUS_LABELS[skill]}
                 </button>
@@ -804,7 +809,7 @@ function CohortWorkoutRequestForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-2">
             <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#d2c2ae]">Ideal workout time</span>
-            <select value={availableTime} onChange={(event) => setAvailableTime(event.target.value)} className="h-11 w-full rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#f3e6d5] focus:outline-none focus:ring-2 focus:ring-[#ef8a43]">
+            <select value={availableTime} onChange={(event) => setAvailableTime(event.target.value)} className="h-11 w-full rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#f3e6d5] focus:outline-none focus:ring-2 focus:ring-primary">
               {[15, 30, 45, 60, 75, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
             </select>
           </label>
@@ -834,13 +839,13 @@ function CohortWorkoutRequestForm({
             {selectedVideo && !isUploading && uploadStatus === "error" && <Button type="button" variant="ghost" onClick={() => void uploadFile(selectedVideo)} className="text-[#e8a16a]">Retry upload</Button>}
             {selectedVideo && <Button type="button" variant="ghost" onClick={clearVideo} disabled={isUploading} className="text-[#9d8f7e]">Remove</Button>}
           </div>
-          {isUploading && <div className="space-y-1.5"><p className="text-[10px] text-[#d4a47a]">Uploading video · {progress}%</p><div className="h-1.5 overflow-hidden rounded-full bg-[#29231c]"><div className="h-full bg-[#ef8a43] transition-all" style={{ width: `${progress}%` }} /></div></div>}
+          {isUploading && <div className="space-y-1.5"><p className="text-[10px] text-[#d4a47a]">Uploading video · {progress}%</p><div className="h-1.5 overflow-hidden rounded-full bg-[#29231c]"><div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} /></div></div>}
           {uploadStatus === "error" && uploadError && <p className="text-xs text-red-200">{uploadError.message}</p>}
           {uploadedVideoPath && <p className="text-[10px] text-emerald-200">Video uploaded and will be attached to this request.</p>}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#342c24] pt-4">
           <p className="max-w-md text-[10px] leading-4 text-[#817567]">Your request and any video will be private to the cohort team.</p>
-          <Button type="button" onClick={submit} disabled={!canSubmit} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">
+          <Button type="button" onClick={submit} disabled={!canSubmit} className="bg-primary font-bold text-black hover:bg-primary/90">
             {createRequest.isPending ? "Sending…" : "Send request"} <Upload className="ml-2 h-4 w-4" />
           </Button>
         </div>
@@ -850,33 +855,36 @@ function CohortWorkoutRequestForm({
 }
 
 function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicationAnswers }) {
+  const [, navigate] = useLocation();
   const workoutsQuery = useCohortWorkoutRequestsQuery();
-  const drillsQuery = useAssignedCohortDrillsQuery();
   const [showRequestForm, setShowRequestForm] = useState(false);
   const requestFormRef = useRef<HTMLDivElement>(null);
   const requests = workoutsQuery.data?.requests ?? [];
+  const assignments = workoutsQuery.data?.assignments ?? [];
+  const assignedRequestIds = new Set(assignments.map((assignment) => assignment.requestId).filter((id): id is string => Boolean(id)));
+  const requestedWorkouts = requests.filter((request) =>
+    !request.assignment &&
+    !assignedRequestIds.has(request.id) &&
+    !["assigned", "completed"].includes(request.status),
+  );
   const hasActiveRequest = requests.some((request) => ["submitted", "in_progress", "assigned"].includes(request.status));
   useEffect(() => {
     if (showRequestForm) requestFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [showRequestForm]);
-  const assignedWorkouts = [
-    ...requests
-      .filter((request) => request.workout?.workout)
-      .map((request) => ({
-        id: `request-${request.id}`,
-        name: request.workout?.workout?.name || request.improvementFocus,
-        detail: request.workout?.workout?.description || request.desiredOutcome,
-        status: request.status,
-        createdAt: request.createdAt,
-      })),
-    ...(workoutsQuery.data?.assignments ?? []).map((assignment) => ({
-      id: `direct-${assignment.id}`,
+  const uniqueAssignments = new Map<string, CohortDirectWorkoutAssignment>();
+  assignments.forEach((assignment) => {
+    if (!uniqueAssignments.has(assignment.workoutId)) uniqueAssignments.set(assignment.workoutId, assignment);
+  });
+  const assignedWorkouts = [...uniqueAssignments.values()]
+    .map((assignment) => ({
+      id: assignment.id,
+      workoutId: assignment.workoutId,
       name: assignment.workout?.workout?.name || "Assigned workout",
       detail: assignment.workout?.workout?.description || "Built for your training plan.",
       status: assignment.status,
       createdAt: assignment.createdAt,
-    })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
     <div className="space-y-4">
@@ -886,7 +894,7 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
             <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Dumbbell className="h-4 w-4" /></span>
             <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Workouts &amp; requests</h2></div>
           </div>
-          <Button onClick={() => setShowRequestForm(true)} disabled={hasActiveRequest || showRequestForm} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b] disabled:opacity-50">
+          <Button onClick={() => setShowRequestForm(true)} disabled={hasActiveRequest || showRequestForm} className="bg-primary font-bold text-black hover:bg-primary/90 disabled:opacity-50">
             Request a workout <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
@@ -905,24 +913,23 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
 
       <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Workout request history">
         <div className="mb-4 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><ClipboardList className="h-4 w-4" /></span>
-          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Custom training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Your requests</h2></div>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><ClipboardList className="h-4 w-4" /></span>
+          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">Custom training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Requested workouts</h2></div>
         </div>
         {workoutsQuery.isLoading
           ? <p className="text-xs text-[#887c6e]">Loading your requests…</p>
           : workoutsQuery.isError
             ? <div className="text-xs text-red-200"><p>Your requests could not load.</p><Button variant="ghost" onClick={() => workoutsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
-            : !requests.length
+            : !requestedWorkouts.length
               ? <p className="rounded-xl border border-dashed border-[#514333] bg-[#100e0b] p-4 text-xs leading-5 text-[#817567]">Your custom workout requests will appear here.</p>
               : <div className="space-y-2">
-                {requests.map((request) => (
+                {requestedWorkouts.map((request) => (
                   <article key={request.id} className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <h3 className="font-semibold text-sm text-[#e7dac8]">{request.improvementFocus}</h3>
                       <span className="rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{request.status.replace(/_/g, " ")}</span>
                     </div>
                     <p className="mt-2 text-xs leading-5 text-[#8f8274]">{request.desiredOutcome}</p>
-                    {request.workout?.workout?.name && <p className="mt-2 border-t border-[#342c24] pt-2 text-xs text-[#e8a16a]">Workout assigned: {request.workout.workout.name}</p>}
                     <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.1em] text-[#756b60]">{request.availableTime} min · Requested {new Date(request.createdAt).toLocaleDateString()}</p>
                   </article>
                 ))}
@@ -931,8 +938,8 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
 
       <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Assigned workouts">
         <div className="mb-4 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Dumbbell className="h-4 w-4" /></span>
-          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Assigned workouts</h2></div>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Dumbbell className="h-4 w-4" /></span>
+          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Assigned workouts</h2></div>
         </div>
         {workoutsQuery.isLoading
           ? <p className="text-xs text-[#887c6e]">Loading your workouts…</p>
@@ -948,32 +955,13 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
                       <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{workout.status.replace(/_/g, " ")}</span>
                     </div>
                     <p className="mt-1 text-xs leading-5 text-[#8f8274]">{workout.detail}</p>
-                  </article>
-                ))}
-              </div>}
-      </section>
-
-      <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Assigned drills">
-        <div className="mb-4 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Target className="h-4 w-4" /></span>
-          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Assigned drills</h2></div>
-        </div>
-        {drillsQuery.isLoading
-          ? <p className="text-xs text-[#887c6e]">Loading assigned drills…</p>
-          : drillsQuery.isError
-            ? <div className="text-xs text-red-200"><p>Assigned drills could not load.</p><Button variant="ghost" onClick={() => drillsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
-            : !drillsQuery.data?.length
-              ? <p className="rounded-xl border border-dashed border-[#514333] bg-[#100e0b] p-4 text-xs leading-5 text-[#817567]">Drills assigned by the founder will appear here.</p>
-              : <div className="space-y-2">
-                {drillsQuery.data.map((assignment) => (
-                  <article key={assignment.id} className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <h3 className="min-w-0 font-semibold text-sm text-[#e7dac8]">{assignment.drill?.title || "Assigned drill"}</h3>
-                      <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{assignment.status.replace(/_/g, " ")}</span>
-                    </div>
-                    {assignment.dueDate && <p className="mt-1 text-[10px] text-[#817567]">Due {new Date(assignment.dueDate).toLocaleDateString()}</p>}
-                    {assignment.notes && <p className="mt-1 text-xs leading-5 text-[#8f8274]">{assignment.notes}</p>}
-                    {assignment.drill?.description && <p className="mt-1 text-xs leading-5 text-[#8f8274]">{assignment.drill.description}</p>}
+                    <Button
+                      type="button"
+                      onClick={() => navigate(`/log?workoutId=${encodeURIComponent(workout.workoutId)}`)}
+                      className="mt-3 h-9 bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+                    >
+                      Start workout <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                    </Button>
                   </article>
                 ))}
               </div>}
@@ -1048,7 +1036,7 @@ export default function ShootingCohortPage() {
     }
   };
   if (playerQuery.isLoading) return <main className="shooting-cohort-page min-h-full bg-[#100e0b] px-4 py-8 sm:px-8"><div className="mx-auto max-w-6xl space-y-5"><Skeleton className="h-8 w-32 bg-[#29231c]" /><Skeleton className="h-44 rounded-[28px] bg-[#29231c]" /><Skeleton className="h-72 rounded-[28px] bg-[#29231c]" /></div></main>;
-  if (playerQuery.isError || !playerQuery.data) return <main className="shooting-cohort-page min-h-full bg-[#100e0b] px-4 py-12 sm:px-8"><section className="mx-auto max-w-xl rounded-3xl border border-[#493a2c] bg-[#17130f] p-8 text-center"><CircleHelp className="mx-auto h-8 w-8 text-[#e09457]" /><h1 className="mt-4 font-heading text-3xl uppercase text-[#fff1de]">Couldn’t load your cohort</h1><p className="mt-2 text-sm text-[#a99b89]">Your application and member access are still safe. Try loading them again.</p><Button onClick={() => playerQuery.refetch()} className="mt-5 bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">Retry</Button></section></main>;
+  if (playerQuery.isError || !playerQuery.data) return <main className="shooting-cohort-page min-h-full bg-[#100e0b] px-4 py-12 sm:px-8"><section className="mx-auto max-w-xl rounded-3xl border border-[#493a2c] bg-[#17130f] p-8 text-center"><CircleHelp className="mx-auto h-8 w-8 text-[#e09457]" /><h1 className="mt-4 font-heading text-3xl uppercase text-[#fff1de]">Couldn’t load your cohort</h1><p className="mt-2 text-sm text-[#a99b89]">Your application and member access are still safe. Try loading them again.</p><Button onClick={() => playerQuery.refetch()} className="mt-5 bg-primary font-bold text-black hover:bg-primary/90">Retry</Button></section></main>;
   const status = application ? statusCopy[application.status] : null;
   const retestLabel = latestAssessment?.type === "baseline" ? "Record a retest" : "Record another retest";
   return (
@@ -1084,7 +1072,7 @@ export default function ShootingCohortPage() {
         {application && !closedApplicationStatus && !isMember && (
           <section className={`mt-5 flex flex-col gap-4 rounded-[22px] border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${status?.tone ?? "border-zinc-700 bg-zinc-900"}`}>
             <div className="flex items-start gap-3"><span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20"><ShieldCheck className="h-4 w-4" /></span><div><p className="font-heading text-2xl uppercase leading-none">{status?.label}</p><p className="mt-1.5 max-w-xl text-sm leading-5 opacity-80">{status?.detail}</p>{application.appliedAt && <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.14em] opacity-60">Applied {formatDate(application.appliedAt)} · status updates in your portal</p>}</div></div>
-            {application.status === "invited" && <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void respond("decline")} disabled={invitationBusy} className="border-current/30 bg-black/10 text-current hover:bg-black/20">Decline</Button><Button onClick={() => void respond("accept")} disabled={invitationBusy} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">{invitationBusy ? "Updating…" : "Accept invitation"} <Check className="ml-2 h-4 w-4" /></Button></div>}
+            {application.status === "invited" && <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void respond("decline")} disabled={invitationBusy} className="border-current/30 bg-black/10 text-current hover:bg-black/20">Decline</Button><Button onClick={() => void respond("accept")} disabled={invitationBusy} className="bg-primary font-bold text-black hover:bg-primary/90">{invitationBusy ? "Updating…" : "Accept invitation"} <Check className="ml-2 h-4 w-4" /></Button></div>}
           </section>
         )}
 
@@ -1105,19 +1093,19 @@ export default function ShootingCohortPage() {
         {isMember && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
             <TabsList aria-label="Shooting Cohort player sections" className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950 p-1 sm:grid-cols-4">
-              <TabsTrigger value="workouts" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Dumbbell className="h-4 w-4" /><span>Workouts</span></TabsTrigger>
-              <TabsTrigger value="film-room" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Film className="h-4 w-4" /><span>Film Room</span></TabsTrigger>
-              <TabsTrigger value="messaging" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><MessageCircle className="h-4 w-4" /><span>Messaging</span></TabsTrigger>
-              <TabsTrigger value="baseline" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Target className="h-4 w-4" /><span>Baseline Assessment</span></TabsTrigger>
+              <TabsTrigger value="workouts" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-black md:text-xs"><Dumbbell className="h-4 w-4" /><span>Workouts</span></TabsTrigger>
+              <TabsTrigger value="film-room" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-black md:text-xs"><Film className="h-4 w-4" /><span>Film Room</span></TabsTrigger>
+              <TabsTrigger value="messaging" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-black md:text-xs"><MessageCircle className="h-4 w-4" /><span>Messaging</span></TabsTrigger>
+              <TabsTrigger value="baseline" className="flex h-auto min-h-12 min-w-0 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-black md:text-xs"><Target className="h-4 w-4" /><span>Baseline Assessment</span></TabsTrigger>
             </TabsList>
 
             <TabsContent value="film-room" className="mt-4 focus-visible:outline-none"><ShootingCohortVideos /></TabsContent>
             <TabsContent value="messaging" className="mt-4 focus-visible:outline-none"><ShootingCohortPrivateChat /></TabsContent>
-            <TabsContent value="baseline" forceMount className="mt-4 focus-visible:outline-none">
+      <TabsContent value="baseline" className="mt-4 focus-visible:outline-none">
               <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Baseline shooting assessment">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#df965c]">Shooting check-in</p><h2 className="mt-1 font-heading text-3xl uppercase leading-none text-[#fff1de]">Baseline assessment</h2><p className="mt-2 max-w-xl text-xs leading-5 text-[#8f8274]">Track 100 threes (20 at each of five spots), 40 mid-range pull-ups (8 at each spot), and 50 free throws. Results stay private to you and cohort admins.</p></div>
-                  <Button onClick={() => setShowAssessmentForm(true)} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]"><Target className="mr-2 h-4 w-4" />{orderedAssessments.length ? retestLabel : "Set baseline"}</Button>
+                  <Button onClick={() => setShowAssessmentForm(true)} className="bg-primary font-bold text-black hover:bg-primary/90"><Target className="mr-2 h-4 w-4" />{orderedAssessments.length ? retestLabel : "Set baseline"}</Button>
                 </div>
                 <div className="mt-5 grid grid-cols-3 divide-x divide-[#4b3928] rounded-xl border border-[#503b28] bg-[#100e0b] py-3 text-center">
                   <div><p className="font-heading text-2xl text-[#f4b27c]">100</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">three-pointers</p></div>

@@ -70,6 +70,16 @@ export type ShootingCohortAdminData = {
   applications: ShootingCohortAdminApplication[];
 };
 
+export type ShootingCohortNotificationCounts = {
+  applications: number;
+  filmReview: number;
+  customRequests: number;
+};
+
+export const SHOOTING_COHORT_NOTIFICATION_COUNTS_QUERY_KEY = [
+  "/api/admin/shooting-cohort/notification-counts",
+] as const;
+
 export type ShootingCohortChatMessage = {
   id: string;
   senderId: string;
@@ -111,6 +121,16 @@ export function useShootingCohortAdminQuery() {
   return useQuery<ShootingCohortAdminData>({
     queryKey: ["/api/admin/shooting-cohort"],
     refetchInterval: 15000,
+  });
+}
+
+export function useShootingCohortAdminNotificationCounts(enabled = true) {
+  return useQuery<ShootingCohortNotificationCounts>({
+    queryKey: SHOOTING_COHORT_NOTIFICATION_COUNTS_QUERY_KEY,
+    enabled,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 }
 
@@ -219,6 +239,7 @@ export function useUpdateShootingCohortVideoFeedback() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/admin/shooting-cohort/videos"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort/videos"] }),
+        queryClient.invalidateQueries({ queryKey: SHOOTING_COHORT_NOTIFICATION_COUNTS_QUERY_KEY }),
       ]);
     },
   });
@@ -248,6 +269,7 @@ export function useUpdateShootingCohortSettings() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/admin/shooting-cohort"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort"] }),
+        queryClient.invalidateQueries({ queryKey: SHOOTING_COHORT_NOTIFICATION_COUNTS_QUERY_KEY }),
       ]);
     },
   });
@@ -279,6 +301,7 @@ export function useSetShootingCohortApplicationStatus() {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/shooting-cohort"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/custom-workout-requests"] }),
+        queryClient.invalidateQueries({ queryKey: SHOOTING_COHORT_NOTIFICATION_COUNTS_QUERY_KEY }),
       ]);
     },
   });
@@ -293,6 +316,7 @@ export function useRemoveShootingCohortApplication() {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/shooting-cohort"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/custom-workout-requests"] }),
+        queryClient.invalidateQueries({ queryKey: SHOOTING_COHORT_NOTIFICATION_COUNTS_QUERY_KEY }),
       ]);
     },
   });

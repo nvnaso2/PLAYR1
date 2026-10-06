@@ -63,7 +63,7 @@ function FilmReviewCard({
             <Button
               onClick={() => onSave(feedback)}
               disabled={saving || feedback.trim() === (submission.founderFeedback ?? "").trim()}
-              className="h-9 bg-orange-400 px-3 text-xs font-bold text-[#17120d] hover:bg-orange-300"
+              className="h-9 bg-primary px-3 text-xs font-bold text-black hover:bg-primary/90"
             >
               {saving ? "Saving…" : "Save feedback"}
             </Button>
