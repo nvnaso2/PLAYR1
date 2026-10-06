@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildRecentShotHeatmapBaselines,
-  getPersonalHeatBandIndex,
+  getPersonalHeatScalePosition,
   getShotHeatmapSection,
   type ShotHeatmapLog,
 } from "../shared/shot-heatmap";
@@ -72,14 +72,15 @@ describe("personalized shot heatmap baselines", () => {
     assert.equal(result.workoutWindow, 10);
   });
 
-  it("spans actual 0–100% rates with each player's baseline at the yellow midpoint", () => {
-    assert.equal(getPersonalHeatBandIndex(20, 20), 5);
-    assert.equal(getPersonalHeatBandIndex(80, 80), 5);
-    assert.equal(getPersonalHeatBandIndex(0, 60), 0);
-    assert.equal(getPersonalHeatBandIndex(100, 60), 10);
-    assert.equal(getPersonalHeatBandIndex(30, 60), 3);
-    assert.equal(getPersonalHeatBandIndex(80, 60), 8);
-    assert.equal(getPersonalHeatBandIndex(0, 0), 5);
-    assert.equal(getPersonalHeatBandIndex(100, 100), 5);
+  it("maps actual 0–100% rates continuously around each player's average", () => {
+    assert.equal(getPersonalHeatScalePosition(20, 20), 5);
+    assert.equal(getPersonalHeatScalePosition(80, 80), 5);
+    assert.equal(getPersonalHeatScalePosition(0, 60), 0);
+    assert.equal(getPersonalHeatScalePosition(100, 60), 10);
+    assert.equal(getPersonalHeatScalePosition(30, 60), 2.5);
+    assert.equal(getPersonalHeatScalePosition(54, 60), 4.5);
+    assert.equal(getPersonalHeatScalePosition(80, 60), 7.5);
+    assert.equal(getPersonalHeatScalePosition(0, 0), 5);
+    assert.equal(getPersonalHeatScalePosition(100, 100), 5);
   });
 });

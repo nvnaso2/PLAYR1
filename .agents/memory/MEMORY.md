@@ -37,4 +37,4 @@
 - [Settings family controls](settings-family-controls.md) — remove family and parent-invite controls from Settings only; retain related routes, stored data, and backend flows
 - [Founder-led shooting cohort](founder-shooting-cohort.md) — member-only portal, private Founder messaging, dated shooting progress, assigned workouts, and outstanding-review counts
 - [Mockup Vite preview cache](mockup-vite-preview-cache.md) — after an `Outdated Optimize Dep` 504, check stale sandbox prebundle metadata before changing dependencies
-- [Personalized shot heat map](personalized-shot-heatmap.md) — use red-to-green with a yellow personal average, real percentage labels, and no fixed cross-player thresholds
+- [Personalized shot heat map](personalized-shot-heatmap.md) — use a smooth red-gold-green gradient with a light-green personal average and real percentage labels

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ShotLocationDB } from "@shared/schema";
 import {
-  getPersonalHeatBandIndex,
+  getPersonalHeatScalePosition,
   getShotHeatmapSection,
   SHOT_HEATMAP_SECTIONS,
   type ShotHeatmapBaselines,
@@ -35,7 +35,7 @@ type HeatmapZoneData = {
   personalBaselinePct?: number;
   personalObservedPct?: number;
   personalDeviationPct?: number;
-  personalBandIndex?: number;
+  personalScalePosition?: number;
   personalBaselineMissing?: boolean;
 };
 
@@ -298,19 +298,22 @@ export const SHOT_HEAT_COLOR_BANDS = [
   { maxPct: Infinity, label: ">88%", color: "#0DC80D" },
 ] as const;
 
-const PERSONAL_SHOT_HEAT_COLORS = [
-  "#7F1D1D",
-  "#991B1B",
-  "#B91C1C",
-  "#DC2626",
-  "#EF4444",
-  "#FACC15",
-  "#A3E635",
-  "#84CC16",
-  "#4ADE80",
-  "#22C55E",
-  "#15803D",
+const PERSONAL_SHOT_HEAT_STOPS = [
+  "#75232A",
+  "#8C2D31",
+  "#A33A36",
+  "#B64C3D",
+  "#CA704B",
+  "#BBD987",
+  "#9ED080",
+  "#80C878",
+  "#61BE77",
+  "#44AE76",
+  "#278C66",
 ] as const;
+const PERSONAL_SHOT_HEAT_GRADIENT = `linear-gradient(90deg, ${PERSONAL_SHOT_HEAT_STOPS
+  .map((color, index) => `${color} ${index * 10}%`)
+  .join(", ")})`;
 
 const UNGRADED_ZONE_COLOR = "#52525B";
 
@@ -319,8 +322,23 @@ function getHeatColor(pct: number): string {
     ?? SHOT_HEAT_COLOR_BANDS[SHOT_HEAT_COLOR_BANDS.length - 1].color;
 }
 
-function getPersonalHeatColor(bandIndex: number): string {
-  return PERSONAL_SHOT_HEAT_COLORS[Math.max(0, Math.min(10, bandIndex))];
+function getPersonalHeatColor(scalePosition: number): string {
+  const position = Number.isFinite(scalePosition)
+    ? Math.max(0, Math.min(10, scalePosition))
+    : 5;
+  const lowerIndex = Math.floor(position);
+  const upperIndex = Math.ceil(position);
+  if (lowerIndex === upperIndex) return PERSONAL_SHOT_HEAT_STOPS[lowerIndex];
+
+  const mix = position - lowerIndex;
+  const from = PERSONAL_SHOT_HEAT_STOPS[lowerIndex].slice(1);
+  const to = PERSONAL_SHOT_HEAT_STOPS[upperIndex].slice(1);
+  const channels = [0, 2, 4].map((offset) => {
+    const start = Number.parseInt(from.slice(offset, offset + 2), 16);
+    const end = Number.parseInt(to.slice(offset, offset + 2), 16);
+    return Math.round(start + (end - start) * mix).toString(16).padStart(2, "0");
+  });
+  return `#${channels.join("")}`;
 }
 
 // Zone opacity — ramp up from 0.72 to 0.90 with volume
@@ -413,7 +431,7 @@ function getZoneData(
       result[zone].personalObservedPct = observedPct;
       result[zone].personalBaselinePct = baselinePct;
       result[zone].personalDeviationPct = deviationPct;
-      result[zone].personalBandIndex = getPersonalHeatBandIndex(observedPct, baselinePct);
+      result[zone].personalScalePosition = getPersonalHeatScalePosition(observedPct, baselinePct);
     }
   });
 
@@ -495,8 +513,8 @@ function HeatmapCourtSVG({
 
         const total   = data.made + data.missed;
         const color   = personalizedScale
-          ? data.personalBandIndex !== undefined
-            ? getPersonalHeatColor(data.personalBandIndex)
+          ? data.personalScalePosition !== undefined
+            ? getPersonalHeatColor(data.personalScalePosition)
             : UNGRADED_ZONE_COLOR
           : getHeatColor(data.percentage);
         const alpha   = zoneOpacity(total, maxTotal);
@@ -726,7 +744,7 @@ export function ShootingHeatmap({
               ? "Your personal scale could not load; zones without a recent baseline are left ungraded."
               : baselineLoading
                 ? "Loading your recent shooting averages…"
-                : "Zone numbers show actual shooting percentages. Colors run from 0% red through your recent shot-type average in yellow to 100% green."}
+                : "Zone numbers stay as actual percentages. The smooth gradient uses muted reds and golds below your average, light green at your average, and richer greens above it."}
           </p>
         )}
       </CardHeader>
@@ -741,21 +759,19 @@ export function ShootingHeatmap({
           <div className="mt-3 space-y-1" data-testid="heatmap-legend">
             <div className="flex items-center justify-center gap-1">
               <span className="text-[10px] text-zinc-500 mr-1">0%</span>
-              <div className="flex h-3 rounded overflow-hidden" data-testid="heatmap-color-scale">
-                {PERSONAL_SHOT_HEAT_COLORS.map((color, index) => (
-                  <div
-                    key={`${color}-${index}`}
-                    className="w-4 sm:w-5"
-                    style={{ background: color }}
-                    title={index === 5 ? "Your recent shot-type average" : `${index * 10}% scale position`}
-                  />
-                ))}
-              </div>
+              <div
+                className="h-3 w-36 sm:w-52 rounded"
+                data-testid="heatmap-color-scale"
+                role="img"
+                aria-label="Smooth scale from red below average through light green at average to deeper green above average"
+                title="Your recent shot-type average is at the light-green midpoint"
+                style={{ background: PERSONAL_SHOT_HEAT_GRADIENT }}
+              />
               <span className="text-[10px] text-zinc-500 ml-1">100%</span>
             </div>
             <div className="flex justify-center gap-1 text-[10px] text-zinc-500">
               <span>Lower</span>
-              <span className="mx-2 text-yellow-300">Your section average</span>
+              <span className="mx-2 text-lime-300">Your section average</span>
               <span>Higher</span>
             </div>
             <p className="text-center text-[10px] text-zinc-600">Gray zones need more recent data for every shot type they contain.</p>
@@ -782,8 +798,8 @@ export function ShootingHeatmap({
               if (!zone) return null;
               const total = data.made + data.missed;
               const color = personalizedScale
-                ? data.personalBandIndex !== undefined
-                  ? getPersonalHeatColor(data.personalBandIndex)
+                ? data.personalScalePosition !== undefined
+                  ? getPersonalHeatColor(data.personalScalePosition)
                   : UNGRADED_ZONE_COLOR
                 : getHeatColor(data.percentage);
               const label = zoneLabelMap[zoneName]?.join(' / ') || zone.label;
