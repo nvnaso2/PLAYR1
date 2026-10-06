@@ -101,9 +101,9 @@ export function ShootingCohortVideos() {
     <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Cohort film submissions">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Film className="h-4 w-4" /></span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Film className="h-4 w-4" /></span>
           <div>
-            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Cohort film room</p>
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">Cohort film room</p>
             <h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Send a rep for review</h2>
           </div>
         </div>
@@ -122,7 +122,7 @@ export function ShootingCohortVideos() {
               onChange={(event) => setTitle(event.target.value)}
               maxLength={100}
               placeholder="e.g. Catch-and-shoot reps"
-              className="h-10 w-full rounded-md border border-[#493e32] bg-[#17130f] px-3 text-sm text-[#f3e6d5] placeholder:text-[#675d51] focus:outline-none focus:ring-2 focus:ring-[#ef8a43]"
+              className="h-10 w-full rounded-md border border-[#493e32] bg-[#17130f] px-3 text-sm text-[#f3e6d5] placeholder:text-[#675d51] focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </label>
           <label className="space-y-1.5">
@@ -132,7 +132,7 @@ export function ShootingCohortVideos() {
               onChange={(event) => setNotes(event.target.value)}
               maxLength={1000}
               placeholder="What would you like feedback on?"
-              className="h-10 w-full rounded-md border border-[#493e32] bg-[#17130f] px-3 text-sm text-[#f3e6d5] placeholder:text-[#675d51] focus:outline-none focus:ring-2 focus:ring-[#ef8a43]"
+              className="h-10 w-full rounded-md border border-[#493e32] bg-[#17130f] px-3 text-sm text-[#f3e6d5] placeholder:text-[#675d51] focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </label>
         </div>
@@ -145,19 +145,19 @@ export function ShootingCohortVideos() {
           onChange={(event) => chooseFile(event.target.files?.[0])}
         />
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="border-[#68482e] bg-[#21180f] text-[#f0b17d] hover:bg-[#352416]">
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="border-primary/30 bg-primary/10 text-primary hover:bg-primary/15">
             <FileVideo className="mr-2 h-4 w-4" />{selectedFile ? "Choose another video" : "Choose video"}
           </Button>
           {selectedFile && <span className="max-w-full truncate text-xs text-[#9d8f7e]">{selectedFile.name}</span>}
           {selectedFile && !isUploading && uploadStatus === "error" && (
-            <Button type="button" variant="ghost" onClick={() => void uploadFile(selectedFile)} className="text-[#e8a16a] hover:text-white">Retry upload</Button>
+            <Button type="button" variant="ghost" onClick={() => void uploadFile(selectedFile)} className="text-primary hover:text-primary/80">Retry upload</Button>
           )}
           {selectedFile && <Button type="button" variant="ghost" onClick={resetUpload} disabled={isUploading} className="text-[#9d8f7e] hover:text-white">Clear</Button>}
-          <Button type="button" onClick={() => void submit()} disabled={!uploadedPath || !title.trim() || createSubmission.isPending} className="ml-auto bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">
+          <Button type="button" onClick={() => void submit()} disabled={!uploadedPath || !title.trim() || createSubmission.isPending} className="ml-auto bg-primary font-bold text-primary-foreground hover:bg-primary/90">
             {createSubmission.isPending ? "Sending…" : "Send for review"} <Upload className="ml-2 h-4 w-4" />
           </Button>
         </div>
-        {isUploading && <div className="mt-3 space-y-2" aria-live="polite"><div className="flex items-center justify-between text-xs text-[#d4a47a]"><span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" />Uploading video</span><span className="font-mono">{progress}%</span></div><Progress value={progress} className="h-1.5 bg-[#29231c] [&>div]:bg-[#ef8a43]" /></div>}
+        {isUploading && <div className="mt-3 space-y-2" aria-live="polite"><div className="flex items-center justify-between text-xs text-primary"><span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" />Uploading video</span><span className="font-mono">{progress}%</span></div><Progress value={progress} className="h-1.5 bg-[#29231c] [&>div]:bg-primary" /></div>}
         {uploadedPath && uploadStatus === "success" && <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-200"><Check className="h-3.5 w-3.5" />Upload complete. Submit it to the founder when ready.</p>}
         {uploadStatus === "error" && uploadError && <p className="mt-3 flex items-center gap-1.5 text-xs text-red-200"><AlertCircle className="h-3.5 w-3.5" />{uploadError.message}</p>}
       </div>

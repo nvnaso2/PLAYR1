@@ -555,7 +555,7 @@ function SharedConversation({
   return (
     <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121210]" data-testid="cohort-shared-room">
       <header className="relative overflow-hidden border-b border-white/[0.07] px-4 py-4 sm:px-6">
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-orange-300/[0.05] to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-primary/[0.05] to-transparent" />
         <div className="relative flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-orange-200/15 bg-orange-300/[0.07] text-orange-200"><MessageCircle className="h-5 w-5" /></span>
@@ -611,7 +611,7 @@ function SharedConversation({
                         <span className={`font-mono text-[9px] font-semibold uppercase tracking-[0.12em] ${isAdminMessage ? "text-orange-200/80" : "text-stone-400"}`}>{name}</span>
                         <time className="font-mono text-[9px] text-stone-600">{formatDate(message.createdAt, true)}</time>
                       </div>
-                      <div className={`relative rounded-2xl px-4 py-3 text-sm leading-6 ${isAdminMessage ? "rounded-tr-md bg-gradient-to-br from-orange-300 to-orange-500 font-medium text-[#1c140d] shadow-[0_8px_24px_rgba(242,133,44,0.12)]" : "rounded-tl-md border border-white/[0.07] bg-[#1b1a17] text-stone-200"}`}>
+                      <div className={`relative rounded-2xl px-4 py-3 text-sm leading-6 ${isAdminMessage ? "rounded-tr-md bg-gradient-to-br from-primary to-primary/80 font-medium text-[#1c140d] shadow-[0_8px_24px_hsl(var(--primary)/0.12)]" : "rounded-tl-md border border-white/[0.07] bg-[#1b1a17] text-stone-200"}`}>
                         <p className="whitespace-pre-wrap break-words">{message.content}</p>
                       </div>
                     </div>

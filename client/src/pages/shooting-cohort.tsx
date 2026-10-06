@@ -949,16 +949,18 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
               ? <p className="rounded-xl border border-dashed border-[#514333] bg-[#100e0b] p-4 text-xs leading-5 text-[#817567]">Workouts assigned by the founder will appear here.</p>
               : <div className="space-y-2">
                 {assignedWorkouts.map((workout) => (
-                  <article key={workout.id} className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <h3 className="min-w-0 font-semibold text-sm text-[#e7dac8]">{workout.name}</h3>
-                      <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{workout.status.replace(/_/g, " ")}</span>
+                  <article key={workout.id} className="grid gap-3 rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <div className="min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="min-w-0 font-semibold text-sm text-[#e7dac8]">{workout.name}</h3>
+                        <span className="shrink-0 rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{workout.status.replace(/_/g, " ")}</span>
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-[#8f8274]">{workout.detail}</p>
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-[#8f8274]">{workout.detail}</p>
                     <Button
                       type="button"
                       onClick={() => navigate(`/log?workoutId=${encodeURIComponent(workout.workoutId)}`)}
-                      className="mt-3 h-9 bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+                      className="h-9 w-full bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90 sm:w-auto"
                     >
                       Start workout <ArrowRight className="ml-2 h-3.5 w-3.5" />
                     </Button>

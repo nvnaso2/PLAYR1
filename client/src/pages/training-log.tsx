@@ -3051,7 +3051,7 @@ export default function TrainingLogPage() {
 
       {/* Active Workout View — full screen takeover */}
       {activeView === "workout" && workoutInProgress && (
-        <div className="fixed inset-0 z-40 overflow-y-auto bg-[#050505] [background-image:radial-gradient(circle_at_85%_0%,rgba(249,115,22,0.12),transparent_32%)]" data-testid="workout-fullscreen">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-[#050505] [background-image:radial-gradient(circle_at_85%_0%,hsl(var(--primary)/0.12),transparent_32%)]" data-testid="workout-fullscreen">
           <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
         <Card className="overflow-hidden border-white/10 bg-zinc-950/90 shadow-2xl shadow-orange-950/20">
           <CardHeader className="border-b border-white/10 bg-white/[0.025] p-5 sm:p-7">
@@ -3059,7 +3059,7 @@ export default function TrainingLogPage() {
               <div className="flex items-center gap-4 flex-wrap">
                 <div>
                   <CardTitle className="flex items-center gap-2 text-2xl text-white">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-orange-500 text-black"><Play className="h-4 w-4 fill-current" /></span>
+                    <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><Play className="h-4 w-4 fill-current" /></span>
                     {activeWorkoutName}
                   </CardTitle>
                   <CardDescription className="mt-2 text-zinc-400">
@@ -3083,7 +3083,7 @@ export default function TrainingLogPage() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                     className={workoutMode === "track" ? "bg-orange-500 text-black hover:bg-orange-400 hover:text-black" : "text-zinc-400 hover:bg-white/5 hover:text-white"}
+                     className={workoutMode === "track" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-zinc-400 hover:bg-white/5 hover:text-white"}
                     onClick={() => setWorkoutMode("track")}
                     aria-pressed={workoutMode === "track"}
                     data-testid="button-mode-track-stats"
@@ -3093,9 +3093,9 @@ export default function TrainingLogPage() {
                   </Button>
                 </div>
                 {/* Single workout elapsed timer — auto-starts when workout begins */}
-                <div className="flex items-center gap-2 rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2" data-testid="workout-elapsed-timer">
-                  <Timer className="h-4 w-4 text-orange-300" />
-                  <span className="font-mono text-lg font-bold tabular-nums text-orange-200">{workoutElapsed}</span>
+                <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2" data-testid="workout-elapsed-timer">
+                  <Timer className="h-4 w-4 text-primary" />
+                  <span className="font-mono text-lg font-bold tabular-nums text-primary">{workoutElapsed}</span>
                 </div>
                 {/* Manual override — lets user correct the time if timer was started late */}
                 <div className="flex items-center gap-1.5" title="Override session duration if timer was inaccurate">
@@ -3106,7 +3106,7 @@ export default function TrainingLogPage() {
                     placeholder="Override min"
                     value={manualDurationMinutes}
                     onChange={e => setManualDurationMinutes(e.target.value)}
-                    className="h-8 w-24 rounded-lg border border-white/10 bg-black/30 px-2 text-sm tabular-nums text-white focus:outline-none focus:ring-1 focus:ring-orange-400/60 placeholder:text-zinc-600"
+                    className="h-8 w-24 rounded-lg border border-white/10 bg-black/30 px-2 text-sm tabular-nums text-white focus:outline-none focus:ring-1 focus:ring-primary/60 placeholder:text-zinc-600"
                     data-testid="input-manual-duration"
                   />
                   <span className="text-xs text-zinc-500">min</span>
@@ -3365,227 +3365,261 @@ export default function TrainingLogPage() {
                   const showTimestamps = workoutStartTime && drillStartedMs && earliestStamp != null
                     && (drillStartedMs - earliestStamp) > 60000;
                   const estMinutes = firstEntry.duration || (group.drill.duration ? Math.round(group.drill.duration / 60) : null);
+                  const challengeOptions = getMatchingChallenges(group.drill.category || '');
+                  const attemptsMetric = metricColumns.find((metric) =>
+                    `${metric.template.name} ${metric.template.label}`.toLowerCase().includes('attempt')
+                  );
+                  const makesMetric = metricColumns.find((metric) => {
+                    const label = `${metric.template.name} ${metric.template.label}`.toLowerCase();
+                    return label.includes('made') || label.includes('make');
+                  });
+                  const totalAttempts = attemptsMetric
+                    ? group.entries.reduce((total, { entry }) => total + (entry.metrics[attemptsMetric.metricTemplateId] || 0), 0)
+                    : 0;
+                  const totalMakes = makesMetric
+                    ? group.entries.reduce((total, { entry }) => total + (entry.metrics[makesMetric.metricTemplateId] || 0), 0)
+                    : 0;
+                  const shootingAccuracy = totalAttempts > 0 ? Math.round((totalMakes / totalAttempts) * 100) : null;
                   
                   return (
-                    <Card key={drillId} className="border-muted" data-testid={`drill-table-${drillId}`}>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-base">{group.drill.title}</CardTitle>
-                            <div className="flex items-center gap-3 flex-wrap mt-0.5">
-                              <CardDescription className="text-xs">
-                                {formatCategory(group.drill.category)} · {group.entries.length} round{group.entries.length > 1 ? 's' : ''}
-                                 {estMinutes ? ` · ~${estMinutes}m est.` : ''}
-                                 {firstEntry.plannedSets ? ` · ${firstEntry.plannedSets} sets` : ''}
-                                 {firstEntry.plannedReps ? ` · ${firstEntry.plannedReps} reps` : ''}
-                              </CardDescription>
-                              {firstEntry.coachingNotes && (
-                                <p className="mt-1 text-xs text-orange-300/80">Why this drill helps: {firstEntry.coachingNotes}</p>
-                              )}
-                              {/* "Started at / Ended at" timestamps — only for mid-workout adds */}
-                              {showTimestamps && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Clock className="w-3 h-3 shrink-0" />
-                                  <span>
-                                    Started {relativeTime(drillStartedMs!)}
-                                    {drillEndedMs
-                                      ? ` · Ended ${relativeTime(drillEndedMs)}`
-                                      : ''}
-                                  </span>
-                                </span>
-                              )}
+                    <Card key={drillId} className="overflow-hidden border-white/10 bg-zinc-950/70" data-testid={`drill-table-${drillId}`}>
+                      <CardHeader className="space-y-4 border-b border-white/[0.06] pb-4">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-primary">
+                                Drill {String(drillIdx + 1).padStart(2, '0')}
+                              </span>
+                              <Badge variant="outline" className="border-white/10 bg-white/[0.03] text-zinc-300">
+                                {formatCategory(group.drill.category)}
+                              </Badge>
+                              <span className="text-xs text-zinc-500">
+                                {group.entries.length} round{group.entries.length !== 1 ? 's' : ''}
+                                {estMinutes ? ` · ~${estMinutes} min` : ''}
+                                {firstEntry.plannedSets ? ` · ${firstEntry.plannedSets} sets` : ''}
+                                {firstEntry.plannedReps ? ` · ${firstEntry.plannedReps} reps` : ''}
+                              </span>
                             </div>
+                            <CardTitle className="text-xl leading-tight text-white">{group.drill.title}</CardTitle>
+                            {firstEntry.coachingNotes && (
+                              <p className="max-w-3xl text-sm leading-5 text-zinc-400">{firstEntry.coachingNotes}</p>
+                            )}
+                            {showTimestamps && (
+                              <p className="flex items-center gap-1.5 text-xs text-zinc-500">
+                                <Clock className="h-3.5 w-3.5 shrink-0" />
+                                Started {relativeTime(drillStartedMs!)}
+                                {drillEndedMs ? ` · Ended ${relativeTime(drillEndedMs)}` : ''}
+                              </p>
+                            )}
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex shrink-0 items-center gap-2">
                             <Button
+                              type="button"
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-10 w-10 border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.08] hover:text-white"
                               onClick={() => setDrillInfoOpen(group.drill)}
                               data-testid={`button-drill-info-${drillId}`}
                               title="View drill details"
                               aria-label={`View details for ${group.drill.title}`}
                             >
-                              <Info className="w-4 h-4" />
+                              <Info className="h-4 w-4" />
                             </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => addRound(group.entries[group.entries.length - 1].index)}
-                            className="gap-1"
-                            data-testid={`button-add-round-${drillId}`}
-                          >
-                            <Plus className="w-3 h-3" />
-                            Add Round
-                          </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addRound(group.entries[group.entries.length - 1].index)}
+                              className="h-10 gap-1.5 border-primary/30 bg-primary/10 px-3 text-primary hover:bg-primary/15"
+                              data-testid={`button-add-round-${drillId}`}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add round
+                            </Button>
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent className="p-0">
-                        <div className="overflow-x-auto -mx-1 px-1">
-                          <table className="w-full text-sm min-w-[400px]">
-                            <thead>
-                              <tr className="border-b bg-muted/30">
-                                <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground w-14 sm:w-20 text-xs sm:text-sm">Round</th>
-                                {isShootingDrill && (
-                                  <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm">Location</th>
-                                )}
-                                {metricColumns.map(dm => (
-                                  <th key={dm.metricTemplateId} className="text-left p-2 sm:p-3 font-medium text-muted-foreground text-xs sm:text-sm whitespace-nowrap">
-                                    <span className="inline-flex items-center gap-1 max-w-[80px] sm:max-w-none truncate sm:whitespace-normal">
-                                      {(dm.template.type as string) === 'timer' && <Timer className="w-3 h-3 text-primary shrink-0" />}
-                                      {dm.template.label}
-                                    </span>
-                                    {dm.isRequired && <span className="text-destructive ml-1">*</span>}
-                                  </th>
+
+                        {shootingAccuracy !== null && (
+                          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-3">
+                            <div>
+                              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Shooting accuracy</p>
+                              <p className="mt-1 text-xs text-zinc-400">{totalMakes} makes from {totalAttempts} attempts</p>
+                            </div>
+                            <p className="font-heading text-3xl leading-none text-primary">{shootingAccuracy}%</p>
+                          </div>
+                        )}
+
+                        {challengeOptions.length > 0 && group.entries.length > 1 && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Target className="h-4 w-4 text-primary" />
+                            <span className="text-xs text-zinc-400">Set a challenge for every round</span>
+                            <Select onValueChange={(value) => applyChallengeToAllRounds(drillId, value)}>
+                              <SelectTrigger className="h-9 w-full border-white/10 bg-black/30 text-xs sm:w-52" data-testid={`select-challenge-all-${drillId}`}>
+                                <SelectValue placeholder="Apply to all rounds…" />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4}>
+                                <SelectItem value="none">Clear all rounds</SelectItem>
+                                {challengeOptions.map((challenge) => (
+                                  <SelectItem key={challenge.id} value={challenge.id}>{challenge.challenge.name}</SelectItem>
                                 ))}
-                                <th className="text-left p-2 sm:p-3 font-medium text-muted-foreground hidden sm:table-cell">Notes</th>
-                                {getMatchingChallenges(group.drill.category || '').length > 0 && (
-                                  <th className="text-left p-2 sm:p-3 font-medium text-primary text-xs sm:text-sm whitespace-nowrap">
-                                    <div className="flex flex-col gap-1">
-                                      <span className="flex items-center gap-1">
-                                        <Target className="w-3 h-3" />
-                                        Challenge
-                                      </span>
-                                      {group.entries.length > 1 && (
-                                        <Select
-                                          onValueChange={(val) => applyChallengeToAllRounds(drillId, val)}
-                                        >
-                                          <SelectTrigger className="h-6 text-[10px] w-28 border-primary/40 text-primary" data-testid={`select-challenge-all-${drillId}`}>
-                                            <SelectValue placeholder="Apply all…" />
-                                          </SelectTrigger>
-                                          <SelectContent position="popper" sideOffset={4}>
-                                            <SelectItem value="none">
-                                              <span className="text-muted-foreground text-xs">Clear all</span>
-                                            </SelectItem>
-                                            {getMatchingChallenges(group.drill.category || '').map(uc => (
-                                              <SelectItem key={uc.id} value={uc.id}>
-                                                <span className="text-xs">{uc.challenge.name}</span>
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      )}
-                                    </div>
-                                  </th>
-                                )}
-                                <th className="text-center p-2 sm:p-3 font-medium text-muted-foreground w-10 sm:w-12"></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {group.entries.map(({ entry, index }, roundIdx) => (
-                                <tr key={index} className="border-b last:border-0 hover:bg-muted/20" data-testid={`workout-row-${index}`}>
-                                  <td className="p-2 sm:p-3">
-                                    <Badge variant="secondary" className="text-xs font-semibold">
-                                      {roundIdx + 1}
-                                    </Badge>
-                                  </td>
-                                  {isShootingDrill && (
-                                    <td className="p-1 sm:p-2">
-                                      <Select
-                                        value={entry.shotLocation || ''}
-                                        onValueChange={(value) => updateEntry(index, 'shotLocation', value)}
-                                      >
-                                        <SelectTrigger className="w-32 sm:w-40 h-8 text-xs" data-testid={`select-location-${index}`}>
-                                          <SelectValue placeholder="Select location" />
-                                        </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4} className="max-h-[50vh] overflow-y-auto">
-                                          {(shotLocationOptions || []).map(loc => (
-                                            <SelectItem key={loc.slug} value={loc.slug}>
-                                              <span className="flex items-center gap-2">
-                                                {loc.label}
-                                                <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                                  {loc.classification === 'free-throw' ? 'FT' :
-                                                   loc.classification === '2-pointer' ? '2PT' : '3PT'}
-                                                </Badge>
-                                              </span>
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </td>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </CardHeader>
+
+                      <CardContent className="space-y-3 p-3 sm:p-4">
+                        {group.entries.map(({ entry, index }, roundIdx) => {
+                          const roundAttempts = attemptsMetric ? entry.metrics[attemptsMetric.metricTemplateId] || 0 : 0;
+                          const roundMakes = makesMetric ? entry.metrics[makesMetric.metricTemplateId] || 0 : 0;
+                          const roundAccuracy = roundAttempts > 0 ? Math.round((roundMakes / roundAttempts) * 100) : null;
+
+                          return (
+                            <section
+                              key={index}
+                              className="space-y-4 rounded-2xl border border-white/[0.08] bg-black/25 p-3.5 sm:p-4"
+                              data-testid={`workout-row-${index}`}
+                              aria-label={`Round ${roundIdx + 1} of ${group.drill.title}`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                  <span className="rounded-full bg-white/[0.06] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-200">
+                                    Round {String(roundIdx + 1).padStart(2, '0')}
+                                  </span>
+                                  {roundAccuracy !== null && (
+                                    <span className="text-xs text-zinc-500">{roundMakes}/{roundAttempts} · {roundAccuracy}%</span>
                                   )}
-                                  {metricColumns.map(dm => (
-                                    <td key={dm.metricTemplateId} className="p-1 sm:p-2">
-                                      {(dm.template.type as string) === 'timer' ? (
-                                        <DrillTimer
-                                          value={entry.metrics[dm.metricTemplateId] || 0}
-                                          onChange={(seconds) => updateMetricValue(index, dm.metricTemplateId, seconds)}
-                                          data-testid={`timer-metric-${index}-${dm.metricTemplateId}`}
-                                        />
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 shrink-0 text-zinc-500 hover:bg-red-500/10 hover:text-red-300"
+                                  onClick={() => removeFromWorkout(index)}
+                                  data-testid={`button-remove-${index}`}
+                                  aria-label={`Remove round ${roundIdx + 1} of ${group.drill.title}`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+
+                              {isShootingDrill && (
+                                <div className="max-w-sm space-y-1.5">
+                                  <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500" htmlFor={`select-location-${index}`}>
+                                    Shot location
+                                  </label>
+                                  <Select
+                                    value={entry.shotLocation || ''}
+                                    onValueChange={(value) => updateEntry(index, 'shotLocation', value)}
+                                  >
+                                    <SelectTrigger id={`select-location-${index}`} className="h-10 w-full border-white/10 bg-black/30 text-sm" data-testid={`select-location-${index}`}>
+                                      <SelectValue placeholder="Choose location" />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" sideOffset={4} className="max-h-[50vh] overflow-y-auto">
+                                      {(shotLocationOptions || []).map((location) => (
+                                        <SelectItem key={location.slug} value={location.slug}>
+                                          <span className="flex items-center gap-2">
+                                            {location.label}
+                                            <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                              {location.classification === 'free-throw' ? 'FT' :
+                                                location.classification === '2-pointer' ? '2PT' : '3PT'}
+                                            </Badge>
+                                          </span>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+
+                              {metricColumns.length > 0 ? (
+                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                  {metricColumns.map((metric) => (
+                                    <div key={metric.metricTemplateId} className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-400">
+                                          {(metric.template.type as string) === 'timer' && <Timer className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                                          <span className="truncate">{metric.template.label}</span>
+                                          {metric.isRequired && <span className="text-destructive">*</span>}
+                                        </span>
+                                        {metric.isRequired && <span className="shrink-0 text-[9px] text-zinc-600">Required</span>}
+                                      </div>
+                                      {(metric.template.type as string) === 'timer' ? (
+                                        <div className="mt-2">
+                                          <DrillTimer
+                                            value={entry.metrics[metric.metricTemplateId] || 0}
+                                            onChange={(seconds) => updateMetricValue(index, metric.metricTemplateId, seconds)}
+                                            data-testid={`timer-metric-${index}-${metric.metricTemplateId}`}
+                                          />
+                                        </div>
                                       ) : (
                                         <Input
                                           type="text"
                                           inputMode="numeric"
                                           pattern="[0-9]*"
-                                          value={entry.metrics[dm.metricTemplateId] || ''}
-                                          onChange={(e) => updateMetricValue(index, dm.metricTemplateId, parseFloat(e.target.value) || 0)}
-                                          className="w-14 sm:w-20 h-8 text-sm"
+                                          aria-label={`${metric.template.label} for round ${roundIdx + 1}`}
+                                          value={entry.metrics[metric.metricTemplateId] || ''}
+                                          onChange={(event) => updateMetricValue(index, metric.metricTemplateId, parseFloat(event.target.value) || 0)}
+                                          className="mt-2 h-12 border-white/10 bg-black/35 text-center font-mono text-xl font-bold tabular-nums text-white placeholder:text-zinc-700 focus-visible:ring-primary"
                                           placeholder="0"
-                                          data-testid={`input-metric-${index}-${dm.metricTemplateId}`}
+                                          data-testid={`input-metric-${index}-${metric.metricTemplateId}`}
                                         />
                                       )}
-                                    </td>
+                                    </div>
                                   ))}
-                                  <td className="p-2 hidden sm:table-cell">
-                                    <Input
-                                      placeholder="Notes..."
-                                      value={entry.notes}
-                                      onChange={(e) => updateEntry(index, 'notes', e.target.value)}
-                                      className="h-8 text-sm min-w-[100px]"
-                                      data-testid={`input-notes-${index}`}
-                                    />
-                                  </td>
-                                  {getMatchingChallenges(group.drill.category || '').length > 0 && (
-                                    <td className="p-1 sm:p-2">
-                                      <Select
-                                        value={entry.trackToChallengeIds?.[0] || ''}
-                                        onValueChange={(value) => {
-                                          if (value === 'none') {
-                                            updateEntry(index, 'trackToChallengeIds', []);
-                                          } else {
-                                            updateEntry(index, 'trackToChallengeIds', [value]);
-                                          }
-                                        }}
-                                      >
-                                        <SelectTrigger className="w-28 sm:w-36 h-8 text-xs" data-testid={`select-challenge-${index}`}>
-                                          <SelectValue placeholder="Select..." />
-                                        </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4}>
-                                          <SelectItem value="none">
-                                            <span className="text-muted-foreground">None</span>
-                                          </SelectItem>
-                                          {getMatchingChallenges(group.drill.category || '').map(uc => (
-                                            <SelectItem key={uc.id} value={uc.id}>
-                                              <span className="flex items-center gap-1">
-                                                <Target className="w-3 h-3 text-primary" />
-                                                <span className="truncate max-w-[80px]">{uc.challenge.name}</span>
-                                                <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
-                                                  {uc.currentValue || 0}/{uc.challenge.targetValue}
-                                                </Badge>
-                                              </span>
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </td>
-                                  )}
-                                  <td className="p-1 sm:p-2 text-center">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={() => removeFromWorkout(index)}
-                                      data-testid={`button-remove-${index}`}
+                                </div>
+                              ) : (
+                                <p className="rounded-xl border border-dashed border-white/10 px-3 py-4 text-sm text-zinc-500">
+                                  No performance metrics are configured for this drill yet.
+                                </p>
+                              )}
+
+                              <div className={`grid gap-3 ${challengeOptions.length > 0 ? 'sm:grid-cols-[minmax(0,1fr)_minmax(200px,0.7fr)]' : ''}`}>
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500" htmlFor={`input-notes-${index}`}>
+                                    Round notes
+                                  </label>
+                                  <Input
+                                    id={`input-notes-${index}`}
+                                    placeholder="How did this round feel?"
+                                    value={entry.notes}
+                                    onChange={(event) => updateEntry(index, 'notes', event.target.value)}
+                                    className="h-10 border-white/10 bg-black/30 text-sm"
+                                    data-testid={`input-notes-${index}`}
+                                  />
+                                </div>
+                                {challengeOptions.length > 0 && (
+                                  <div className="space-y-1.5">
+                                    <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                                      <Target className="h-3.5 w-3.5 text-primary" /> Challenge
+                                    </label>
+                                    <Select
+                                      value={entry.trackToChallengeIds?.[0] || ''}
+                                      onValueChange={(value) => updateEntry(index, 'trackToChallengeIds', value === 'none' ? [] : [value])}
                                     >
-                                      <X className="w-4 h-4 text-muted-foreground" />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                                      <SelectTrigger className="h-10 w-full border-white/10 bg-black/30 text-xs" data-testid={`select-challenge-${index}`} aria-label={`Challenge for round ${roundIdx + 1}`}>
+                                        <SelectValue placeholder="No challenge selected" />
+                                      </SelectTrigger>
+                                      <SelectContent position="popper" sideOffset={4}>
+                                        <SelectItem value="none">None</SelectItem>
+                                        {challengeOptions.map((challenge) => (
+                                          <SelectItem key={challenge.id} value={challenge.id}>
+                                            <span className="flex items-center gap-2">
+                                              <span className="truncate">{challenge.challenge.name}</span>
+                                              <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                                {challenge.currentValue || 0}/{challenge.challenge.targetValue}
+                                              </Badge>
+                                            </span>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+                              </div>
+                            </section>
+                          );
+                        })}
                       </CardContent>
                     </Card>
                   );

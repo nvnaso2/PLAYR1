@@ -346,6 +346,44 @@ html.plt-capacitor textarea {
   font-family: 'DM Sans', sans-serif;
 }
 
+/* Keep admin cohort accents on the app's shared primary orange token. */
+.shooting-cohort-admin [class*="text-orange-"] {
+  color: hsl(var(--primary)) !important;
+}
+
+.shooting-cohort-admin [class*="border-orange-"] {
+  border-color: hsl(var(--primary) / 0.25) !important;
+}
+
+.shooting-cohort-admin [class*="ring-orange-"] {
+  --tw-ring-color: hsl(var(--primary)) !important;
+}
+
+.shooting-cohort-admin [class*="bg-orange-"] {
+  background-color: hsl(var(--primary) / 0.08) !important;
+}
+
+.shooting-cohort-admin [class*="bg-orange-300/80"] {
+  background-color: hsl(var(--primary) / 0.8) !important;
+}
+
+.shooting-cohort-admin [class*="hover:bg-orange-"]:hover {
+  background-color: hsl(var(--primary) / 0.14) !important;
+}
+
+.shooting-cohort-admin [class*="hover:border-orange-"]:hover {
+  border-color: hsl(var(--primary) / 0.45) !important;
+}
+
+.shooting-cohort-admin [class*="from-orange-"] {
+  --tw-gradient-from: hsl(var(--primary)) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: hsl(var(--primary) / 0) var(--tw-gradient-to-position) !important;
+}
+
+.shooting-cohort-admin [class*="to-orange-"] {
+  --tw-gradient-to: hsl(var(--primary)) var(--tw-gradient-to-position) !important;
+}
+
 /* Keep the player Cohort surfaces in the same charcoal and orange system as PLAYR1. */
 .shooting-cohort-page [class*="#100e0b"] {
   background-color: #080808 !important;

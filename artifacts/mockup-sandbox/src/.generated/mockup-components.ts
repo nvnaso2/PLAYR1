@@ -23,5 +23,7 @@ export const modules: ModuleMap = {
   "./components/mockups/shooting-cohort-admin/Current.tsx": () => import("../components/mockups/shooting-cohort-admin/Current.tsx"),
   "./components/mockups/shooting-cohort-admin/DashboardAligned.tsx": () => import("../components/mockups/shooting-cohort-admin/DashboardAligned.tsx"),
   "./components/mockups/shooting-cohort-player-redesign/Current.tsx": () => import("../components/mockups/shooting-cohort-player-redesign/Current.tsx"),
-  "./components/mockups/shooting-cohort-player-redesign/Updated.tsx": () => import("../components/mockups/shooting-cohort-player-redesign/Updated.tsx")
+  "./components/mockups/shooting-cohort-player-redesign/Updated.tsx": () => import("../components/mockups/shooting-cohort-player-redesign/Updated.tsx"),
+  "./components/mockups/workout-tracker-redesign/Current.tsx": () => import("../components/mockups/workout-tracker-redesign/Current.tsx"),
+  "./components/mockups/workout-tracker-redesign/TrackStatsRedesign.tsx": () => import("../components/mockups/workout-tracker-redesign/TrackStatsRedesign.tsx")
 };
