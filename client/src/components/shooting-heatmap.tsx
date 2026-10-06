@@ -738,15 +738,6 @@ export function ShootingHeatmap({
             <span className={`font-bold ${pctColor}`}>({pct}%)</span>
           </div>
         </div>
-        {personalizedScale && (
-          <p className="mt-2 text-xs text-zinc-500" data-testid="heatmap-scale-caption">
-            {baselineError
-              ? "Your personal scale could not load; zones without a recent baseline are left ungraded."
-              : baselineLoading
-                ? "Loading your recent shooting averages…"
-                : "Zone numbers stay as actual percentages. The game-style gradient uses deep reds and golds below your average, a lime-green average, and darker emeralds above it."}
-          </p>
-        )}
       </CardHeader>
 
       <CardContent className="p-3 pt-0">

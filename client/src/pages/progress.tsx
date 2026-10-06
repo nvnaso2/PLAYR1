@@ -372,7 +372,7 @@ export default function ProgressPage() {
               Customize Hub
             </Button>
           </div>
-          <div className="grid w-full grid-cols-4 gap-1 sm:flex sm:w-auto" role="group" aria-label="Choose dashboard time range">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto" role="group" aria-label="Choose dashboard time range">
             {(["daily", "weekly", "monthly", "annual"] as TimePeriod[]).map((period) => (
               <Button
                 key={period}
@@ -380,8 +380,8 @@ export default function ProgressPage() {
                 variant={timePeriod === period ? "default" : "outline"}
                 onClick={() => setTimePeriod(period)}
                 className={timePeriod === period
-                  ? "h-10 min-w-0 bg-orange-500 px-2 text-[10px] font-bold text-black hover:bg-orange-400 sm:text-xs"
-                  : "h-10 min-w-0 border-zinc-800 bg-transparent px-2 text-[10px] text-zinc-400 hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300 sm:text-xs"}
+                  ? "h-10 min-w-0 bg-orange-500 px-2 text-xs font-bold text-black hover:bg-orange-400"
+                  : "h-10 min-w-0 border-zinc-800 bg-transparent px-2 text-xs text-zinc-400 hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300"}
                 data-testid={`button-period-${period}`}
               >
                 {TIME_PERIOD_LABELS[period]}
