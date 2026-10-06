@@ -1,15 +1,15 @@
-import { useEffect } from "react";
-import { useLocation } from "wouter";
+import { Redirect } from "wouter";
 
 export default function SubscriptionPage() {
-  const [, navigate] = useLocation();
-  useEffect(() => {
-    navigate(`/profile-hub${window.location.search}`, { replace: true });
-  }, [navigate]);
+  const params = new URLSearchParams(window.location.search);
+  const checkout = params.get("checkout");
+  const isCheckoutReturn = checkout === "success" || checkout === "cancelled";
 
-  return (
-    <div className="p-6 text-center text-sm text-muted-foreground" role="status">
-      Opening your plan on Profile…
-    </div>
-  );
+  if (isCheckoutReturn) {
+    return <Redirect to={`/profile-hub?checkout=${checkout}`} replace />;
+  }
+
+  params.delete("checkout");
+  params.set("showPro", "1");
+  return <Redirect to={`/profile-hub?${params.toString()}`} replace />;
 }

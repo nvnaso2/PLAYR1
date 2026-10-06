@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,20 @@ import { Check, Crown, Loader2 } from "lucide-react";
 
 type SubscriptionState = {
   plan: "free" | "pro" | "pro-infinity";
+  status: string;
   interval: "month" | "year" | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
+  coachP: {
+    used: number;
+    limit: number | null;
+    remaining: number | null;
+    monthKey: string;
+  };
 };
 
 type ProUpgradeContextValue = {
-  openProOffer: (feature?: string) => void;
+  openProOffer: (feature?: string, returnStatus?: "success" | "cancelled" | null) => void;
 };
 
 const ProUpgradeContext = createContext<ProUpgradeContextValue | null>(null);
@@ -33,19 +40,9 @@ export function useProUpgrade() {
 }
 
 export function ProUpgradeProvider({ children }: { children: ReactNode }) {
-  const initialCheckoutStatus = new URLSearchParams(window.location.search).get("checkout");
-  const [open, setOpen] = useState(initialCheckoutStatus === "success" || initialCheckoutStatus === "cancelled");
+  const [open, setOpen] = useState(false);
   const [feature, setFeature] = useState<string>();
-  const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancelled" | null>(
-    initialCheckoutStatus === "success" || initialCheckoutStatus === "cancelled" ? initialCheckoutStatus : null,
-  );
-
-  useEffect(() => {
-    if (!initialCheckoutStatus) return;
-    const url = new URL(window.location.href);
-    url.searchParams.delete("checkout");
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [initialCheckoutStatus]);
+  const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancelled" | null>(null);
 
   const { data: subscription, isLoading, isError, refetch } = useQuery<SubscriptionState>({
     queryKey: ["/api/billing/subscription"],
@@ -80,9 +77,9 @@ export function ProUpgradeProvider({ children }: { children: ReactNode }) {
   });
 
   const contextValue = useMemo<ProUpgradeContextValue>(() => ({
-    openProOffer: (nextFeature) => {
+    openProOffer: (nextFeature, nextCheckoutStatus = null) => {
       setFeature(nextFeature);
-      setCheckoutStatus(null);
+      setCheckoutStatus(nextCheckoutStatus);
       setOpen(true);
       void refetch();
     },
@@ -96,6 +93,17 @@ export function ProUpgradeProvider({ children }: { children: ReactNode }) {
     : subscription?.interval === "year"
       ? "Annual"
       : null;
+  const statusLabel = subscription?.status === "active"
+    ? "Active"
+    : subscription?.status === "trialing"
+      ? "Free trial"
+      : subscription?.status === "past_due"
+        ? "Payment needs attention"
+        : subscription?.status === "pro-infinity"
+          ? "Admin-granted access"
+          : subscription?.status === "canceled" || subscription?.status === "cancelled"
+            ? "Canceled"
+            : "Free";
   const periodEnd = subscription?.currentPeriodEnd
     ? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, {
         month: "short",
@@ -108,7 +116,7 @@ export function ProUpgradeProvider({ children }: { children: ReactNode }) {
     <ProUpgradeContext.Provider value={contextValue}>
       {children}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto border-zinc-800 bg-zinc-950 text-white">
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto border-zinc-800 bg-black text-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Crown className="h-5 w-5 text-orange-300" />
@@ -157,28 +165,34 @@ export function ProUpgradeProvider({ children }: { children: ReactNode }) {
                       ? "mt-1 border border-orange-300/20 bg-orange-400/15 text-orange-100 hover:bg-orange-400/15"
                       : "mt-1 border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-800"}
                     >
-                      {currentPlan}{isPro && currentInterval ? ` · ${currentInterval}` : ""}
+                      {currentPlan}
                     </Badge>
                   </div>
                 </div>
 
-                {isPro && periodEnd && (
-                  <p className="text-xs text-zinc-400">
-                    {subscription.cancelAtPeriodEnd ? "Access through" : "Next renewal"} {periodEnd}
-                  </p>
-                )}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-400">
+                  <span>{statusLabel}</span>
+                  {isPro && currentInterval && <span>· {currentInterval}</span>}
+                  {isPro && periodEnd && (
+                    <span>· {subscription.cancelAtPeriodEnd ? "Access through" : "Renews"} {periodEnd}</span>
+                  )}
+                  {isPro && subscription.cancelAtPeriodEnd && <span className="font-semibold text-amber-200">· Cancellation scheduled</span>}
+                </div>
 
-                <div className="rounded-xl border border-orange-300/15 bg-gradient-to-br from-orange-500/10 via-zinc-950 to-black p-4">
-                  <div className="flex items-start justify-between gap-4">
+                <div className="rounded-xl border border-orange-300/20 bg-zinc-950 p-3 sm:p-4">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-200">PLAYR1 Pro</p>
-                      <p className="mt-1 text-2xl font-black text-white">$9.99<span className="ml-1 text-sm font-medium text-zinc-400">/ month</span></p>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.13em] text-zinc-500">In-person training</p>
+                      <p className="mt-1 text-lg font-black leading-tight text-zinc-100 sm:text-xl">$50–$100</p>
+                      <p className="text-[10px] text-zinc-500">per session</p>
                     </div>
-                    <Crown className="h-6 w-6 text-orange-300" />
+                    <span className="px-1 text-[10px] font-bold uppercase tracking-wider text-zinc-600">vs</span>
+                    <div className="text-right">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.13em] text-orange-300">PLAYR1 Pro</p>
+                      <p className="mt-1 text-lg font-black leading-tight text-orange-200 sm:text-xl">$9.99<span className="ml-0.5 text-xs font-semibold text-zinc-400">/ month</span></p>
+                      <p className="text-[10px] text-zinc-500">$99.99/year, billed annually</p>
+                    </div>
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-zinc-400">
-                    Structured workouts and courses plus personalized drills for less than one in-person hour of training.
-                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -187,19 +201,25 @@ export function ProUpgradeProvider({ children }: { children: ReactNode }) {
                       <p className="text-xs font-bold text-zinc-200">Free</p>
                       {!isPro && <span className="text-[9px] font-semibold uppercase text-zinc-400">Your plan</span>}
                     </div>
-                    <ul className="space-y-1.5 text-[10px] leading-tight text-zinc-400">
+                    <ul className="space-y-1.5 text-[11px] leading-snug text-zinc-400">
                       <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />Daily drills + full drill library</li>
                       <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />3 Coach P questions / month</li>
                       <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />Workouts + game stat tracking</li>
                       <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-zinc-500" />Profile + dashboard analytics</li>
                     </ul>
+                    {!isPro && (
+                      <p className="mt-2 border-t border-zinc-800 pt-2 text-[10px] font-semibold text-zinc-300">
+                        Coach P this month: {subscription.coachP.used} of {subscription.coachP.limit ?? 3} used
+                        {subscription.coachP.remaining !== null && ` · ${subscription.coachP.remaining} remaining`}
+                      </p>
+                    )}
                   </div>
                   <div className={`rounded-xl border p-3 ${isPro ? "border-orange-300/45 bg-orange-400/[0.08]" : "border-orange-300/15 bg-black/20"}`}>
                     <div className="mb-2 flex items-center justify-between gap-1">
                       <p className="text-xs font-bold text-orange-100">Pro</p>
                       {isPro && <span className="text-[9px] font-semibold uppercase text-orange-200/80">Your plan</span>}
                     </div>
-                    <ul className="space-y-1.5 text-[10px] leading-tight text-zinc-300">
+                    <ul className="space-y-1.5 text-[11px] leading-snug text-zinc-300">
                       <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-emerald-400" />Unlimited Coach P</li>
                       <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-emerald-400" />Full programs + courses access</li>
                       <li className="flex gap-1.5"><Check className="h-3 w-3 shrink-0 text-emerald-400" />Full workout library access</li>

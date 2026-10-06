@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { BaseballCard, StatsTab } from "@/pages/career";
@@ -43,6 +43,20 @@ export default function ProfileHubPage() {
   const { user } = useAuth();
   const { openProOffer } = useProUpgrade();
   const cardRef = useRef<HTMLDivElement>(null);
+  const params = new URLSearchParams(window.location.search);
+  const checkoutValue = params.get("checkout");
+  const checkoutReturn = checkoutValue === "success" || checkoutValue === "cancelled" ? checkoutValue : null;
+  const showProOffer = params.get("showPro") === "1";
+
+  useEffect(() => {
+    if (!checkoutReturn && !showProOffer) return;
+
+    openProOffer(undefined, checkoutReturn);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("checkout");
+    url.searchParams.delete("showPro");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [checkoutReturn, openProOffer, showProOffer]);
 
   const { data: profile, isLoading: profileLoading } = useQuery<any>({
     queryKey: ["/api/profile"],
