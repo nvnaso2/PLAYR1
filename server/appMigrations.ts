@@ -216,6 +216,19 @@ export async function runApplicationMigrations(): Promise<void> {
        ALTER TABLE custom_workout_requests DROP COLUMN IF EXISTS preferred_schedule;
        ALTER TABLE custom_workout_assignments DROP COLUMN IF EXISTS due_date;
        ALTER TABLE custom_workout_assignments ALTER COLUMN request_id DROP NOT NULL;
+       ALTER TABLE shooting_cohort_settings ADD COLUMN IF NOT EXISTS goal_three_point_percent integer;
+       ALTER TABLE shooting_cohort_settings ADD COLUMN IF NOT EXISTS goal_mid_range_percent integer;
+       ALTER TABLE shooting_cohort_settings ADD COLUMN IF NOT EXISTS goal_free_throw_percent integer;
+       ALTER TABLE shooting_cohort_assessments ADD COLUMN IF NOT EXISTS protocol_version integer NOT NULL DEFAULT 1;
+       ALTER TABLE shooting_cohort_assessments ADD COLUMN IF NOT EXISTS three_point_results jsonb;
+       ALTER TABLE shooting_cohort_assessments ADD COLUMN IF NOT EXISTS mid_range_results jsonb;
+       ALTER TABLE shooting_cohort_assessments ALTER COLUMN distance_feet DROP NOT NULL;
+       ALTER TABLE shooting_cohort_assessments ALTER COLUMN spot_up_results DROP NOT NULL;
+       ALTER TABLE shooting_cohort_assessments ALTER COLUMN off_dribble_results DROP NOT NULL;
+       ALTER TABLE shooting_cohort_video_submissions ADD COLUMN IF NOT EXISTS workout_request_id varchar;
+       ALTER TABLE shooting_cohort_video_submissions ADD COLUMN IF NOT EXISTS founder_feedback text;
+       ALTER TABLE shooting_cohort_video_submissions ADD COLUMN IF NOT EXISTS feedback_updated_at timestamp;
+       ALTER TABLE shooting_cohort_video_submissions ADD COLUMN IF NOT EXISTS feedback_updated_by varchar;
       CREATE TABLE IF NOT EXISTS notification_preferences (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL UNIQUE,

@@ -4,6 +4,8 @@ import type {
   ShootingCohortApplicationAnswers,
   ShootingCohortAssessmentInput,
   ShootingCohortAssessmentType,
+  ShootingCohortThreePointResults,
+  ShootingCohortMidRangeResults,
   ShootingCohortOffDribbleResults,
   ShootingCohortSpotUpResults,
   ShootingCohortStatus,
@@ -14,6 +16,9 @@ import type {
 export type ShootingCohortSettings = {
   capacity: number;
   applicationsOpen: boolean;
+  goalThreePointPercent?: number | null;
+  goalMidRangePercent?: number | null;
+  goalFreeThrowPercent?: number | null;
   activeCount?: number;
   invitedCount?: number;
   updatedAt?: string | null;
@@ -24,10 +29,13 @@ export type ShootingCohortAssessmentRecord = {
   id: string;
   userId: string;
   type: ShootingCohortAssessmentType;
-  distanceFeet: number;
+  protocolVersion: number;
+  distanceFeet?: number | null;
   freeThrowsMade: number;
-  spotUpResults: ShootingCohortSpotUpResults;
-  offDribbleResults: ShootingCohortOffDribbleResults;
+  spotUpResults?: ShootingCohortSpotUpResults | null;
+  offDribbleResults?: ShootingCohortOffDribbleResults | null;
+  threePointResults?: ShootingCohortThreePointResults | null;
+  midRangeResults?: ShootingCohortMidRangeResults | null;
   notes?: string | null;
   createdAt: string;
 };
@@ -79,6 +87,11 @@ export type ShootingCohortVideoSubmission = {
   thumbnailUrl?: string | null;
   description?: string | null;
   createdAt: string;
+  workoutRequestId?: string | null;
+  founderFeedback?: string | null;
+  feedbackUpdatedAt?: string | null;
+  displayName?: string | null;
+  email?: string | null;
 };
 
 async function requestJson<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -187,6 +200,30 @@ export function useAdminShootingCohortVideoSubmissionsQuery(applicationId: strin
   });
 }
 
+export function useAllAdminShootingCohortVideoSubmissionsQuery() {
+  return useQuery<ShootingCohortVideoSubmission[]>({
+    queryKey: ["/api/admin/shooting-cohort/videos"],
+    refetchInterval: 30000,
+  });
+}
+
+export function useUpdateShootingCohortVideoFeedback() {
+  return useMutation({
+    mutationFn: ({ videoId, feedback }: { videoId: string; feedback: string }) =>
+      requestJson<{ video: ShootingCohortVideoSubmission }>(
+        "PATCH",
+        `/api/admin/shooting-cohort/videos/${encodeURIComponent(videoId)}/feedback`,
+        { feedback },
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/shooting-cohort/videos"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort/videos"] }),
+      ]);
+    },
+  });
+}
+
 export function useCreateShootingCohortVideoSubmission() {
   return useMutation({
     mutationFn: (submission: ShootingCohortVideoSubmissionInput) =>
@@ -199,7 +236,13 @@ export function useCreateShootingCohortVideoSubmission() {
 
 export function useUpdateShootingCohortSettings() {
   return useMutation({
-    mutationFn: (settings: { capacity: number; applicationsOpen: boolean }) =>
+    mutationFn: (settings: {
+      capacity: number;
+      applicationsOpen: boolean;
+      goalThreePointPercent: number | null;
+      goalMidRangePercent: number | null;
+      goalFreeThrowPercent: number | null;
+    }) =>
       requestJson<{ settings: ShootingCohortSettings }>("PATCH", "/api/admin/shooting-cohort/settings", settings),
     onSuccess: async () => {
       await Promise.all([

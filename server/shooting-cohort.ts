@@ -6,6 +6,7 @@ import {
   shootingCohortMessages,
   shootingCohortSettings,
   shootingCohortVideoSubmissions,
+  customWorkoutRequests,
   userProfiles,
 } from "@shared/schema";
 import type {
@@ -14,8 +15,14 @@ import type {
   ShootingCohortAssessmentInput,
   ShootingCohortStatus,
   ShootingCohortVideoSubmissionInput,
+  ShootingCohortWorkoutRequestInput,
 } from "@shared/shooting-cohort";
-import { canAssignShootingCohortSeat, getShootingCohortAdmissionStatus, getShootingCohortSenderDisplayName } from "@shared/shooting-cohort";
+import {
+  canAssignShootingCohortSeat,
+  getShootingCohortAdmissionStatus,
+  getShootingCohortSenderDisplayName,
+  SHOOTING_COHORT_FOCUS_LABELS,
+} from "@shared/shooting-cohort";
 
 const ACTIVE_SEAT_STATUSES: readonly ShootingCohortStatus[] = ["active", "invited"];
 const VISIBLE_APPLICATION_STATUSES: readonly ShootingCohortStatus[] = ["active", "invited", "waitlisted", "needs_review"];
@@ -71,7 +78,10 @@ export async function getShootingCohortStatus(userId: string) {
   ]);
   const assessments = application
     ? await db.select().from(shootingCohortAssessments)
-      .where(eq(shootingCohortAssessments.userId, userId))
+      .where(and(
+        eq(shootingCohortAssessments.userId, userId),
+        eq(shootingCohortAssessments.protocolVersion, 2),
+      ))
       .orderBy(desc(shootingCohortAssessments.createdAt))
     : [];
 
@@ -79,6 +89,9 @@ export async function getShootingCohortStatus(userId: string) {
     settings: {
       capacity: settings.capacity,
       applicationsOpen: settings.applicationsOpen,
+      goalThreePointPercent: settings.goalThreePointPercent,
+      goalMidRangePercent: settings.goalMidRangePercent,
+      goalFreeThrowPercent: settings.goalFreeThrowPercent,
       activeCount,
       invitedCount,
     },
@@ -207,17 +220,122 @@ export async function getShootingCohortVideoSubmissionsForAdmin(applicationId: s
   return getShootingCohortVideoSubmissionsForPlayer(application.userId);
 }
 
+export async function getAllActiveShootingCohortVideoSubmissionsForAdmin() {
+  return db.select({
+    id: shootingCohortVideoSubmissions.id,
+    userId: shootingCohortVideoSubmissions.userId,
+    title: shootingCohortVideoSubmissions.title,
+    videoUrl: shootingCohortVideoSubmissions.videoUrl,
+    thumbnailUrl: shootingCohortVideoSubmissions.thumbnailUrl,
+    description: shootingCohortVideoSubmissions.description,
+    workoutRequestId: shootingCohortVideoSubmissions.workoutRequestId,
+    founderFeedback: shootingCohortVideoSubmissions.founderFeedback,
+    feedbackUpdatedAt: shootingCohortVideoSubmissions.feedbackUpdatedAt,
+    createdAt: shootingCohortVideoSubmissions.createdAt,
+    displayName: userProfiles.displayName,
+    email: userProfiles.email,
+  })
+    .from(shootingCohortVideoSubmissions)
+    .innerJoin(shootingCohortApplications, and(
+      eq(shootingCohortApplications.userId, shootingCohortVideoSubmissions.userId),
+      eq(shootingCohortApplications.status, "active"),
+    ))
+    .leftJoin(userProfiles, eq(userProfiles.userId, shootingCohortVideoSubmissions.userId))
+    .orderBy(desc(shootingCohortVideoSubmissions.createdAt));
+}
+
+export async function updateShootingCohortVideoFeedback(
+  videoId: string,
+  adminId: string,
+  founderFeedback: string,
+) {
+  const [eligibleSubmission] = await db.select({ id: shootingCohortVideoSubmissions.id })
+    .from(shootingCohortVideoSubmissions)
+    .innerJoin(shootingCohortApplications, and(
+      eq(shootingCohortApplications.userId, shootingCohortVideoSubmissions.userId),
+      eq(shootingCohortApplications.status, "active"),
+    ))
+    .where(eq(shootingCohortVideoSubmissions.id, videoId))
+    .limit(1);
+  if (!eligibleSubmission) throw new ShootingCohortError("Active member video not found.", 404);
+
+  const [updated] = await db.update(shootingCohortVideoSubmissions)
+    .set({
+      founderFeedback: founderFeedback || null,
+      feedbackUpdatedAt: new Date(),
+      feedbackUpdatedBy: adminId,
+    })
+    .where(eq(shootingCohortVideoSubmissions.id, videoId))
+    .returning();
+  return updated;
+}
+
 export async function updateShootingCohortSettings(
   capacity: number,
   applicationsOpen: boolean,
   updatedBy: string,
+  goals: {
+    goalThreePointPercent: number | null;
+    goalMidRangePercent: number | null;
+    goalFreeThrowPercent: number | null;
+  },
 ) {
   await db.insert(shootingCohortSettings).values({ id: 1 }).onConflictDoNothing();
   const [updated] = await db.update(shootingCohortSettings)
-    .set({ capacity, applicationsOpen, updatedBy, updatedAt: new Date() })
+    .set({ capacity, applicationsOpen, ...goals, updatedBy, updatedAt: new Date() })
     .where(eq(shootingCohortSettings.id, 1))
     .returning();
   return updated;
+}
+
+export async function createShootingCohortWorkoutRequest(
+  userId: string,
+  input: ShootingCohortWorkoutRequestInput,
+) {
+  return db.transaction(async (tx) => {
+    const [application] = await tx.select()
+      .from(shootingCohortApplications)
+      .where(and(
+        eq(shootingCohortApplications.userId, userId),
+        eq(shootingCohortApplications.status, "active"),
+      ))
+      .for("update");
+    if (!application) throw new ShootingCohortError("Active cohort members only.", 403);
+
+    const [existingRequest] = await tx.select({ id: customWorkoutRequests.id })
+      .from(customWorkoutRequests)
+      .where(and(
+        eq(customWorkoutRequests.userId, userId),
+        inArray(customWorkoutRequests.status, ["submitted", "in_progress", "assigned"]),
+      ))
+      .limit(1);
+    if (existingRequest) throw new ShootingCohortError("You already have an active custom-workout request.", 409);
+
+    const hoopAccessLabels = {
+      indoor: "Indoor hoop",
+      outdoor: "Outdoor hoop",
+      both: "Indoor and outdoor hoop",
+      limited: "Limited hoop access",
+    } as const;
+    const [request] = await tx.insert(customWorkoutRequests).values({
+      userId,
+      improvementFocus: input.skills.map((skill) => SHOOTING_COHORT_FOCUS_LABELS[skill]).join(", "),
+      desiredOutcome: input.desiredOutcome,
+      availableTime: input.availableTime,
+      equipmentConstraints: `Hoop access on application: ${hoopAccessLabels[application.answers.hoopAccess]}`,
+      additionalNotes: null,
+    }).returning();
+
+    const [video] = input.video
+      ? await tx.insert(shootingCohortVideoSubmissions).values({
+        ...input.video,
+        userId,
+        workoutRequestId: request.id,
+      }).returning()
+      : [null];
+
+    return { request, video };
+  });
 }
 
 export async function inviteShootingCohortApplicant(applicationId: string) {
@@ -348,7 +466,10 @@ export async function getShootingCohortAdminOverview() {
   const cohortUserIds = applications.map((application) => application.userId);
   const assessments = cohortUserIds.length > 0
     ? await db.select().from(shootingCohortAssessments)
-      .where(inArray(shootingCohortAssessments.userId, cohortUserIds))
+      .where(and(
+        inArray(shootingCohortAssessments.userId, cohortUserIds),
+        eq(shootingCohortAssessments.protocolVersion, 2),
+      ))
       .orderBy(desc(shootingCohortAssessments.createdAt))
     : [];
   const assessmentMap = new Map<string, typeof assessments>();
@@ -367,6 +488,9 @@ export async function getShootingCohortAdminOverview() {
     settings: {
       capacity: settings.capacity,
       applicationsOpen: settings.applicationsOpen,
+      goalThreePointPercent: settings.goalThreePointPercent,
+      goalMidRangePercent: settings.goalMidRangePercent,
+      goalFreeThrowPercent: settings.goalFreeThrowPercent,
       updatedAt: settings.updatedAt,
       updatedBy: settings.updatedBy,
     },
@@ -442,22 +566,24 @@ export async function createShootingCohortAssessment(
     const existingAssessments = await tx.select({
       id: shootingCohortAssessments.id,
       type: shootingCohortAssessments.type,
+      protocolVersion: shootingCohortAssessments.protocolVersion,
     }).from(shootingCohortAssessments)
       .where(eq(shootingCohortAssessments.userId, userId));
-    if (assessment.type === "baseline" && existingAssessments.some((entry) => entry.type === "baseline")) {
+    const currentProtocolAssessments = existingAssessments.filter((entry) => entry.protocolVersion === 2);
+    if (assessment.type === "baseline" && currentProtocolAssessments.some((entry) => entry.type === "baseline")) {
       throw new ShootingCohortError("Your baseline test is already saved. Submit a retest to record new results.", 409);
     }
-    if (assessment.type === "retest" && !existingAssessments.some((entry) => entry.type === "baseline")) {
+    if (assessment.type === "retest" && !currentProtocolAssessments.some((entry) => entry.type === "baseline")) {
       throw new ShootingCohortError("Submit your baseline test before recording a retest.", 409);
     }
 
     const [created] = await tx.insert(shootingCohortAssessments).values({
       userId,
       type: assessment.type,
-      distanceFeet: assessment.distanceFeet,
+      protocolVersion: 2,
       freeThrowsMade: assessment.freeThrowsMade,
-      spotUpResults: assessment.spotUp,
-      offDribbleResults: assessment.offDribble,
+      threePointResults: assessment.threePointResults,
+      midRangeResults: assessment.midRangeResults,
       notes: assessment.notes || null,
     }).returning();
     return created;
@@ -466,6 +592,9 @@ export async function createShootingCohortAssessment(
 
 export async function getPlayerShootingCohortAssessments(userId: string) {
   return db.select().from(shootingCohortAssessments)
-    .where(eq(shootingCohortAssessments.userId, userId))
+    .where(and(
+      eq(shootingCohortAssessments.userId, userId),
+      eq(shootingCohortAssessments.protocolVersion, 2),
+    ))
     .orderBy(desc(shootingCohortAssessments.createdAt));
 }

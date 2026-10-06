@@ -23,10 +23,10 @@ export default function AdminShootingCohortPage() {
             Applications
           </TabsTrigger>
           <TabsTrigger
-            value="conversation"
+            value="film-review"
             className="rounded-lg py-2.5 text-xs text-stone-500 transition data-[state=active]:bg-orange-400 data-[state=active]:font-bold data-[state=active]:text-[#17120d]"
           >
-            Shared Conversation
+            Film Review
           </TabsTrigger>
           <TabsTrigger
             value="custom-requests"
@@ -41,8 +41,8 @@ export default function AdminShootingCohortPage() {
         <TabsContent value="applications" className="mt-0 focus-visible:outline-none">
           {view === "applications" && <AdminShootingCohort view="applications" />}
         </TabsContent>
-        <TabsContent value="conversation" className="mt-0 focus-visible:outline-none">
-          {view === "conversation" && <AdminShootingCohort view="conversation" />}
+        <TabsContent value="film-review" className="mt-0 focus-visible:outline-none">
+          {view === "film-review" && <AdminShootingCohort view="film-review" />}
         </TabsContent>
         <TabsContent value="custom-requests" className="mt-0">
           {view === "custom-requests" && <AdminCustomWorkoutRequests />}

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Activity, ArrowRight, ArrowUp, BadgeCheck, CalendarDays, Check, ChevronRight, CircleHelp,
-  ClipboardList, Clock3, Dumbbell, Film, Loader2, LockKeyhole, MessageCircle, Send,
-  ShieldCheck, Target, Trophy, Users, X,
+  ClipboardList, Clock3, Dumbbell, FileVideo, Film, Loader2, LockKeyhole, MessageCircle, Send,
+  ShieldCheck, Target, Trophy, Upload, Users, X,
 } from "lucide-react";
 import {
   CartesianGrid,
@@ -27,7 +27,9 @@ import { ShootingCohortVideos } from "@/components/shooting-cohort-videos";
 import { ShootingCohortPrivateChat } from "@/components/shooting-cohort-private-chat";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useUpload } from "@/hooks/use-upload";
 import { getObjectUrl } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   getAssessmentTotals,
   SHOOTING_COHORT_FOCUS_AREAS,
@@ -45,6 +47,7 @@ import {
   useSubmitShootingCohortAssessment,
   useUpdateShootingCohortApplication,
   type ShootingCohortAssessmentRecord,
+  type ShootingCohortSettings,
 } from "@/lib/shooting-cohort-api";
 
 const practiceDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
@@ -106,40 +109,38 @@ function formatDate(value: string) {
 function AssessmentCard({ assessment, index }: { assessment: ShootingCohortAssessmentRecord; index: number }) {
   const totals = getAssessmentTotals({
     freeThrowsMade: assessment.freeThrowsMade,
-    spotUp: assessment.spotUpResults,
-    offDribble: assessment.offDribbleResults,
+    threePointResults: assessment.threePointResults ?? emptyFiveSpotResults,
+    midRangeResults: assessment.midRangeResults ?? emptyFiveSpotResults,
   });
   return (
     <article className="rounded-2xl border border-[#41372d] bg-[#181511] p-4 sm:p-5" data-testid={`cohort-assessment-${assessment.id}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#d4a47a]">{assessment.type === "baseline" ? "Baseline" : `Retest ${index}`}</p>
-          <p className="mt-1 text-sm text-[#9d9387]">{formatDate(assessment.createdAt)} <span className="px-1 text-[#5d554c]">/</span> {assessment.distanceFeet} ft</p>
-        </div>
-        <div className="text-right">
-          <p className="font-heading text-3xl leading-none text-[#fff1de]">{totals.total.made}<span className="text-lg text-[#877b6e">/{totals.total.attempted}</span></p>
-          <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.15em] text-[#8f8274]">total makes</p>
+          <p className="mt-1 text-sm text-[#9d9387]">{formatDate(assessment.createdAt)}</p>
         </div>
       </div>
       <div className="mt-4 grid gap-4 border-t border-[#342c24] pt-4 sm:grid-cols-3">
-        <ResultGroup title="Free throws" made={totals.freeThrows.made} attempted={totals.freeThrows.attempted} />
         <div>
-          <ResultGroup title="Spot-up" made={totals.spotUp.made} attempted={totals.spotUp.attempted} />
+          <ResultGroup title="Three-pointers" made={totals.threePoint.made} attempted={totals.threePoint.attempted} />
           <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1">
-            {spotLocations.map(([key, label]) => <ResultLine key={key} label={label} value={`${assessment.spotUpResults[key]}/5`} />)}
+            {spotLocations.map(([key, label]) => <ResultLine key={key} label={label} value={`${assessment.threePointResults?.[key] ?? 0}/20`} />)}
           </div>
         </div>
         <div>
-          <ResultGroup title="Off the dribble" made={totals.offDribble.made} attempted={totals.offDribble.attempted} />
-          <div className="mt-2 space-y-1">
-            {dribbleLocations.map(([key, label]) => <ResultLine key={key} label={label} value={`${assessment.offDribbleResults[key]}/5`} />)}
+          <ResultGroup title="Mid-range pull-ups" made={totals.midRange.made} attempted={totals.midRange.attempted} />
+          <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1">
+            {spotLocations.map(([key, label]) => <ResultLine key={key} label={label} value={`${assessment.midRangeResults?.[key] ?? 0}/8`} />)}
           </div>
         </div>
+        <div><ResultGroup title="Free throws" made={totals.freeThrows.made} attempted={totals.freeThrows.attempted} /><p className="mt-2 text-[10px] text-[#877b6e]">{totals.freeThrows.percent}%</p></div>
       </div>
       {assessment.notes && <p className="mt-4 border-t border-[#342c24] pt-3 text-sm leading-6 text-[#b8ab9c]">{assessment.notes}</p>}
     </article>
   );
 }
+
+const emptyFiveSpotResults = { leftCorner: 0, leftWing: 0, top: 0, rightWing: 0, rightCorner: 0 };
 
 function ResultGroup({ title, made, attempted }: { title: string; made: number; attempted: number }) {
   return <div className="flex items-baseline justify-between gap-2"><span className="text-xs text-[#c9bba9]">{title}</span><span className="font-mono text-xs font-bold text-[#f0a05c]">{made}<span className="text-[#75695c]">/{attempted}</span></span></div>;
@@ -155,27 +156,24 @@ function AssessmentForm({ type, pending, onCancel, onSubmit }: {
   onCancel: () => void;
   onSubmit: (value: ShootingCohortAssessmentInput) => void;
 }) {
-  const [distanceFeet, setDistanceFeet] = useState("");
   const [freeThrowsMade, setFreeThrowsMade] = useState("");
-  const [spotUp, setSpotUp] = useState<Record<string, string>>({});
-  const [offDribble, setOffDribble] = useState<Record<string, string>>({});
+  const [threePoint, setThreePoint] = useState<Record<string, string>>({});
+  const [midRange, setMidRange] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
   const allEntered = freeThrowsMade !== "" &&
-    spotLocations.every(([key]) => spotUp[key] !== undefined && spotUp[key] !== "") &&
-    dribbleLocations.every(([key]) => offDribble[key] !== undefined && offDribble[key] !== "");
+    spotLocations.every(([key]) => threePoint[key] !== undefined && threePoint[key] !== "") &&
+    spotLocations.every(([key]) => midRange[key] !== undefined && midRange[key] !== "");
   const valid = allEntered &&
-    Number.isInteger(Number(freeThrowsMade)) && Number(freeThrowsMade) >= 0 && Number(freeThrowsMade) <= 20 &&
-    spotLocations.every(([key]) => Number.isInteger(Number(spotUp[key])) && Number(spotUp[key]) >= 0 && Number(spotUp[key]) <= 5) &&
-    dribbleLocations.every(([key]) => Number.isInteger(Number(offDribble[key])) && Number(offDribble[key]) >= 0 && Number(offDribble[key]) <= 5) &&
-    Number.isInteger(Number(distanceFeet)) && Number(distanceFeet) >= 3 && Number(distanceFeet) <= 40;
+    Number.isInteger(Number(freeThrowsMade)) && Number(freeThrowsMade) >= 0 && Number(freeThrowsMade) <= 50 &&
+    spotLocations.every(([key]) => Number.isInteger(Number(threePoint[key])) && Number(threePoint[key]) >= 0 && Number(threePoint[key]) <= 20) &&
+    spotLocations.every(([key]) => Number.isInteger(Number(midRange[key])) && Number(midRange[key]) >= 0 && Number(midRange[key]) <= 8);
   const save = () => {
     if (!valid) return;
     onSubmit({
       type,
-      distanceFeet: Number(distanceFeet),
       freeThrowsMade: Number(freeThrowsMade),
-      spotUp: Object.fromEntries(spotLocations.map(([key]) => [key, Number(spotUp[key])])) as ShootingCohortAssessmentInput["spotUp"],
-      offDribble: Object.fromEntries(dribbleLocations.map(([key]) => [key, Number(offDribble[key])])) as ShootingCohortAssessmentInput["offDribble"],
+      threePointResults: Object.fromEntries(spotLocations.map(([key]) => [key, Number(threePoint[key])])) as ShootingCohortAssessmentInput["threePointResults"],
+      midRangeResults: Object.fromEntries(spotLocations.map(([key]) => [key, Number(midRange[key])])) as ShootingCohortAssessmentInput["midRangeResults"],
       notes: notes.trim(),
     });
   };
@@ -191,24 +189,23 @@ function AssessmentForm({ type, pending, onCancel, onSubmit }: {
         <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#e89a5a]">Shooting check-in</p><h3 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">{type === "baseline" ? "Set your baseline" : "Log a retest"}</h3></div>
         <button type="button" onClick={onCancel} aria-label="Close assessment form" className="rounded-full p-2 text-[#9c8d7b] transition hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
       </div>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-[#a99b89]">Use five attempts at each marked spot, then 20 free throws. Results are visible only to you and PLAYR1 admins.</p>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-[#a99b89]">Record 100 threes (20 at each spot), 40 mid-range pull-ups (8 at each spot), and 50 free throws. Results are visible only to you and cohort admins.</p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-[#3e3329] bg-[#17120e] p-4">
-          <Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Distance used</Label>
-          <div className="mt-2 flex items-center gap-2"><Input aria-label="Distance in feet" type="number" min="3" max="40" value={distanceFeet} onChange={(event) => setDistanceFeet(event.target.value)} className="h-10 max-w-28 border-[#493e32] bg-[#100e0b] font-mono text-white" /><span className="text-xs text-[#837668]">feet</span></div>
-          <div className="mt-5"><CountField label="Free throws" value={freeThrowsMade} max={20} onChange={setFreeThrowsMade} /></div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Free throws · 50 attempts</p>
+          <div className="mt-2"><CountField label="Free throws made" value={freeThrowsMade} max={50} onChange={setFreeThrowsMade} /></div>
         </div>
         <div className="rounded-xl border border-[#3e3329] bg-[#17120e] p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Spot-up · 5 attempts each</p>
-          <div className="mt-2">{spotLocations.map(([key, label]) => <CountField key={key} label={label} value={spotUp[key] ?? ""} max={5} onChange={(next) => setSpotUp((current) => ({ ...current, [key]: next }))} />)}</div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Three-pointers · 20 attempts at each spot</p>
+          <div className="mt-2">{spotLocations.map(([key, label]) => <CountField key={key} label={label} value={threePoint[key] ?? ""} max={20} onChange={(next) => setThreePoint((current) => ({ ...current, [key]: next }))} />)}</div>
         </div>
         <div className="rounded-xl border border-[#3e3329] bg-[#17120e] p-4 sm:col-span-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Off the dribble · 5 attempts each</p>
-          <div className="mt-2 grid gap-x-6 sm:grid-cols-3">{dribbleLocations.map(([key, label]) => <CountField key={key} label={label} value={offDribble[key] ?? ""} max={5} onChange={(next) => setOffDribble((current) => ({ ...current, [key]: next }))} />)}</div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Mid-range pull-ups · 8 attempts at each spot</p>
+          <div className="mt-2 grid gap-x-6 sm:grid-cols-2">{spotLocations.map(([key, label]) => <CountField key={key} label={label} value={midRange[key] ?? ""} max={8} onChange={(next) => setMidRange((current) => ({ ...current, [key]: next }))} />)}</div>
         </div>
         <div className="space-y-2 sm:col-span-2"><Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d2c2ae]">Notes <span className="font-normal normal-case tracking-normal text-[#837668]">optional</span></Label><Textarea maxLength={1000} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="What felt different today?" className="min-h-20 border-[#493e32] bg-[#100e0b] text-[#f3e6d5] placeholder:text-[#675d51]" /></div>
       </div>
-      {!allEntered && <p className="mt-3 text-xs text-[#d4a47a]">Enter makes for every section to save all 60 attempts.</p>}
+      {!allEntered && <p className="mt-3 text-xs text-[#d4a47a]">Enter makes for all five spots and free throws to save the full baseline.</p>}
       <div className="mt-5 flex flex-wrap justify-end gap-2"><Button variant="ghost" onClick={onCancel} className="text-[#a99b89] hover:text-white">Cancel</Button><Button onClick={save} disabled={!valid || pending} className="bg-[#ef8a43] font-bold text-[#1b120a] hover:bg-[#ff9e5b]">{pending ? "Saving assessment…" : "Save results"} <Check className="ml-2 h-4 w-4" /></Button></div>
     </section>
   );
@@ -501,40 +498,61 @@ function MemberChat({
   );
 }
 
-function AssessmentTrend({ assessments }: { assessments: ShootingCohortAssessmentRecord[] }) {
+function formatPercent(value: number | null | undefined) {
+  return value == null ? "—" : `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
+}
+
+function AssessmentTrend({
+  assessments,
+  goals,
+}: {
+  assessments: ShootingCohortAssessmentRecord[];
+  goals?: ShootingCohortSettings;
+}) {
   const ordered = [...assessments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  const points = ordered.map((assessment) => ({
-    timestamp: new Date(assessment.createdAt).getTime(),
-    makes: getAssessmentTotals({
+  const points = ordered.map((assessment) => {
+    const totals = getAssessmentTotals({
       freeThrowsMade: assessment.freeThrowsMade,
-      spotUp: assessment.spotUpResults,
-      offDribble: assessment.offDribbleResults,
-    }).total.made,
-  }));
-  const baseline = points[0];
+      threePointResults: assessment.threePointResults ?? emptyFiveSpotResults,
+      midRangeResults: assessment.midRangeResults ?? emptyFiveSpotResults,
+    });
+    return {
+      timestamp: new Date(assessment.createdAt).getTime(),
+      threePoint: totals.threePoint.percent,
+      midRange: totals.midRange.percent,
+      freeThrows: totals.freeThrows.percent,
+    };
+  });
   const latest = points[points.length - 1];
-  const delta = baseline && latest ? latest.makes - baseline.makes : 0;
+  const categories = [
+    { key: "threePoint", title: "Three-point", goal: goals?.goalThreePointPercent, value: latest?.threePoint, color: "#f5a04c" },
+    { key: "midRange", title: "Mid-range", goal: goals?.goalMidRangePercent, value: latest?.midRange, color: "#58c6b1" },
+    { key: "freeThrows", title: "Free throw", goal: goals?.goalFreeThrowPercent, value: latest?.freeThrows, color: "#8fa9ff" },
+  ] as const;
 
   return (
-    <div className="mt-4 space-y-3">
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-xl border border-[#3a3329] bg-[#100e0b] p-3">
-          <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-[#817567]">Latest makes</p>
-          <p className="mt-1 font-heading text-2xl text-[#f4b27c]">{latest ? `${latest.makes}/60` : "—"}</p>
-        </div>
-        <div className="rounded-xl border border-[#3a3329] bg-[#100e0b] p-3">
-          <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-[#817567]">Since baseline</p>
-          <p className="mt-1 font-heading text-2xl text-[#f4b27c]">{points.length > 1 ? `${delta > 0 ? "+" : ""}${delta}` : "—"}</p>
-        </div>
-        <div className="rounded-xl border border-[#3a3329] bg-[#100e0b] p-3">
-          <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-[#817567]">Tests logged</p>
-          <p className="mt-1 font-heading text-2xl text-[#f4b27c]">{points.length}</p>
-        </div>
+    <div className="mt-5 space-y-3" aria-label="Baseline results and progress">
+      <div className="grid gap-2 sm:grid-cols-3">
+        {categories.map((category) => (
+          <div key={category.key} className="overflow-hidden rounded-xl border border-[#3a3329] bg-[#100e0b] p-3.5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#9d8f7e]">{category.title}</p>
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: category.color }} />
+            </div>
+            <p className="mt-2 font-heading text-3xl leading-none" style={{ color: category.color }}>{formatPercent(category.value)}</p>
+            <p className="mt-2 text-[10px] text-[#817567]">Goal: {category.goal == null ? "not set" : `${category.goal}%`}</p>
+          </div>
+        ))}
       </div>
-      {points.length > 1 ? (
-        <div className="rounded-xl border border-[#3a3329] bg-[#100e0b] p-3" role="img" aria-label="Trend of total shooting makes across cohort assessments">
-          <p className="mb-2 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.14em] text-[#9d8f7e]"><Activity className="h-3.5 w-3.5 text-[#df965c]" />Total makes across your shooting checks</p>
-          <div className="h-[190px] w-full">
+      {points.length > 0 ? (
+        <div className="rounded-xl border border-[#3a3329] bg-[#100e0b] p-3 sm:p-4" role="img" aria-label="Three-point, mid-range, and free-throw percentages over time">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.14em] text-[#9d8f7e]"><Activity className="h-3.5 w-3.5 text-[#df965c]" />Progress over time</p>
+            <div className="flex flex-wrap gap-3">
+              {categories.map((category) => <span key={category.key} className="inline-flex items-center gap-1.5 text-[9px] text-[#9d8f7e]"><span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />{category.title}</span>)}
+            </div>
+          </div>
+          <div className="h-[220px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={points} margin={{ top: 8, right: 12, bottom: 2, left: -12 }}>
                 <CartesianGrid stroke="#382e24" strokeDasharray="3 3" vertical={false} />
@@ -548,21 +566,26 @@ function AssessmentTrend({ assessments }: { assessments: ShootingCohortAssessmen
                   axisLine={{ stroke: "#493a2c" }}
                   tickLine={false}
                 />
-                <YAxis type="number" domain={[0, 60]} allowDecimals={false} tick={{ fill: "#8f8274", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis type="number" domain={[0, 100]} unit="%" tick={{ fill: "#8f8274", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   labelFormatter={(value) => new Date(Number(value)).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
-                  formatter={(value) => [`${value} / 60`, "Makes"]}
+                  formatter={(value) => [`${formatPercent(Number(value))}`, ""]}
                   contentStyle={{ background: "#17130f", border: "1px solid #493a2c", borderRadius: 12, color: "#fff1de", fontSize: 12 }}
                 />
-                <Line type="monotone" dataKey="makes" name="Total makes" stroke="#ef8a43" strokeWidth={2.5} dot={{ r: 3, fill: "#ef8a43", stroke: "#100e0b", strokeWidth: 2 }} activeDot={{ r: 5 }} />
+                {categories.map((category) => (
+                  <Line key={category.key} type="monotone" dataKey={category.key} name={category.title} stroke={category.color} strokeWidth={2.5} dot={{ r: 3, fill: category.color, stroke: "#100e0b", strokeWidth: 2 }} activeDot={{ r: 5 }} />
+                ))}
               </LineChart>
             </ResponsiveContainer>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-[#342c24] pt-2 font-mono text-[9px] text-[#817567]">
+            {ordered.map((assessment) => <span key={assessment.id}>{assessment.type === "baseline" ? "Baseline" : "Retest"} · {formatDate(assessment.createdAt)}</span>)}
           </div>
         </div>
       ) : (
         <div className="flex items-center gap-3 rounded-xl border border-dashed border-[#514333] bg-[#100e0b] px-4 py-4">
           <Activity className="h-4 w-4 shrink-0 text-[#a77b56]" />
-          <p className="text-xs leading-5 text-[#9d8f7e]">{points.length ? "Your baseline is saved. Log a retest to see how your makes change over time." : "Save your baseline to start a private shooting-progress trend."}</p>
+          <p className="text-xs leading-5 text-[#9d8f7e]">Save your baseline to start a private progress chart.</p>
         </div>
       )}
     </div>
@@ -652,11 +675,192 @@ function CohortRequestsSection() {
   );
 }
 
-function CohortWorkoutsSection() {
+const MAX_COHORT_REQUEST_VIDEO_BYTES = 4 * 1024 * 1024 * 1024;
+const COHORT_REQUEST_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"]);
+
+function CohortWorkoutRequestForm({
+  hoopAccess,
+  onCancel,
+  onSubmitted,
+}: {
+  hoopAccess: ShootingCohortApplicationAnswers["hoopAccess"] | undefined;
+  onCancel: () => void;
+  onSubmitted: () => void;
+}) {
+  const { toast } = useToast();
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [skills, setSkills] = useState<ShootingCohortApplicationAnswers["focusAreas"]>([]);
+  const [availableTime, setAvailableTime] = useState("45");
+  const [desiredOutcome, setDesiredOutcome] = useState("");
+  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
+  const [uploadedVideoPath, setUploadedVideoPath] = useState<string | null>(null);
+  const {
+    uploadFile,
+    cancelUpload,
+    isUploading,
+    progress,
+    status: uploadStatus,
+    error: uploadError,
+  } = useUpload({
+    requestUrl: "/api/shooting-cohort/videos/upload-url",
+    finalizeVideo: false,
+    onSuccess: (response) => setUploadedVideoPath(response.objectPath),
+    onError: (error) => toast({ title: "Video upload failed", description: error.message, variant: "destructive" }),
+  });
+  const createRequest = useMutation({
+    mutationFn: async (payload: {
+      skills: ShootingCohortApplicationAnswers["focusAreas"];
+      availableTime: number;
+      desiredOutcome: string;
+      video?: { title: string; videoUrl: string; description: string };
+    }) => {
+      const response = await apiRequest("POST", "/api/shooting-cohort/workout-requests", payload);
+      return response.json();
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/custom-workout-requests"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/shooting-cohort/videos"] }),
+      ]);
+      toast({ title: "Workout request sent", description: "Your request is now in the founder’s queue." });
+      onSubmitted();
+    },
+    onError: (error: Error) => toast({ title: "Request not sent", description: error.message, variant: "destructive" }),
+  });
+
+  const accessLabels: Record<NonNullable<typeof hoopAccess>, string> = {
+    indoor: "Indoor hoop",
+    outdoor: "Outdoor hoop",
+    both: "Indoor and outdoor hoops",
+    limited: "Limited hoop access",
+  };
+  const clearVideo = () => {
+    cancelUpload();
+    setSelectedVideo(null);
+    setUploadedVideoPath(null);
+    if (videoInputRef.current) videoInputRef.current.value = "";
+  };
+  const chooseVideo = (file?: File) => {
+    if (!file) return;
+    if (!COHORT_REQUEST_VIDEO_TYPES.has(file.type)) {
+      toast({ title: "Unsupported video", description: "Choose an MP4, WebM, QuickTime, or AVI file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_COHORT_REQUEST_VIDEO_BYTES) {
+      toast({ title: "Video is too large", description: "Cohort videos must be under 4GB.", variant: "destructive" });
+      return;
+    }
+    setSelectedVideo(file);
+    setUploadedVideoPath(null);
+    void uploadFile(file);
+  };
+  const canSubmit = skills.length > 0 &&
+    desiredOutcome.trim().length >= 3 &&
+    Number.isInteger(Number(availableTime)) &&
+    Number(availableTime) >= 5 &&
+    (!selectedVideo || Boolean(uploadedVideoPath && !isUploading)) &&
+    !createRequest.isPending;
+  const submit = () => {
+    if (!canSubmit) return;
+    const video = selectedVideo && uploadedVideoPath ? {
+      title: selectedVideo.name.replace(/\.[^/.]+$/, "").slice(0, 100) || "Workout request video",
+      videoUrl: uploadedVideoPath,
+      description: "Attached to a custom workout request.",
+    } : undefined;
+    createRequest.mutate({
+      skills,
+      availableTime: Number(availableTime),
+      desiredOutcome: desiredOutcome.trim(),
+      ...(video ? { video } : {}),
+    });
+  };
+
+  return (
+    <section className="scroll-mt-5 rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Request a custom workout">
+      <div className="flex items-start justify-between gap-3">
+        <div><p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#d89156]">Custom workout</p><h3 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Request a workout</h3></div>
+        <Button type="button" variant="ghost" onClick={onCancel} className="text-[#9d8f7e] hover:text-white">Cancel</Button>
+      </div>
+      <div className="mt-4 space-y-4">
+        <fieldset>
+          <legend className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#d2c2ae]">Skills you want to work on</legend>
+          <div className="flex flex-wrap gap-2">
+            {SHOOTING_COHORT_FOCUS_AREAS.map((skill) => {
+              const selected = skills.includes(skill);
+              return (
+                <button
+                  key={skill}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setSkills((current) => selected ? current.filter((item) => item !== skill) : [...current, skill])}
+                  className={`rounded-full border px-3 py-2 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef8a43] ${selected ? "border-[#ef8a43]/60 bg-[#ef8a43]/15 text-[#ffd2a8]" : "border-[#493e32] bg-[#100e0b] text-[#a99b89] hover:border-[#8c6542]"}`}
+                >
+                  {SHOOTING_COHORT_FOCUS_LABELS[skill]}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-2">
+            <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#d2c2ae]">Ideal workout time</span>
+            <select value={availableTime} onChange={(event) => setAvailableTime(event.target.value)} className="h-11 w-full rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#f3e6d5] focus:outline-none focus:ring-2 focus:ring-[#ef8a43]">
+              {[15, 30, 45, 60, 75, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
+            </select>
+          </label>
+          <div className="space-y-2">
+            <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#d2c2ae]">Hoop access on file</span>
+            <p className="flex h-11 items-center rounded-md border border-[#493e32] bg-[#100e0b] px-3 text-sm text-[#9d8f7e]">{hoopAccess ? accessLabels[hoopAccess] : "Not listed on your application"}</p>
+          </div>
+        </div>
+        <label className="block space-y-2">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#d2c2ae]">What specifically do you want to improve?</span>
+          <Textarea
+            value={desiredOutcome}
+            onChange={(event) => setDesiredOutcome(event.target.value)}
+            maxLength={1000}
+            placeholder="Describe the shot, situation, or skill you want the workout to focus on."
+            className="min-h-24 resize-y border-[#493e32] bg-[#100e0b] text-[#f3e6d5] placeholder:text-[#675d51]"
+          />
+        </label>
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#d2c2ae]">Video <span className="font-normal normal-case tracking-normal text-[#817567]">optional</span></p>
+          <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" className="sr-only" aria-label="Upload an optional workout request video" onChange={(event) => chooseVideo(event.target.files?.[0])} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" onClick={() => videoInputRef.current?.click()} disabled={isUploading} className="border-[#68482e] bg-[#21180f] text-[#f0b17d] hover:bg-[#352416]">
+              <FileVideo className="mr-2 h-4 w-4" />{selectedVideo ? "Choose another video" : "Upload video"}
+            </Button>
+            {selectedVideo && <span className="max-w-full truncate text-xs text-[#9d8f7e]">{selectedVideo.name}</span>}
+            {selectedVideo && !isUploading && uploadStatus === "error" && <Button type="button" variant="ghost" onClick={() => void uploadFile(selectedVideo)} className="text-[#e8a16a]">Retry upload</Button>}
+            {selectedVideo && <Button type="button" variant="ghost" onClick={clearVideo} disabled={isUploading} className="text-[#9d8f7e]">Remove</Button>}
+          </div>
+          {isUploading && <div className="space-y-1.5"><p className="text-[10px] text-[#d4a47a]">Uploading video · {progress}%</p><div className="h-1.5 overflow-hidden rounded-full bg-[#29231c]"><div className="h-full bg-[#ef8a43] transition-all" style={{ width: `${progress}%` }} /></div></div>}
+          {uploadStatus === "error" && uploadError && <p className="text-xs text-red-200">{uploadError.message}</p>}
+          {uploadedVideoPath && <p className="text-[10px] text-emerald-200">Video uploaded and will be attached to this request.</p>}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#342c24] pt-4">
+          <p className="max-w-md text-[10px] leading-4 text-[#817567]">Your request and any video will be private to the cohort team.</p>
+          <Button type="button" onClick={submit} disabled={!canSubmit} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]">
+            {createRequest.isPending ? "Sending…" : "Send request"} <Upload className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicationAnswers }) {
   const workoutsQuery = useCohortWorkoutRequestsQuery();
   const drillsQuery = useAssignedCohortDrillsQuery();
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const requestFormRef = useRef<HTMLDivElement>(null);
+  const requests = workoutsQuery.data?.requests ?? [];
+  const hasActiveRequest = requests.some((request) => ["submitted", "in_progress", "assigned"].includes(request.status));
+  useEffect(() => {
+    if (showRequestForm) requestFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [showRequestForm]);
   const assignedWorkouts = [
-    ...(workoutsQuery.data?.requests ?? [])
+    ...requests
       .filter((request) => request.workout?.workout)
       .map((request) => ({
         id: `request-${request.id}`,
@@ -676,6 +880,55 @@ function CohortWorkoutsSection() {
 
   return (
     <div className="space-y-4">
+      <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Your workouts and requests">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Dumbbell className="h-4 w-4" /></span>
+            <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Workouts &amp; requests</h2></div>
+          </div>
+          <Button onClick={() => setShowRequestForm(true)} disabled={hasActiveRequest || showRequestForm} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b] disabled:opacity-50">
+            Request a workout <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+        {hasActiveRequest && <p className="mt-3 text-[10px] text-[#817567]">A request is already in progress. You can send another after it is completed or declined.</p>}
+      </section>
+
+      {showRequestForm && (
+        <div ref={requestFormRef}>
+          <CohortWorkoutRequestForm
+            hoopAccess={answers?.hoopAccess}
+            onCancel={() => setShowRequestForm(false)}
+            onSubmitted={() => setShowRequestForm(false)}
+          />
+        </div>
+      )}
+
+      <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Workout request history">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><ClipboardList className="h-4 w-4" /></span>
+          <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Custom training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Your requests</h2></div>
+        </div>
+        {workoutsQuery.isLoading
+          ? <p className="text-xs text-[#887c6e]">Loading your requests…</p>
+          : workoutsQuery.isError
+            ? <div className="text-xs text-red-200"><p>Your requests could not load.</p><Button variant="ghost" onClick={() => workoutsQuery.refetch()} className="mt-1 h-auto px-0 text-red-200">Retry</Button></div>
+            : !requests.length
+              ? <p className="rounded-xl border border-dashed border-[#514333] bg-[#100e0b] p-4 text-xs leading-5 text-[#817567]">Your custom workout requests will appear here.</p>
+              : <div className="space-y-2">
+                {requests.map((request) => (
+                  <article key={request.id} className="rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <h3 className="font-semibold text-sm text-[#e7dac8]">{request.improvementFocus}</h3>
+                      <span className="rounded-full border border-[#68482e] bg-[#21180f] px-2 py-1 font-mono text-[8px] uppercase tracking-[0.08em] text-[#e8a16a]">{request.status.replace(/_/g, " ")}</span>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-[#8f8274]">{request.desiredOutcome}</p>
+                    {request.workout?.workout?.name && <p className="mt-2 border-t border-[#342c24] pt-2 text-xs text-[#e8a16a]">Workout assigned: {request.workout.workout.name}</p>}
+                    <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.1em] text-[#756b60]">{request.availableTime} min · Requested {new Date(request.createdAt).toLocaleDateString()}</p>
+                  </article>
+                ))}
+              </div>}
+      </section>
+
       <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Assigned workouts">
         <div className="mb-4 flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Dumbbell className="h-4 w-4" /></span>
@@ -741,8 +994,7 @@ export default function ShootingCohortPage() {
   const [showAssessmentForm, setShowAssessmentForm] = useState(false);
   const [showInterestSurvey, setShowInterestSurvey] = useState(false);
   const [reapply, setReapply] = useState(false);
-  const [activeTab, setActiveTab] = useState("requests");
-  const [messageChannel, setMessageChannel] = useState<"group" | "founder">("group");
+  const [activeTab, setActiveTab] = useState("workouts");
   const application = playerQuery.data?.application;
   const closedApplicationStatus = ["withdrawn", "declined", "removed"].includes(application?.status ?? "");
   const canStartApplication = !application || closedApplicationStatus;
@@ -751,19 +1003,10 @@ export default function ShootingCohortPage() {
   const latestAssessment = orderedAssessments[0];
   const isMember = application?.status === "active";
   const isEditingSurvey = Boolean(application && !closedApplicationStatus);
-  const openFounderMessages = () => {
-    if (!isMember) {
-      navigate("/contact?from=shooting-cohort");
-      return;
-    }
-    setActiveTab("messaging");
-    setMessageChannel("founder");
-  };
   const nextRetest = latestAssessment ? new Date(new Date(latestAssessment.createdAt).getTime() + 28 * 24 * 60 * 60 * 1000) : null;
   const retestDue = nextRetest ? nextRetest <= new Date() : false;
   const invitationBusy = respondInvitation.isPending;
   const settings = playerQuery.data?.settings;
-  const remainingSpots = Math.max(0, (settings?.capacity ?? 0) - (settings?.activeCount ?? 0) - (settings?.invitedCount ?? 0));
   const toggleInterestSurvey = () => {
     const nextOpen = !showInterestSurvey;
     setShowInterestSurvey(nextOpen);
@@ -814,19 +1057,18 @@ export default function ShootingCohortPage() {
         <section className="border-b border-zinc-800 pb-5">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="font-heading text-3xl uppercase leading-tight tracking-wide text-white sm:text-4xl">Build an <span className="text-orange-400">Effortless Shot</span></h1>
+              <h1 className="font-heading text-3xl uppercase leading-tight tracking-wide text-white sm:text-4xl">Build an Effortless Shot</h1>
             </div>
             <div className="flex flex-wrap gap-2">
               {(canStartApplication || isEditingSurvey) && <Button onClick={toggleInterestSurvey} disabled={canStartApplication && !settings?.applicationsOpen && !showInterestSurvey} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="bg-orange-500 font-bold text-black hover:bg-orange-400 disabled:opacity-50">{showInterestSurvey ? "Close survey" : isEditingSurvey ? "Edit Interest Survey" : "Interest Survey"}</Button>}
-              <Button variant="outline" onClick={openFounderMessages} className="border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-orange-400/40 hover:bg-orange-500/10 hover:text-white"><MessageCircle className="mr-2 h-4 w-4" />Message Founder</Button>
               <Button variant="ghost" onClick={() => navigate("/hub")} className="text-zinc-500 hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
             </div>
           </div>
           {canStartApplication && !settings?.applicationsOpen && <p className="mt-3 text-xs text-[#9d8f7e]">Applications are paused right now.</p>}
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#493a2c] bg-[#17130f] px-4 py-3">
-              <div><p className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[#9d8f7e]">Remaining spots</p><p className="mt-1 text-xs text-[#817567]">of {settings?.capacity ?? 0} total</p></div>
-              <p className="font-heading text-3xl leading-none text-[#f2a365]">{remainingSpots}</p>
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#493a2c] bg-[#17130f] px-4 py-3">
+                <div><p className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[#9d8f7e]">Players in cohort</p><p className="mt-1 text-xs text-[#817567]">active members</p></div>
+                <p className="font-heading text-3xl leading-none text-[#f2a365]">{settings?.activeCount ?? 0}</p>
             </div>
             <div className="flex items-center gap-3 rounded-2xl border border-[#493a2c] bg-[#17130f] px-4 py-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#bf753f]/10 text-[#e79960]"><BadgeCheck className="h-4 w-4" /></span>
@@ -862,45 +1104,36 @@ export default function ShootingCohortPage() {
 
         {isMember && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-            <TabsList aria-label="Shooting Cohort player sections" className="grid h-auto w-full grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950 p-1 md:grid-cols-6">
-              <TabsTrigger value="requests" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><ClipboardList className="h-4 w-4" /><span>Requests</span></TabsTrigger>
+            <TabsList aria-label="Shooting Cohort player sections" className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950 p-1 sm:grid-cols-4">
+              <TabsTrigger value="workouts" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Dumbbell className="h-4 w-4" /><span>Workouts</span></TabsTrigger>
               <TabsTrigger value="film-room" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Film className="h-4 w-4" /><span>Film Room</span></TabsTrigger>
               <TabsTrigger value="messaging" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><MessageCircle className="h-4 w-4" /><span>Messaging</span></TabsTrigger>
               <TabsTrigger value="baseline" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Target className="h-4 w-4" /><span>Baseline Assessment</span></TabsTrigger>
-              <TabsTrigger value="workouts" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Dumbbell className="h-4 w-4" /><span>Workouts</span></TabsTrigger>
-              <TabsTrigger value="analytics" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-[#ef8a43] data-[state=active]:font-bold data-[state=active]:text-[#21150c] md:text-xs"><Activity className="h-4 w-4" /><span>Analytics</span></TabsTrigger>
             </TabsList>
 
-            <TabsContent value="requests" className="mt-4 focus-visible:outline-none"><CohortRequestsSection /></TabsContent>
             <TabsContent value="film-room" className="mt-4 focus-visible:outline-none"><ShootingCohortVideos /></TabsContent>
-            <TabsContent value="messaging" className="mt-4 focus-visible:outline-none"><MemberChat activeChannel={messageChannel} onChannelChange={setMessageChannel} /></TabsContent>
+            <TabsContent value="messaging" className="mt-4 focus-visible:outline-none"><ShootingCohortPrivateChat /></TabsContent>
             <TabsContent value="baseline" forceMount className="mt-4 focus-visible:outline-none">
               <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Baseline shooting assessment">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#df965c]">Shooting check-in</p><h2 className="mt-1 font-heading text-3xl uppercase leading-none text-[#fff1de]">Baseline assessment</h2><p className="mt-2 max-w-xl text-xs leading-5 text-[#8f8274]">Record a consistent 60-shot snapshot. Your results remain private to you and PLAYR1 admins.</p></div>
+                  <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#df965c]">Shooting check-in</p><h2 className="mt-1 font-heading text-3xl uppercase leading-none text-[#fff1de]">Baseline assessment</h2><p className="mt-2 max-w-xl text-xs leading-5 text-[#8f8274]">Track 100 threes (20 at each of five spots), 40 mid-range pull-ups (8 at each spot), and 50 free throws. Results stay private to you and cohort admins.</p></div>
                   <Button onClick={() => setShowAssessmentForm(true)} className="bg-[#ef8a43] font-bold text-[#21150c] hover:bg-[#ff9e5b]"><Target className="mr-2 h-4 w-4" />{orderedAssessments.length ? retestLabel : "Set baseline"}</Button>
                 </div>
                 <div className="mt-5 grid grid-cols-3 divide-x divide-[#4b3928] rounded-xl border border-[#503b28] bg-[#100e0b] py-3 text-center">
-                  <div><p className="font-heading text-2xl text-[#f4b27c]">20</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">free throws</p></div>
-                  <div><p className="font-heading text-2xl text-[#f4b27c]">25</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">spot-up</p></div>
-                  <div><p className="font-heading text-2xl text-[#f4b27c]">15</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">off-dribble</p></div>
+                  <div><p className="font-heading text-2xl text-[#f4b27c]">100</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">three-pointers</p></div>
+                  <div><p className="font-heading text-2xl text-[#f4b27c]">40</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">mid-range pull-ups</p></div>
+                  <div><p className="font-heading text-2xl text-[#f4b27c]">50</p><p className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#958574]">free throws</p></div>
                 </div>
-                <p className="mt-3 text-xs leading-5 text-[#9d8f7e]">Record your makes at five spots and three dribble locations. Revisit the same test every four weeks.</p>
+                <p className="mt-3 text-xs leading-5 text-[#9d8f7e]">Use the same five spots for threes and mid-range pull-ups. Revisit the same test every four weeks.</p>
                 {latestAssessment && <div className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${retestDue ? "border-[#df965c]/30 bg-[#df965c]/[0.08] text-[#f1bd8c]" : "border-[#3a3329] bg-[#100e0b] text-[#958878]"}`}><CalendarDays className="h-3.5 w-3.5 shrink-0" />{retestDue ? "A four-week retest is due. Put your progress on paper." : `Next suggested retest ${nextRetest?.toLocaleDateString(undefined, { month: "short", day: "numeric" })}. Retest every four weeks.`}</div>}
                 {showAssessmentForm && <div className="mt-4"><AssessmentForm type={orderedAssessments.length ? "retest" : "baseline"} pending={submitAssessment.isPending} onCancel={() => setShowAssessmentForm(false)} onSubmit={(assessment) => void saveAssessment(assessment)} /></div>}
+                <AssessmentTrend assessments={orderedAssessments} goals={settings} />
+                {assessmentQuery.isLoading && <div className="mt-4 space-y-3"><Skeleton className="h-36 rounded-2xl bg-[#29231c]" /></div>}
+                {assessmentQuery.isError && <div className="mt-4 rounded-xl border border-red-300/20 bg-red-300/[0.05] p-4 text-sm text-red-200"><p>Baseline history could not load.</p><Button variant="ghost" onClick={() => assessmentQuery.refetch()} className="mt-1 px-0 text-red-200 hover:text-white">Retry</Button></div>}
+                {orderedAssessments.length > 0 && <div className="mt-5 space-y-3"><h3 className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#9d8f7e]">Assessment history</h3>{orderedAssessments.map((assessment, index) => <AssessmentCard key={assessment.id} assessment={assessment} index={orderedAssessments.length - index - 1} />)}</div>}
               </section>
             </TabsContent>
-            <TabsContent value="workouts" className="mt-4 focus-visible:outline-none"><CohortWorkoutsSection /></TabsContent>
-            <TabsContent value="analytics" className="mt-4 focus-visible:outline-none">
-              <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Private shooting analytics">
-                <div className="mb-4"><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#df965c]">Your shooting log</p><h2 className="mt-1 font-heading text-3xl uppercase leading-none text-[#fff1de]">Progress, kept personal.</h2><p className="mt-2 max-w-xl text-xs leading-5 text-[#8f8274]">Your scores are visible only to you and PLAYR1 admins. No leaderboard, no public scores.</p></div>
-                <AssessmentTrend assessments={orderedAssessments} />
-                {assessmentQuery.isLoading && <div className="mt-4 space-y-3"><Skeleton className="h-36 rounded-2xl bg-[#29231c]" /><Skeleton className="h-36 rounded-2xl bg-[#29231c]" /></div>}
-                {assessmentQuery.isError && <div className="mt-4 rounded-xl border border-red-300/20 bg-red-300/[0.05] p-4 text-sm text-red-200"><p>Private test history could not load.</p><Button variant="ghost" onClick={() => assessmentQuery.refetch()} className="mt-1 px-0 text-red-200 hover:text-white">Retry</Button></div>}
-                {!assessmentQuery.isLoading && !assessmentQuery.isError && orderedAssessments.length === 0 && <div className="mt-4 flex flex-col items-center rounded-2xl border border-dashed border-[#514333] bg-[#100e0b] px-5 py-8 text-center"><Trophy className="h-6 w-6 text-[#8e6847]" /><p className="mt-3 text-sm font-semibold text-[#dfd0bd]">Your first mark is still ahead.</p><p className="mt-1 max-w-sm text-xs leading-5 text-[#817567]">Open Baseline Assessment to record your first result.</p></div>}
-                <div className="mt-4 space-y-3">{orderedAssessments.map((assessment, index) => <AssessmentCard key={assessment.id} assessment={assessment} index={orderedAssessments.length - index - 1} />)}</div>
-              </section>
-            </TabsContent>
+            <TabsContent value="workouts" className="mt-4 focus-visible:outline-none"><CohortWorkoutsSection answers={application?.answers} /></TabsContent>
           </Tabs>
         )}
         {application?.status === "waitlisted" && <section className="mt-5 rounded-2xl border border-[#4a3d2e] bg-[#17130f] p-5"><p className="font-heading text-2xl uppercase text-[#f1e3d2]">Your application is in order.</p><p className="mt-1 max-w-2xl text-sm leading-6 text-[#9d8f7e]">There are {playerQuery.data.waitlistCount} {playerQuery.data.waitlistCount === 1 ? "player" : "players"} on the waitlist. Invitations are sent as seats open; accept or decline here when yours arrives.</p></section>}

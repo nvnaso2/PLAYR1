@@ -8,6 +8,8 @@ import type {
   ShootingCohortAssessmentType,
   ShootingCohortOffDribbleResults,
   ShootingCohortSpotUpResults,
+  ShootingCohortThreePointResults,
+  ShootingCohortMidRangeResults,
   ShootingCohortStatus,
 } from "./shooting-cohort";
 
@@ -629,6 +631,9 @@ export const shootingCohortSettings = pgTable("shooting_cohort_settings", {
   id: integer("id").primaryKey().default(1),
   capacity: integer("capacity").notNull().default(10),
   applicationsOpen: boolean("applications_open").notNull().default(true),
+  goalThreePointPercent: integer("goal_three_point_percent"),
+  goalMidRangePercent: integer("goal_mid_range_percent"),
+  goalFreeThrowPercent: integer("goal_free_throw_percent"),
   updatedAt: timestamp("updated_at").defaultNow(),
   updatedBy: varchar("updated_by"),
 });
@@ -650,10 +655,13 @@ export const shootingCohortAssessments = pgTable("shooting_cohort_assessments", 
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   type: varchar("type").$type<ShootingCohortAssessmentType>().notNull(),
-  distanceFeet: integer("distance_feet").notNull(),
+  protocolVersion: integer("protocol_version").notNull().default(1),
+  distanceFeet: integer("distance_feet"),
   freeThrowsMade: integer("free_throws_made").notNull(),
-  spotUpResults: jsonb("spot_up_results").$type<ShootingCohortSpotUpResults>().notNull(),
-  offDribbleResults: jsonb("off_dribble_results").$type<ShootingCohortOffDribbleResults>().notNull(),
+  spotUpResults: jsonb("spot_up_results").$type<ShootingCohortSpotUpResults>(),
+  offDribbleResults: jsonb("off_dribble_results").$type<ShootingCohortOffDribbleResults>(),
+  threePointResults: jsonb("three_point_results").$type<ShootingCohortThreePointResults>(),
+  midRangeResults: jsonb("mid_range_results").$type<ShootingCohortMidRangeResults>(),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
@@ -709,6 +717,10 @@ export const shootingCohortVideoSubmissions = pgTable("shooting_cohort_video_sub
   videoUrl: varchar("video_url").notNull(),
   thumbnailUrl: varchar("thumbnail_url"),
   description: text("description"),
+  workoutRequestId: varchar("workout_request_id"),
+  founderFeedback: text("founder_feedback"),
+  feedbackUpdatedAt: timestamp("feedback_updated_at"),
+  feedbackUpdatedBy: varchar("feedback_updated_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -8,6 +8,7 @@ import {
   shootingCohortApplicationSchema,
   shootingCohortAssessmentSchema,
   shootingCohortVideoSubmissionSchema,
+  shootingCohortWorkoutRequestSchema,
 } from "../shared/shooting-cohort";
 
 const validApplication = {
@@ -23,19 +24,20 @@ const validApplication = {
 
 const validAssessment = {
   type: "baseline",
-  distanceFeet: 18,
-  freeThrowsMade: 12,
-  spotUp: {
+  freeThrowsMade: 37,
+  threePointResults: {
     leftCorner: 2,
     leftWing: 3,
     top: 4,
     rightWing: 4,
     rightCorner: 5,
   },
-  offDribble: {
-    left: 2,
-    center: 3,
-    right: 1,
+  midRangeResults: {
+    leftCorner: 2,
+    leftWing: 3,
+    top: 4,
+    rightWing: 5,
+    rightCorner: 6,
   },
 };
 
@@ -71,27 +73,53 @@ test("cohort chat sender names fall back safely when profile names are missing",
   assert.equal(getShootingCohortSenderDisplayName("  Maya Torres  ", false), "Maya Torres");
 });
 
-test("shooting cohort assessment enforces fixed-attempt makes and totals sixty shots", () => {
+test("shooting cohort baseline enforces 100 threes, 40 mid-range pull-ups, and 50 free throws", () => {
   const parsed = shootingCohortAssessmentSchema.safeParse(validAssessment);
   assert.equal(parsed.success, true);
   if (!parsed.success) return;
 
   assert.deepEqual(getAssessmentTotals(parsed.data), {
-    freeThrows: { made: 12, attempted: 20 },
-    spotUp: { made: 18, attempted: 25 },
-    offDribble: { made: 6, attempted: 15 },
-    total: { made: 36, attempted: 60 },
+    freeThrows: { made: 37, attempted: 50, percent: 74 },
+    threePoint: { made: 18, attempted: 100, percent: 18 },
+    midRange: { made: 20, attempted: 40, percent: 50 },
   });
 });
 
-test("shooting cohort assessment rejects makes above the attempts for a location", () => {
+test("shooting cohort assessment rejects makes above the attempts for any category", () => {
   assert.equal(shootingCohortAssessmentSchema.safeParse({
     ...validAssessment,
-    spotUp: { ...validAssessment.spotUp, top: 6 },
+    threePointResults: { ...validAssessment.threePointResults, top: 21 },
   }).success, false);
   assert.equal(shootingCohortAssessmentSchema.safeParse({
     ...validAssessment,
-    freeThrowsMade: 21,
+    midRangeResults: { ...validAssessment.midRangeResults, rightCorner: 9 },
+  }).success, false);
+  assert.equal(shootingCohortAssessmentSchema.safeParse({
+    ...validAssessment,
+    freeThrowsMade: 51,
+  }).success, false);
+});
+
+test("cohort workout requests require a skill, duration, details, and optional private video", () => {
+  const request = {
+    skills: ["catch-and-shoot", "free-throws"],
+    availableTime: 45,
+    desiredOutcome: "Build consistency on catch-and-shoot reps late in workouts.",
+  };
+  assert.equal(shootingCohortWorkoutRequestSchema.safeParse(request).success, true);
+  assert.equal(shootingCohortWorkoutRequestSchema.safeParse({
+    ...request,
+    video: {
+      title: "Live rep",
+      videoUrl: "/objects/cohort-private/request-clip",
+      description: "",
+    },
+  }).success, true);
+  assert.equal(shootingCohortWorkoutRequestSchema.safeParse({ ...request, skills: [] }).success, false);
+  assert.equal(shootingCohortWorkoutRequestSchema.safeParse({ ...request, availableTime: 0 }).success, false);
+  assert.equal(shootingCohortWorkoutRequestSchema.safeParse({
+    ...request,
+    video: { title: "Public", videoUrl: "/objects/uploads/public-video", description: "" },
   }).success, false);
 });
 

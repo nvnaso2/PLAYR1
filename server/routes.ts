@@ -67,15 +67,15 @@ import {
   shootingCohortApplicationSchema,
   shootingCohortAssessmentSchema,
   shootingCohortVideoSubmissionSchema,
+  shootingCohortWorkoutRequestSchema,
 } from "@shared/shooting-cohort";
 import {
   createShootingCohortVideoSubmission,
   createShootingCohortAssessment,
-  createShootingCohortMessage,
-  deleteShootingCohortMessage,
+  createShootingCohortWorkoutRequest,
+  getAllActiveShootingCohortVideoSubmissionsForAdmin,
   getPlayerShootingCohortAssessments,
   getShootingCohortAdminOverview,
-  getShootingCohortMessages,
   getShootingCohortStatus,
   getShootingCohortVideoSubmissionForPlayer,
   getShootingCohortVideoSubmissionsForAdmin,
@@ -88,6 +88,7 @@ import {
   submitShootingCohortApplication,
   updateShootingCohortApplication,
   updateShootingCohortApplicationStatus,
+  updateShootingCohortVideoFeedback,
   updateShootingCohortSettings,
 } from "./shooting-cohort";
 
@@ -3395,36 +3396,6 @@ ${JSON.stringify(catalogForPrompt)}
     }
   });
 
-  app.get("/api/shooting-cohort/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const allowed = await storage.isUserAdmin(userId) || await hasActiveShootingCohortMembership(userId);
-      if (!allowed) return res.status(403).json({ message: "Cohort members only." });
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-      res.json(await getShootingCohortMessages());
-    } catch (error) {
-      console.error("Error loading shooting cohort chat:", error);
-      res.status(500).json({ message: "Failed to load cohort chat" });
-    }
-  });
-
-  app.post("/api/shooting-cohort/messages", isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    const parsed = z.object({
-      content: z.string().trim().min(1).max(2000),
-    }).safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Messages must be between 1 and 2,000 characters." });
-    try {
-      const userId = req.user.claims.sub;
-      const allowed = await storage.isUserAdmin(userId) || await hasActiveShootingCohortMembership(userId);
-      if (!allowed) return res.status(403).json({ message: "Cohort members only." });
-      const message = await createShootingCohortMessage(userId, parsed.data.content);
-      res.status(201).json(message);
-    } catch (error) {
-      console.error("Error sending shooting cohort message:", error);
-      res.status(500).json({ message: "Failed to send cohort message" });
-    }
-  });
-
   app.get("/api/admin/shooting-cohort", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
     try {
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -3432,6 +3403,39 @@ ${JSON.stringify(catalogForPrompt)}
     } catch (error) {
       console.error("Error loading admin shooting cohort:", error);
       res.status(500).json({ message: "Failed to load shooting cohort management" });
+    }
+  });
+
+  app.get("/api/admin/shooting-cohort/videos", isAuthenticated, isAdmin, async (_req: AuthenticatedRequest, res) => {
+    try {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      const objectStorage = new ObjectStorageService();
+      const submissions = await getAllActiveShootingCohortVideoSubmissionsForAdmin();
+      const safeSubmissions = await Promise.all(submissions.map(async ({ videoUrl, ...submission }) => ({
+        ...submission,
+        mediaUrl: await objectStorage.getObjectEntityReadURL(videoUrl, 600),
+      })));
+      res.json(safeSubmissions);
+    } catch (error) {
+      console.error("Error loading admin shooting cohort film review:", error);
+      res.status(500).json({ message: "Failed to load cohort video submissions" });
+    }
+  });
+
+  app.patch("/api/admin/shooting-cohort/videos/:id/feedback", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
+    const parsed = z.object({ feedback: z.string().trim().max(2000) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Feedback must be no longer than 2,000 characters." });
+    try {
+      const video = await updateShootingCohortVideoFeedback(
+        req.params.id,
+        req.user.claims.sub,
+        parsed.data.feedback,
+      );
+      res.json({ video });
+    } catch (error) {
+      if (error instanceof ShootingCohortError) return res.status(error.statusCode).json({ message: error.message });
+      console.error("Error saving shooting cohort video feedback:", error);
+      res.status(500).json({ message: "Failed to save video feedback" });
     }
   });
 
@@ -3458,13 +3462,21 @@ ${JSON.stringify(catalogForPrompt)}
     const parsed = z.object({
       capacity: z.number().int().min(1).max(5000),
       applicationsOpen: z.boolean(),
+      goalThreePointPercent: z.number().int().min(0).max(100).nullable(),
+      goalMidRangePercent: z.number().int().min(0).max(100).nullable(),
+      goalFreeThrowPercent: z.number().int().min(0).max(100).nullable(),
     }).safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Enter a cohort capacity from 1 to 5,000 and choose whether applications are open." });
+    if (!parsed.success) return res.status(400).json({ message: "Check the cohort capacity, application access, and shooting targets." });
     try {
       const settings = await updateShootingCohortSettings(
         parsed.data.capacity,
         parsed.data.applicationsOpen,
         req.user.claims.sub,
+        {
+          goalThreePointPercent: parsed.data.goalThreePointPercent,
+          goalMidRangePercent: parsed.data.goalMidRangePercent,
+          goalFreeThrowPercent: parsed.data.goalFreeThrowPercent,
+        },
       );
       res.json({ settings });
     } catch (error) {
@@ -3525,23 +3537,37 @@ ${JSON.stringify(catalogForPrompt)}
     }
   });
 
-  app.delete("/api/admin/shooting-cohort/messages/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
-    try {
-      await deleteShootingCohortMessage(req.params.id, req.user.claims.sub);
-      res.json({ success: true });
-    } catch (error) {
-      if (error instanceof ShootingCohortError) {
-        return res.status(error.statusCode).json({ message: error.message });
-      }
-      console.error("Error removing shooting cohort message:", error);
-      res.status(500).json({ message: "Failed to remove cohort message" });
-    }
-  });
-
   // ===== CUSTOM WORKOUT REQUESTS =====
   // This is intentionally separate from support messages and trainer mode. A
   // request belongs to exactly one player and an assignment can only target
   // that same player.
+  app.post("/api/shooting-cohort/workout-requests", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const parsed = shootingCohortWorkoutRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Choose at least one skill, set a workout length, and describe what you want to improve.", errors: parsed.error.flatten() });
+    }
+    try {
+      const userId = req.user.claims.sub;
+      const result = await createShootingCohortWorkoutRequest(userId, parsed.data);
+      if (result.video) {
+        void processVideoObject(result.video.videoUrl).catch((error) => {
+          console.error(`[cohort-request-video-process] Failed for ${result.video?.id}:`, error);
+        });
+      }
+      const requesterName = await getDisplayNameForUser(userId);
+      sendPushToAdmins({
+        title: "New custom workout request",
+        body: `${requesterName} requested a custom workout: ${result.request.improvementFocus.substring(0, 120)}`,
+        url: "/admin/shooting-cohort",
+      }, "adminCustomWorkouts").catch(() => {});
+      res.status(201).json({ request: result.request, videoSubmissionId: result.video?.id ?? null });
+    } catch (error) {
+      if (error instanceof ShootingCohortError) return res.status(error.statusCode).json({ message: error.message });
+      console.error("Error creating shooting cohort workout request:", error);
+      res.status(500).json({ message: "Failed to create workout request" });
+    }
+  });
+
   app.get("/api/custom-workout-requests", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;

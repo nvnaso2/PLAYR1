@@ -183,6 +183,12 @@ export function ShootingCohortVideos() {
                         <span className="shrink-0 font-mono text-[9px] text-[#817567]">{new Date(video.createdAt).toLocaleDateString()}</span>
                       </div>
                       {video.description && <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[#9d8f7e]">{video.description}</p>}
+                      {video.founderFeedback && (
+                        <div className="mt-3 rounded-lg border border-[#bf753f]/25 bg-[#bf753f]/[0.08] p-3">
+                          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.13em] text-[#f0a367]">Founder feedback</p>
+                          <p className="mt-1.5 whitespace-pre-wrap text-xs leading-5 text-[#f0e0cd]">{video.founderFeedback}</p>
+                        </div>
+                      )}
                     </div>
                   </article>
                 ))}

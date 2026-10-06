@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import AdminShootingCohortFilmReview from "@/components/admin-shooting-cohort-film-review";
 import {
   getAssessmentTotals,
   SHOOTING_COHORT_FOCUS_LABELS,
@@ -43,7 +44,7 @@ import type {
   ShootingCohortVideoSubmission,
 } from "@/lib/shooting-cohort-api";
 
-type AdminView = "cohort" | "applications" | "conversation";
+type AdminView = "cohort" | "applications" | "film-review" | "conversation";
 type ApplicationStatus = "active" | "invited" | "waitlisted" | "needs_review";
 type ApplicationFilter = "all" | ApplicationStatus;
 
@@ -75,7 +76,7 @@ const spotLabels: Record<string, string> = {
   rightWing: "Right wing",
   rightCorner: "Right corner",
 };
-const dribbleLabels: Record<string, string> = { left: "Left", center: "Center", right: "Right" };
+const emptyFiveSpotResults = { leftCorner: 0, leftWing: 0, top: 0, rightWing: 0, rightCorner: 0 };
 
 function formatDate(value: string, includeTime = false) {
   const date = new Date(value);
@@ -99,8 +100,8 @@ function AssessmentReview({ application }: { application: ShootingCohortAdminApp
       {assessments.map((assessment, index) => {
         const totals = getAssessmentTotals({
           freeThrowsMade: assessment.freeThrowsMade,
-          spotUp: assessment.spotUpResults,
-          offDribble: assessment.offDribbleResults,
+          threePointResults: assessment.threePointResults ?? emptyFiveSpotResults,
+          midRangeResults: assessment.midRangeResults ?? emptyFiveSpotResults,
         });
         return (
           <details key={assessment.id} className="group rounded-xl border border-white/[0.07] bg-[#11110f]">
@@ -110,19 +111,21 @@ function AssessmentReview({ application }: { application: ShootingCohortAdminApp
                 <span className="block text-xs font-semibold text-stone-100">
                   {assessment.type === "baseline" ? "Baseline" : `Retest ${assessments.length - index}`} · {formatDate(assessment.createdAt)}
                 </span>
-                <span className="mt-0.5 block font-mono text-[10px] text-stone-500">{assessment.distanceFeet} ft · {totals.total.made}/{totals.total.attempted} makes</span>
+                <span className="mt-0.5 block font-mono text-[10px] text-stone-500">
+                  3PT {totals.threePoint.percent}% · Mid {totals.midRange.percent}% · FT {totals.freeThrows.percent}%
+                </span>
               </span>
               <ChevronDown className="h-4 w-4 text-stone-500 transition group-open:rotate-180" />
             </summary>
             <div className="grid gap-3 border-t border-white/[0.07] px-3 pb-3 pt-3 sm:grid-cols-3">
               <AdminResult title="Free throws" made={totals.freeThrows.made} attempted={totals.freeThrows.attempted} />
               <div>
-                <AdminResult title="Spot-up" made={totals.spotUp.made} attempted={totals.spotUp.attempted} />
-                <div className="mt-2 space-y-1">{Object.entries(assessment.spotUpResults).map(([key, value]) => <AdminLocation key={key} label={spotLabels[key] ?? key} value={value} />)}</div>
+              <AdminResult title="Three-pointers" made={totals.threePoint.made} attempted={totals.threePoint.attempted} />
+                <div className="mt-2 space-y-1">{Object.entries(assessment.threePointResults ?? emptyFiveSpotResults).map(([key, value]) => <AdminLocation key={key} label={spotLabels[key] ?? key} value={value} attempted={20} />)}</div>
               </div>
               <div>
-                <AdminResult title="Off the dribble" made={totals.offDribble.made} attempted={totals.offDribble.attempted} />
-                <div className="mt-2 space-y-1">{Object.entries(assessment.offDribbleResults).map(([key, value]) => <AdminLocation key={key} label={dribbleLabels[key] ?? key} value={value} />)}</div>
+                <AdminResult title="Mid-range pull-ups" made={totals.midRange.made} attempted={totals.midRange.attempted} />
+                <div className="mt-2 space-y-1">{Object.entries(assessment.midRangeResults ?? emptyFiveSpotResults).map(([key, value]) => <AdminLocation key={key} label={spotLabels[key] ?? key} value={value} attempted={8} />)}</div>
               </div>
               {assessment.notes && <p className="whitespace-pre-wrap text-xs leading-5 text-stone-400 sm:col-span-3">{assessment.notes}</p>}
             </div>
@@ -137,8 +140,8 @@ function AdminResult({ title, made, attempted }: { title: string; made: number; 
   return <p className="flex justify-between gap-2 text-xs text-stone-400"><span>{title}</span><span className="font-mono text-orange-300">{made}/{attempted}</span></p>;
 }
 
-function AdminLocation({ label, value }: { label: string; value: number }) {
-  return <p className="flex justify-between gap-2 text-[10px] text-stone-500"><span>{label}</span><span className="font-mono text-stone-300">{value}/5</span></p>;
+function AdminLocation({ label, value, attempted }: { label: string; value: number; attempted: number }) {
+  return <p className="flex justify-between gap-2 text-[10px] text-stone-500"><span>{label}</span><span className="font-mono text-stone-300">{value}/{attempted}</span></p>;
 }
 
 function ReviewField({ label, value }: { label: string; value: string }) {
@@ -292,7 +295,6 @@ function ApplicantCard({
             <p className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.16em] text-orange-200"><ShieldCheck className="h-3 w-3" />Admin-only test results</p>
             <AssessmentReview application={applicant} />
           </section>
-          <ApplicantVideoReview applicant={applicant} />
         </div>
       )}
     </article>
@@ -315,16 +317,28 @@ function CountTile({ icon, label, value, note }: { icon: React.ReactNode; label:
 function CohortOverview({
   data,
   capacity,
+  goalThreePointPercent,
+  goalMidRangePercent,
+  goalFreeThrowPercent,
   applicationsOpen,
   setCapacity,
+  setGoalThreePointPercent,
+  setGoalMidRangePercent,
+  setGoalFreeThrowPercent,
   setApplicationsOpen,
   saveSettings,
   saving,
 }: {
   data: NonNullable<ReturnType<typeof useShootingCohortAdminQuery>["data"]>;
   capacity: string;
+  goalThreePointPercent: string;
+  goalMidRangePercent: string;
+  goalFreeThrowPercent: string;
   applicationsOpen: boolean;
   setCapacity: (value: string) => void;
+  setGoalThreePointPercent: (value: string) => void;
+  setGoalMidRangePercent: (value: string) => void;
+  setGoalFreeThrowPercent: (value: string) => void;
   setApplicationsOpen: (value: boolean) => void;
   saveSettings: () => void;
   saving: boolean;
@@ -361,6 +375,33 @@ function CohortOverview({
             <div className="pb-1">
               <p className="font-heading text-2xl leading-none text-orange-200">{openSeats}</p>
               <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-stone-500">Open seats</p>
+            </div>
+          </div>
+          <div className="mt-5 border-t border-white/[0.07] pt-4">
+            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-stone-400">Progress targets · optional</p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {([
+                ["3-point", goalThreePointPercent, setGoalThreePointPercent],
+                ["Mid-range", goalMidRangePercent, setGoalMidRangePercent],
+                ["Free throw", goalFreeThrowPercent, setGoalFreeThrowPercent],
+              ] as const).map(([label, value, setter]) => (
+                <label key={label} className="min-w-0">
+                  <span className="mb-1 block truncate text-[9px] uppercase tracking-wide text-stone-500">{label}</span>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={value}
+                      onChange={(event) => setter(event.target.value)}
+                      placeholder="—"
+                      aria-label={`${label} goal percentage`}
+                      className="h-10 border-white/10 bg-[#0d0d0c] pr-7 font-mono text-stone-100 focus-visible:ring-orange-400"
+                    />
+                    <span className="pointer-events-none absolute right-2.5 top-3 text-xs text-stone-500">%</span>
+                  </div>
+                </label>
+              ))}
             </div>
           </div>
         </div>
@@ -635,13 +676,25 @@ export default function AdminShootingCohort({ view }: { view: AdminView }) {
   const sendMessage = useSendShootingCohortMessage();
   const removeMessage = useRemoveShootingCohortMessage();
   const [capacity, setCapacity] = useState("");
+  const [goalThreePointPercent, setGoalThreePointPercent] = useState("");
+  const [goalMidRangePercent, setGoalMidRangePercent] = useState("");
+  const [goalFreeThrowPercent, setGoalFreeThrowPercent] = useState("");
   const [applicationsOpen, setApplicationsOpen] = useState(true);
 
   useEffect(() => {
     if (!adminQuery.data) return;
     setCapacity(String(adminQuery.data.settings.capacity));
+    setGoalThreePointPercent(adminQuery.data.settings.goalThreePointPercent == null ? "" : String(adminQuery.data.settings.goalThreePointPercent));
+    setGoalMidRangePercent(adminQuery.data.settings.goalMidRangePercent == null ? "" : String(adminQuery.data.settings.goalMidRangePercent));
+    setGoalFreeThrowPercent(adminQuery.data.settings.goalFreeThrowPercent == null ? "" : String(adminQuery.data.settings.goalFreeThrowPercent));
     setApplicationsOpen(adminQuery.data.settings.applicationsOpen);
-  }, [adminQuery.data?.settings.capacity, adminQuery.data?.settings.applicationsOpen]);
+  }, [
+    adminQuery.data?.settings.capacity,
+    adminQuery.data?.settings.goalThreePointPercent,
+    adminQuery.data?.settings.goalMidRangePercent,
+    adminQuery.data?.settings.goalFreeThrowPercent,
+    adminQuery.data?.settings.applicationsOpen,
+  ]);
 
   const applications = useMemo(
     () => [...(adminQuery.data?.applications ?? [])].sort((a, b) => {
@@ -657,9 +710,29 @@ export default function AdminShootingCohort({ view }: { view: AdminView }) {
       toast({ title: "Capacity not saved", description: "Capacity must be a whole number from 1 to 500.", variant: "destructive" });
       return;
     }
+    const parseGoal = (value: string) => {
+      if (!value.trim()) return null;
+      const parsed = Number(value);
+      return Number.isInteger(parsed) && parsed >= 0 && parsed <= 100 ? parsed : undefined;
+    };
+    const goals = {
+      goalThreePointPercent: parseGoal(goalThreePointPercent),
+      goalMidRangePercent: parseGoal(goalMidRangePercent),
+      goalFreeThrowPercent: parseGoal(goalFreeThrowPercent),
+    };
+    if (Object.values(goals).some((value) => value === undefined)) {
+      toast({ title: "Targets not saved", description: "Each target must be a whole percentage from 0 to 100, or left blank.", variant: "destructive" });
+      return;
+    }
     try {
-      await updateSettings.mutateAsync({ capacity: number, applicationsOpen });
-      toast({ title: "Cohort settings saved", description: "Capacity and application access are updated." });
+      await updateSettings.mutateAsync({
+        capacity: number,
+        applicationsOpen,
+        goalThreePointPercent: goals.goalThreePointPercent ?? null,
+        goalMidRangePercent: goals.goalMidRangePercent ?? null,
+        goalFreeThrowPercent: goals.goalFreeThrowPercent ?? null,
+      });
+      toast({ title: "Cohort settings saved", description: "Capacity, access, and shooting targets are updated." });
     } catch (error) {
       toast({ title: "Settings not saved", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
     }
@@ -748,8 +821,14 @@ export default function AdminShootingCohort({ view }: { view: AdminView }) {
         <CohortOverview
           data={data}
           capacity={capacity}
+          goalThreePointPercent={goalThreePointPercent}
+          goalMidRangePercent={goalMidRangePercent}
+          goalFreeThrowPercent={goalFreeThrowPercent}
           applicationsOpen={applicationsOpen}
           setCapacity={setCapacity}
+          setGoalThreePointPercent={setGoalThreePointPercent}
+          setGoalMidRangePercent={setGoalMidRangePercent}
+          setGoalFreeThrowPercent={setGoalFreeThrowPercent}
           setApplicationsOpen={setApplicationsOpen}
           saveSettings={() => void saveSettings()}
           saving={updateSettings.isPending}
@@ -770,6 +849,14 @@ export default function AdminShootingCohort({ view }: { view: AdminView }) {
           onStatus={(application, status) => void changeStatus(application, status)}
           onRemove={(application) => void remove(application)}
         />
+      </div>
+    );
+  }
+
+  if (view === "film-review") {
+    return (
+      <div className="shooting-cohort-admin">
+        <AdminShootingCohortFilmReview />
       </div>
     );
   }

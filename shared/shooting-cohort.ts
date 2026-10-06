@@ -90,6 +90,9 @@ export type ShootingCohortAssessmentInput = z.infer<typeof shootingCohortAssessm
 export type ShootingCohortAssessmentType = ShootingCohortAssessmentInput["type"];
 export type ShootingCohortThreePointResults = ShootingCohortAssessmentInput["threePointResults"];
 export type ShootingCohortMidRangeResults = ShootingCohortAssessmentInput["midRangeResults"];
+// Retained only for reading assessments recorded under the retired test format.
+export type ShootingCohortSpotUpResults = Record<string, number>;
+export type ShootingCohortOffDribbleResults = Record<string, number>;
 
 export const shootingCohortVideoSubmissionSchema = z.object({
   title: z.string().trim().min(1).max(100),
@@ -99,6 +102,15 @@ export const shootingCohortVideoSubmissionSchema = z.object({
 });
 
 export type ShootingCohortVideoSubmissionInput = z.infer<typeof shootingCohortVideoSubmissionSchema>;
+
+export const shootingCohortWorkoutRequestSchema = z.object({
+  skills: z.array(z.enum(SHOOTING_COHORT_FOCUS_AREAS)).min(1).max(SHOOTING_COHORT_FOCUS_AREAS.length),
+  availableTime: z.number().int().min(5).max(240),
+  desiredOutcome: z.string().trim().min(3).max(1000),
+  video: shootingCohortVideoSubmissionSchema.pick({ title: true, videoUrl: true, description: true }).optional(),
+});
+
+export type ShootingCohortWorkoutRequestInput = z.infer<typeof shootingCohortWorkoutRequestSchema>;
 
 export function getShootingCohortAdmissionStatus(occupiedSeats: number, capacity: number): "active" | "waitlisted" {
   return occupiedSeats < capacity ? "active" : "waitlisted";
