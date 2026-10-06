@@ -284,32 +284,32 @@ const LOCATION_TO_ZONE: Record<string, string> = {
 };
 
 // ── Color scale matching the PLAYR1 reference heatmap ───────────────────────
-// Rich maroon (cold/poor) → warm gold → fresh green → saturated emerald (hot/excellent)
+// Dark jewel red (cold/poor) → molten gold → electric lime → deep emerald (hot/excellent)
 export const SHOT_HEAT_COLOR_BANDS = [
-  { maxPct: 30, label: "≤30%", color: "#681C2B" },
-  { maxPct: 38, label: "31–38%", color: "#85231F" },
-  { maxPct: 45, label: "39–45%", color: "#A52C1B" },
-  { maxPct: 52, label: "46–52%", color: "#BC421C" },
-  { maxPct: 58, label: "53–58%", color: "#B6781D" },
-  { maxPct: 65, label: "59–65%", color: "#7C8C22" },
-  { maxPct: 72, label: "66–72%", color: "#467D26" },
-  { maxPct: 80, label: "73–80%", color: "#2F8A2D" },
-  { maxPct: 88, label: "81–88%", color: "#239638" },
-  { maxPct: Infinity, label: ">88%", color: "#178C54" },
+  { maxPct: 30, label: "≤30%", color: "#51142A" },
+  { maxPct: 38, label: "31–38%", color: "#71172D" },
+  { maxPct: 45, label: "39–45%", color: "#921C28" },
+  { maxPct: 52, label: "46–52%", color: "#AD2C20" },
+  { maxPct: 58, label: "53–58%", color: "#B94A1D" },
+  { maxPct: 65, label: "59–65%", color: "#777D20" },
+  { maxPct: 72, label: "66–72%", color: "#3C7428" },
+  { maxPct: 80, label: "73–80%", color: "#287D35" },
+  { maxPct: 88, label: "81–88%", color: "#1D804B" },
+  { maxPct: Infinity, label: ">88%", color: "#176B57" },
 ] as const;
 
 const PERSONAL_SHOT_HEAT_STOPS = [
-  "#842537",
-  "#A02C3A",
-  "#B9363C",
-  "#CF4B37",
-  "#DA7040",
-  "#A9CF59",
-  "#91C84A",
-  "#76BF43",
-  "#59B447",
-  "#3CA451",
-  "#258B5C",
+  "#65172D",
+  "#7C1C32",
+  "#98212F",
+  "#AF3029",
+  "#C64B25",
+  "#91B843",
+  "#7DAE36",
+  "#68A334",
+  "#519442",
+  "#3B8251",
+  "#286E59",
 ] as const;
 const PERSONAL_SHOT_HEAT_GRADIENT = `linear-gradient(90deg, ${PERSONAL_SHOT_HEAT_STOPS
   .map((color, index) => `${color} ${index * 10}%`)
@@ -744,7 +744,7 @@ export function ShootingHeatmap({
               ? "Your personal scale could not load; zones without a recent baseline are left ungraded."
               : baselineLoading
                 ? "Loading your recent shooting averages…"
-                : "Zone numbers stay as actual percentages. The smooth gradient uses muted reds and golds below your average, light green at your average, and richer greens above it."}
+                : "Zone numbers stay as actual percentages. The game-style gradient uses deep reds and golds below your average, a lime-green average, and darker emeralds above it."}
           </p>
         )}
       </CardHeader>
@@ -771,7 +771,7 @@ export function ShootingHeatmap({
             </div>
             <div className="flex justify-center gap-1 text-[10px] text-zinc-500">
               <span>Lower</span>
-              <span className="mx-2" style={{ color: "#A9CF59" }}>Your section average</span>
+              <span className="mx-2" style={{ color: "#A6D451" }}>Your section average</span>
               <span>Higher</span>
             </div>
             <p className="text-center text-[10px] text-zinc-600">Gray zones need more recent data for every shot type they contain.</p>

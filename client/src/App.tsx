@@ -211,7 +211,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           </header>
 
           {/* Scrollable page content */}
-          <main className="flex-1 overflow-y-auto min-h-0">
+          <main className="flex-1 min-w-0 overflow-y-auto min-h-0">
             <Suspense fallback={<PageLoader />}>
               {children}
             </Suspense>

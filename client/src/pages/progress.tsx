@@ -333,7 +333,7 @@ export default function ProgressPage() {
 
   if (overviewError) {
     return (
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className="w-full min-w-0 overflow-x-clip p-4 sm:p-6 max-w-7xl mx-auto">
         <QueryError message="Unable to load your stats. Check your connection and try again." onRetry={refetchOverview} />
       </div>
     );
@@ -342,7 +342,7 @@ export default function ProgressPage() {
   const isNewUser = !overviewLoading && totalSessions === 0;
 
   return (
-    <div className="min-h-full bg-[#090909] p-4 sm:p-6 max-w-7xl mx-auto space-y-5 sm:space-y-6">
+    <div className="min-h-full w-full min-w-0 overflow-x-clip bg-[#090909] p-4 sm:p-6 max-w-7xl mx-auto space-y-5 sm:space-y-6">
       <header className="space-y-4">
         <div>
           <p className="font-heading text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Player dashboard</p>
@@ -467,7 +467,7 @@ export default function ProgressPage() {
               <div className="flex items-center justify-between">
                 <p className="font-heading text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Breakdown by skill</p>
               </div>
-              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Filter stats by skill">
+              <div className="flex min-w-0 flex-wrap gap-1.5 pb-1" role="tablist" aria-label="Filter stats by skill">
               {SKILL_TABS.map((tab) => {
                 const hasData = tab.key === "all" || skillsWithData.has(tab.key);
                 return (
