@@ -3344,7 +3344,7 @@ export default function TrainingLogPage() {
                 return Array.from(drillGroups.entries()).map(([drillId, group], drillIdx) => {
                   const firstEntry = group.entries[0].entry;
                   const metricColumns = firstEntry.drillMetrics
-                    .filter(dm => dm.template.type !== 'calculated')
+                    .filter(dm => (dm.template.type as string) !== 'calculated' && ((dm.template.type as string) !== 'timer' || dm.isRequired))
                     .sort((a, b) => {
                       const isAttemptA = a.template.name.toLowerCase().includes('attempt') || a.template.label.toLowerCase().includes('attempt');
                       const isAttemptB = b.template.name.toLowerCase().includes('attempt') || b.template.label.toLowerCase().includes('attempt');
@@ -3574,49 +3574,6 @@ export default function TrainingLogPage() {
                                 </p>
                               )}
 
-                              <div className={`grid gap-3 ${challengeOptions.length > 0 ? 'sm:grid-cols-[minmax(0,1fr)_minmax(200px,0.7fr)]' : ''}`}>
-                                <div className="space-y-1.5">
-                                  <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500" htmlFor={`input-notes-${index}`}>
-                                    Round notes
-                                  </label>
-                                  <Input
-                                    id={`input-notes-${index}`}
-                                    placeholder="How did this round feel?"
-                                    value={entry.notes}
-                                    onChange={(event) => updateEntry(index, 'notes', event.target.value)}
-                                    className="h-10 border-white/10 bg-black/30 text-sm"
-                                    data-testid={`input-notes-${index}`}
-                                  />
-                                </div>
-                                {challengeOptions.length > 0 && (
-                                  <div className="space-y-1.5">
-                                    <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
-                                      <Target className="h-3.5 w-3.5 text-primary" /> Challenge
-                                    </label>
-                                    <Select
-                                      value={entry.trackToChallengeIds?.[0] || ''}
-                                      onValueChange={(value) => updateEntry(index, 'trackToChallengeIds', value === 'none' ? [] : [value])}
-                                    >
-                                      <SelectTrigger className="h-10 w-full border-white/10 bg-black/30 text-xs" data-testid={`select-challenge-${index}`} aria-label={`Challenge for round ${roundIdx + 1}`}>
-                                        <SelectValue placeholder="No challenge selected" />
-                                      </SelectTrigger>
-                                      <SelectContent position="popper" sideOffset={4}>
-                                        <SelectItem value="none">None</SelectItem>
-                                        {challengeOptions.map((challenge) => (
-                                          <SelectItem key={challenge.id} value={challenge.id}>
-                                            <span className="flex items-center gap-2">
-                                              <span className="truncate">{challenge.challenge.name}</span>
-                                              <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                                {challenge.currentValue || 0}/{challenge.challenge.targetValue}
-                                              </Badge>
-                                            </span>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                )}
-                              </div>
                             </section>
                           );
                         })}

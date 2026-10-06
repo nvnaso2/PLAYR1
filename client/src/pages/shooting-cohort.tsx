@@ -854,10 +854,17 @@ function CohortWorkoutRequestForm({
   );
 }
 
-function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicationAnswers }) {
+function CohortWorkoutsSection({
+  answers,
+  requestFormOpen,
+  onRequestFormOpenChange,
+}: {
+  answers?: ShootingCohortApplicationAnswers;
+  requestFormOpen: boolean;
+  onRequestFormOpenChange: (open: boolean) => void;
+}) {
   const [, navigate] = useLocation();
   const workoutsQuery = useCohortWorkoutRequestsQuery();
-  const [showRequestForm, setShowRequestForm] = useState(false);
   const requestFormRef = useRef<HTMLDivElement>(null);
   const requests = workoutsQuery.data?.requests ?? [];
   const assignments = workoutsQuery.data?.assignments ?? [];
@@ -867,10 +874,9 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
     !assignedRequestIds.has(request.id) &&
     !["assigned", "completed"].includes(request.status),
   );
-  const hasActiveRequest = requests.some((request) => ["submitted", "in_progress", "assigned"].includes(request.status));
   useEffect(() => {
-    if (showRequestForm) requestFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [showRequestForm]);
+    if (requestFormOpen) requestFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [requestFormOpen]);
   const uniqueAssignments = new Map<string, CohortDirectWorkoutAssignment>();
   assignments.forEach((assignment) => {
     if (!uniqueAssignments.has(assignment.workoutId)) uniqueAssignments.set(assignment.workoutId, assignment);
@@ -894,19 +900,15 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
             <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#bf753f]/25 bg-[#bf753f]/10 text-[#e79960]"><Dumbbell className="h-4 w-4" /></span>
             <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#d89156]">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Workouts &amp; requests</h2></div>
           </div>
-          <Button onClick={() => setShowRequestForm(true)} disabled={hasActiveRequest || showRequestForm} className="bg-primary font-bold text-black hover:bg-primary/90 disabled:opacity-50">
-            Request a workout <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
         </div>
-        {hasActiveRequest && <p className="mt-3 text-[10px] text-[#817567]">A request is already in progress. You can send another after it is completed or declined.</p>}
       </section>
 
-      {showRequestForm && (
+      {requestFormOpen && (
         <div ref={requestFormRef}>
           <CohortWorkoutRequestForm
             hoopAccess={answers?.hoopAccess}
-            onCancel={() => setShowRequestForm(false)}
-            onSubmitted={() => setShowRequestForm(false)}
+            onCancel={() => onRequestFormOpenChange(false)}
+            onSubmitted={() => onRequestFormOpenChange(false)}
           />
         </div>
       )}
@@ -938,7 +940,7 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
 
       <section className="rounded-[24px] border border-[#493a2c] bg-[#17130f] p-4 sm:p-5" aria-label="Assigned workouts">
         <div className="mb-4 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Dumbbell className="h-4 w-4" /></span>
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Dumbbell className="block h-4 w-4" /></span>
           <div><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">Your training</p><h2 className="mt-1 font-heading text-2xl uppercase text-[#fff1de]">Assigned workouts</h2></div>
         </div>
         {workoutsQuery.isLoading
@@ -949,7 +951,10 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
               ? <p className="rounded-xl border border-dashed border-[#514333] bg-[#100e0b] p-4 text-xs leading-5 text-[#817567]">Workouts assigned by the founder will appear here.</p>
               : <div className="space-y-2">
                 {assignedWorkouts.map((workout) => (
-                  <article key={workout.id} className="grid gap-3 rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <article key={workout.id} className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3 rounded-xl border border-[#3e3329] bg-[#100e0b] p-3.5 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto]">
+                    <span aria-hidden="true" className="grid h-10 w-10 place-items-center self-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
+                      <Dumbbell className="block h-4 w-4" />
+                    </span>
                     <div className="min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <h3 className="min-w-0 font-semibold text-sm text-[#e7dac8]">{workout.name}</h3>
@@ -960,7 +965,7 @@ function CohortWorkoutsSection({ answers }: { answers?: ShootingCohortApplicatio
                     <Button
                       type="button"
                       onClick={() => navigate(`/log?workoutId=${encodeURIComponent(workout.workoutId)}`)}
-                      className="h-9 w-full bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90 sm:w-auto"
+                      className="col-span-2 h-9 w-full bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90 sm:col-span-1 sm:w-auto"
                     >
                       Start workout <ArrowRight className="ml-2 h-3.5 w-3.5" />
                     </Button>
@@ -985,6 +990,7 @@ export default function ShootingCohortPage() {
   const [showInterestSurvey, setShowInterestSurvey] = useState(false);
   const [reapply, setReapply] = useState(false);
   const [activeTab, setActiveTab] = useState("workouts");
+  const [showWorkoutRequestForm, setShowWorkoutRequestForm] = useState(false);
   const application = playerQuery.data?.application;
   const closedApplicationStatus = ["withdrawn", "declined", "removed"].includes(application?.status ?? "");
   const canStartApplication = !application || closedApplicationStatus;
@@ -1094,12 +1100,25 @@ export default function ShootingCohortPage() {
 
         {isMember && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-            <TabsList aria-label="Shooting Cohort player sections" className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950 p-1 sm:grid-cols-4">
-              <TabsTrigger value="workouts" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-black md:text-xs"><Dumbbell className="h-4 w-4" /><span>Workouts</span></TabsTrigger>
-              <TabsTrigger value="film-room" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-black md:text-xs"><Film className="h-4 w-4" /><span>Film Room</span></TabsTrigger>
-              <TabsTrigger value="messaging" className="flex h-auto min-h-12 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-black md:text-xs"><MessageCircle className="h-4 w-4" /><span>Messaging</span></TabsTrigger>
-              <TabsTrigger value="baseline" className="flex h-auto min-h-12 min-w-0 flex-col gap-1 whitespace-normal rounded-lg px-1 py-2 text-[10px] leading-tight text-[#a99b89] data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-black md:text-xs"><Target className="h-4 w-4" /><span>Baseline Assessment</span></TabsTrigger>
-            </TabsList>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <TabsList aria-label="Shooting Cohort player sections" className="grid h-auto w-full min-w-0 flex-1 grid-cols-2 gap-1.5 rounded-2xl border border-zinc-800 bg-zinc-950 p-1.5 sm:grid-cols-4">
+                <TabsTrigger value="workouts" className="flex h-auto min-h-12 min-w-0 items-center justify-center gap-2 whitespace-normal rounded-xl border border-transparent px-2 py-2 text-center text-[10px] font-semibold leading-tight text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-white data-[state=active]:border-primary/40 data-[state=active]:bg-primary/[0.08] data-[state=active]:!text-primary data-[state=active]:shadow-none sm:text-xs"><Dumbbell className="h-4 w-4 shrink-0" /><span>Workouts</span></TabsTrigger>
+                <TabsTrigger value="film-room" className="flex h-auto min-h-12 min-w-0 items-center justify-center gap-2 whitespace-normal rounded-xl border border-transparent px-2 py-2 text-center text-[10px] font-semibold leading-tight text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-white data-[state=active]:border-primary/40 data-[state=active]:bg-primary/[0.08] data-[state=active]:!text-primary data-[state=active]:shadow-none sm:text-xs"><Film className="h-4 w-4 shrink-0" /><span>Film Room</span></TabsTrigger>
+                <TabsTrigger value="messaging" className="flex h-auto min-h-12 min-w-0 items-center justify-center gap-2 whitespace-normal rounded-xl border border-transparent px-2 py-2 text-center text-[10px] font-semibold leading-tight text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-white data-[state=active]:border-primary/40 data-[state=active]:bg-primary/[0.08] data-[state=active]:!text-primary data-[state=active]:shadow-none sm:text-xs"><MessageCircle className="h-4 w-4 shrink-0" /><span>Messaging</span></TabsTrigger>
+                <TabsTrigger value="baseline" className="flex h-auto min-h-12 min-w-0 items-center justify-center gap-2 whitespace-normal rounded-xl border border-transparent px-2 py-2 text-center text-[10px] font-semibold leading-tight text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-white data-[state=active]:border-primary/40 data-[state=active]:bg-primary/[0.08] data-[state=active]:!text-primary data-[state=active]:shadow-none sm:text-xs"><Target className="h-4 w-4 shrink-0" /><span>Baseline Assessment</span></TabsTrigger>
+              </TabsList>
+              <Button
+                type="button"
+                onClick={() => {
+                  setActiveTab("workouts");
+                  setShowWorkoutRequestForm(true);
+                }}
+                className="h-12 w-full shrink-0 gap-2 bg-primary font-bold text-primary-foreground hover:bg-primary/90 sm:w-auto"
+                data-testid="button-request-cohort-workout"
+              >
+                Request a workout <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
 
             <TabsContent value="film-room" className="mt-4 focus-visible:outline-none"><ShootingCohortVideos /></TabsContent>
             <TabsContent value="messaging" className="mt-4 focus-visible:outline-none"><ShootingCohortPrivateChat /></TabsContent>
@@ -1123,7 +1142,7 @@ export default function ShootingCohortPage() {
                 {orderedAssessments.length > 0 && <div className="mt-5 space-y-3"><h3 className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#9d8f7e]">Assessment history</h3>{orderedAssessments.map((assessment, index) => <AssessmentCard key={assessment.id} assessment={assessment} index={orderedAssessments.length - index - 1} />)}</div>}
               </section>
             </TabsContent>
-            <TabsContent value="workouts" className="mt-4 focus-visible:outline-none"><CohortWorkoutsSection answers={application?.answers} /></TabsContent>
+            <TabsContent value="workouts" className="mt-4 focus-visible:outline-none"><CohortWorkoutsSection answers={application?.answers} requestFormOpen={showWorkoutRequestForm} onRequestFormOpenChange={setShowWorkoutRequestForm} /></TabsContent>
           </Tabs>
         )}
         {application?.status === "waitlisted" && <section className="mt-5 rounded-2xl border border-[#4a3d2e] bg-[#17130f] p-5"><p className="font-heading text-2xl uppercase text-[#f1e3d2]">Your application is in order.</p><p className="mt-1 max-w-2xl text-sm leading-6 text-[#9d8f7e]">There are {playerQuery.data.waitlistCount} {playerQuery.data.waitlistCount === 1 ? "player" : "players"} on the waitlist. Invitations are sent as seats open; accept or decline here when yours arrives.</p></section>}

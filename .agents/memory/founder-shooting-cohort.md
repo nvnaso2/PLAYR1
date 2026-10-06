@@ -13,10 +13,12 @@ No guardian consent rule is required for under-18 membership or messaging.
 
 The Hub tool is named “Shooting Cohort.” The player-facing title is “Build an Effortless Shot” in white. Show the number of active cohort members, not remaining capacity, and keep Founder-led / Measurable Results highlights. Do not add a separate Message Founder button. The active player tabs are Workouts, Film Room, Messaging, and Baseline Assessment; omit a general Analytics tab. Workouts shows assigned workouts and requested workouts, never assigned drills; once a request is assigned, remove it from the request list and show its workout only once among assignments. Assigned workouts must open the workout player. The request action goes directly to the form. The request form multi-selects skills, captures ideal duration and specific improvement details, shows the saved hoop-access answer as equipment context, and optionally attaches a private video.
 
+Keep the “Request a workout” action visible and enabled across all member tabs, including while another request is active. Opening it should switch to Workouts and show the cohort request form.
+
 Active applicants and members may edit their interest-survey answers without changing their application status. Keep cohort video submissions separate from the general Film Room; playback is limited to the active member and authorized admin reviewer through short-lived URLs. Founder feedback must only be visible to the submitting player.
 
 Remove the active-status “You’re In” card and place “Edit Interest Survey” in the header action row. Keep member tools behind the active-membership check.
 
 **Why:** The user specified these cohort access, navigation, messaging, privacy, video-review, survey-editing, and visual rules.
 
-**How to apply:** Preserve these choices when designing cohort intake, tabs, entitlements, assignments, messaging, video uploads, and admin management. Do not change the general Pro boundary for players outside the cohort.
+**How to apply:** Preserve these choices when designing cohort intake, tabs, entitlements, assignments, messaging, video uploads, request access, and admin management. Do not change the general Pro boundary for players outside the cohort.
