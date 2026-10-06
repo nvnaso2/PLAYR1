@@ -2,6 +2,13 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ShotLocationDB } from "@shared/schema";
+import {
+  getPersonalHeatBandIndex,
+  getShotHeatmapSection,
+  SHOT_HEATMAP_SECTIONS,
+  type ShotHeatmapBaselines,
+  type ShotHeatmapSection,
+} from "@shared/shot-heatmap";
 import playr1Logo from "@assets/Playr1_App_Logo_1774122925857.png";
 
 type ShotData = {
@@ -15,6 +22,22 @@ type ShootingHeatmapProps = {
   shotData: ShotData[];
   title?: string;
   className?: string;
+  personalizedScale?: boolean;
+  personalBaselines?: ShotHeatmapBaselines;
+  baselineWindow?: number;
+  baselineLoading?: boolean;
+  baselineError?: boolean;
+};
+
+type HeatmapZoneData = {
+  made: number;
+  missed: number;
+  percentage: number;
+  personalBaselinePct?: number;
+  personalObservedPct?: number;
+  personalDeviationPct?: number;
+  personalBandIndex?: number;
+  personalBaselineMissing?: boolean;
 };
 
 // ── Zone polygon definitions ─────────────────────────────────────────────────
@@ -276,9 +299,36 @@ export const SHOT_HEAT_COLOR_BANDS = [
   { maxPct: Infinity, label: ">88%", color: "#0DC80D" },
 ] as const;
 
+const PERSONAL_SHOT_HEAT_COLORS = [
+  "#6B0E0E",
+  "#9B1F0A",
+  "#C03410",
+  "#C86020",
+  "#9B7820",
+  "#E98E2E",
+  "#6B7A20",
+  "#3D7A2A",
+  "#2E8E2E",
+  "#1AA81A",
+  "#0DC80D",
+] as const;
+
+const PERSONAL_SECTION_LABELS: Record<ShotHeatmapSection, string> = {
+  "three-pointers": "3-Point",
+  "mid-range": "Mid-Range",
+  "free-throws": "Free Throws",
+  layups: "Layups",
+};
+
+const UNGRADED_ZONE_COLOR = "#52525B";
+
 function getHeatColor(pct: number): string {
   return SHOT_HEAT_COLOR_BANDS.find((band) => pct <= band.maxPct)?.color
     ?? SHOT_HEAT_COLOR_BANDS[SHOT_HEAT_COLOR_BANDS.length - 1].color;
+}
+
+function getPersonalHeatColor(bandIndex: number): string {
+  return PERSONAL_SHOT_HEAT_COLORS[Math.max(0, Math.min(10, bandIndex))];
 }
 
 // Zone opacity — ramp up from 0.72 to 0.90 with volume
@@ -291,30 +341,88 @@ function toSvgPoints(pts: { x: number; y: number }[]): string {
   return pts.map(p => `${p.x},${p.y}`).join(" ");
 }
 
-function getZoneData(shotData: ShotData[]) {
-  const result: Record<string, { made: number; missed: number; percentage: number }> = {};
+function getZoneData(
+  shotData: ShotData[],
+  shotLocations: Array<Pick<ShotLocationDB, "slug" | "classification">> = [],
+  personalBaselines?: ShotHeatmapBaselines,
+) {
+  const result: Record<string, HeatmapZoneData> = {};
+  const sectionAttempts: Record<string, Record<ShotHeatmapSection, { made: number; attempted: number }>> = {};
+  const classificationByLocation = new Map(shotLocations.map((location) => [location.slug, location.classification]));
 
   Object.keys(COURT_ZONES).forEach(zone => {
     result[zone] = { made: 0, missed: 0, percentage: 0 };
+    sectionAttempts[zone] = {
+      "three-pointers": { made: 0, attempted: 0 },
+      "mid-range": { made: 0, attempted: 0 },
+      "free-throws": { made: 0, attempted: 0 },
+      layups: { made: 0, attempted: 0 },
+    };
   });
 
   shotData.forEach(shot => {
     const zoneName = LOCATION_TO_ZONE[shot.location] || shot.location;
     if (!result[zoneName]) return;
 
-    result[zoneName].made += shot.made;
+    const made = Math.max(0, Number(shot.made) || 0);
+    const attempted = Math.max(
+      0,
+      Number(shot.attempted ?? (made + (Number(shot.missed) || 0))) || 0,
+    );
+    result[zoneName].made += made;
     const missed =
       shot.missed !== undefined
-        ? shot.missed
+        ? Math.max(0, Number(shot.missed) || 0)
         : shot.attempted !== undefined
-        ? Math.max(0, shot.attempted - shot.made)
+        ? Math.max(0, attempted - made)
         : 0;
     result[zoneName].missed += missed;
+
+    const section = getShotHeatmapSection(
+      shot.location,
+      classificationByLocation.get(shot.location),
+    );
+    if (section && attempted > 0) {
+      sectionAttempts[zoneName][section].made += made;
+      sectionAttempts[zoneName][section].attempted += attempted;
+    }
   });
 
   Object.keys(result).forEach(zone => {
     const total = result[zone].made + result[zone].missed;
     result[zone].percentage = total > 0 ? Math.round((result[zone].made / total) * 100) : 0;
+
+    if (!personalBaselines) return;
+    let comparedMade = 0;
+    let comparedAttempts = 0;
+    let expectedPctTimesAttempts = 0;
+    let hasSectionWithoutBaseline = false;
+
+    for (const section of SHOT_HEATMAP_SECTIONS) {
+      const sectionStats = sectionAttempts[zone][section];
+      const baseline = personalBaselines[section];
+      if (sectionStats.attempted === 0) continue;
+      if (!baseline || baseline.averagePct === null || baseline.workouts === 0) {
+        hasSectionWithoutBaseline = true;
+        continue;
+      }
+
+      comparedMade += sectionStats.made;
+      comparedAttempts += sectionStats.attempted;
+      expectedPctTimesAttempts += baseline.averagePct * sectionStats.attempted;
+    }
+
+    if (hasSectionWithoutBaseline) {
+      result[zone].personalBaselineMissing = true;
+    } else if (comparedAttempts > 0) {
+      const observedPct = (comparedMade / comparedAttempts) * 100;
+      const baselinePct = expectedPctTimesAttempts / comparedAttempts;
+      const deviationPct = observedPct - baselinePct;
+      result[zone].personalObservedPct = observedPct;
+      result[zone].personalBaselinePct = baselinePct;
+      result[zone].personalDeviationPct = deviationPct;
+      result[zone].personalBandIndex = getPersonalHeatBandIndex(observedPct, baselinePct);
+    }
   });
 
   return result;
@@ -334,10 +442,12 @@ function HeatmapCourtSVG({
   zoneData,
   showLogo = true,
   blendIntoBackground = false,
+  personalizedScale = false,
 }: {
-  zoneData: Record<string, { made: number; missed: number; percentage: number }>;
+  zoneData: Record<string, HeatmapZoneData>;
   showLogo?: boolean;
   blendIntoBackground?: boolean;
+  personalizedScale?: boolean;
 }) {
   const maxTotal = useMemo(
     () => Math.max(1, ...Object.values(zoneData).map(d => d.made + d.missed)),
@@ -392,10 +502,21 @@ function HeatmapCourtSVG({
         if (!data || data.made + data.missed === 0) return null;
 
         const total   = data.made + data.missed;
-        const color   = getHeatColor(data.percentage);
+        const color   = personalizedScale
+          ? data.personalBandIndex !== undefined
+            ? getPersonalHeatColor(data.personalBandIndex)
+            : UNGRADED_ZONE_COLOR
+          : getHeatColor(data.percentage);
         const alpha   = zoneOpacity(total, maxTotal);
         const cx      = zone.center.x;
         const cy      = zone.center.y;
+        const comparisonText = data.personalBaselinePct !== undefined
+          ? `; ${data.personalDeviationPct! >= 0 ? "+" : ""}${data.personalDeviationPct!.toFixed(1)} percentage points versus your ${data.personalBaselinePct.toFixed(1)}% recent average`
+          : personalizedScale
+            ? data.personalBaselineMissing
+              ? "; a recent baseline is missing for one or more shot types in this zone"
+              : "; no recent baseline available for this shot type"
+            : "";
 
         const pts  = zone.points;
         const zoneW = Math.max(...pts.map(p => p.x)) - Math.min(...pts.map(p => p.x));
@@ -413,7 +534,7 @@ function HeatmapCourtSVG({
               strokeWidth={zone.noStroke ? "0" : "1"}
               strokeOpacity={zone.noStroke ? "0" : blendIntoBackground ? "0.28" : "0.5"}
             >
-              <title>{`${zone.label}: ${data.made}/${total} (${data.percentage}%)`}</title>
+              <title>{`${zone.label}: ${data.made}/${total} (${data.percentage}%)${comparisonText}`}</title>
             </polygon>
 
             {showPct && (
@@ -549,6 +670,11 @@ export function ShootingHeatmap({
   shotData,
   title = "Shooting Heatmap",
   className = "",
+  personalizedScale = false,
+  personalBaselines,
+  baselineWindow = 10,
+  baselineLoading = false,
+  baselineError = false,
 }: ShootingHeatmapProps) {
   const { data: shotLocationOptions } = useQuery<ShotLocationDB[]>({
     queryKey: ['/api/shot-locations'],
@@ -567,7 +693,10 @@ export function ShootingHeatmap({
     return map;
   }, [shotLocationOptions]);
 
-  const zoneData = useMemo(() => getZoneData(shotData), [shotData]);
+  const zoneData = useMemo(
+    () => getZoneData(shotData, shotLocationOptions || [], personalizedScale ? personalBaselines : undefined),
+    [shotData, shotLocationOptions, personalBaselines, personalizedScale],
+  );
 
   const totals = useMemo(() => {
     let made = 0, attempted = 0;
@@ -585,7 +714,9 @@ export function ShootingHeatmap({
   if (totals.attempted === 0) return null;
 
   const pct = totals.percentage;
-  const pctColor = pct >= 65 ? "text-green-400" : pct >= 50 ? "text-yellow-400" : pct >= 40 ? "text-orange-400" : "text-red-400";
+  const pctColor = personalizedScale
+    ? "text-zinc-100"
+    : pct >= 65 ? "text-green-400" : pct >= 50 ? "text-yellow-400" : pct >= 40 ? "text-orange-400" : "text-red-400";
 
   return (
     <Card className={`bg-black border-zinc-800 ${className}`} data-testid="shooting-heatmap">
@@ -598,24 +729,85 @@ export function ShootingHeatmap({
             <span className={`font-bold ${pctColor}`}>({pct}%)</span>
           </div>
         </div>
+        {personalizedScale && (
+          <p className="mt-2 text-xs text-zinc-500" data-testid="heatmap-scale-caption">
+            {baselineError
+              ? "Your personal scale could not load; zones without a recent baseline are left ungraded."
+              : baselineLoading
+                ? "Loading your recent shooting averages…"
+                : `The center color is your average for that shot type, based on up to ${baselineWindow} recent workouts.`}
+          </p>
+        )}
       </CardHeader>
 
       <CardContent className="p-3 pt-0">
         {/* Court */}
         <div className="relative w-full aspect-[500/470] rounded-lg overflow-hidden">
-          <HeatmapCourtSVG zoneData={zoneData} />
+          <HeatmapCourtSVG zoneData={zoneData} personalizedScale={personalizedScale} />
         </div>
 
-        {/* Colour-scale legend */}
-        <div className="flex items-center justify-center gap-1 mt-3" data-testid="heatmap-legend">
-          <span className="text-xs text-zinc-500 mr-1">Cold</span>
-          <div className="flex h-3 rounded overflow-hidden" data-testid="heatmap-color-scale">
-            {SHOT_HEAT_COLOR_BANDS.map((band) => (
-              <div key={band.label} className="w-5" style={{ background: band.color }} title={band.label} />
-            ))}
+        {personalizedScale ? (
+          <div className="mt-3 space-y-1" data-testid="heatmap-legend">
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-[10px] text-zinc-500 mr-1">−25 pp</span>
+              <div className="flex h-3 rounded overflow-hidden" data-testid="heatmap-color-scale">
+                {PERSONAL_SHOT_HEAT_COLORS.map((color, index) => (
+                  <div
+                    key={`${color}-${index}`}
+                    className="w-4 sm:w-5"
+                    style={{ background: color }}
+                    title={index === 5 ? "Your recent average" : `${(index - 5) * 5 > 0 ? "+" : ""}${(index - 5) * 5} percentage points from your average`}
+                  />
+                ))}
+              </div>
+              <span className="text-[10px] text-zinc-500 ml-1">+25 pp</span>
+            </div>
+            <div className="flex justify-center gap-1 text-[10px] text-zinc-500">
+              <span>Below average</span>
+              <span className="mx-2 text-orange-300">Your average</span>
+              <span>Above average</span>
+            </div>
+            <p className="text-center text-[10px] text-zinc-600">One color step per 5 percentage points; colors stop at ±25 pp.</p>
+            <p className="text-center text-[10px] text-zinc-600">Gray zones need more recent data for every shot type they contain.</p>
           </div>
-          <span className="text-xs text-zinc-500 ml-1">Hot</span>
-        </div>
+        ) : (
+          <div className="flex items-center justify-center gap-1 mt-3" data-testid="heatmap-legend">
+            <span className="text-xs text-zinc-500 mr-1">Cold</span>
+            <div className="flex h-3 rounded overflow-hidden" data-testid="heatmap-color-scale">
+              {SHOT_HEAT_COLOR_BANDS.map((band) => (
+                <div key={band.label} className="w-5" style={{ background: band.color }} title={band.label} />
+              ))}
+            </div>
+            <span className="text-xs text-zinc-500 ml-1">Hot</span>
+          </div>
+        )}
+
+        {personalizedScale && (
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-1.5" data-testid="heatmap-personal-baselines">
+            {SHOT_HEATMAP_SECTIONS.map((section) => {
+              const baseline = personalBaselines?.[section];
+              const average = baseline?.averagePct;
+              const workouts = baseline?.workouts ?? 0;
+              return (
+                <div
+                  key={section}
+                  className="rounded-md border border-zinc-800 bg-zinc-950/70 px-2.5 py-2"
+                  data-testid={`heatmap-baseline-${section}`}
+                >
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    {PERSONAL_SECTION_LABELS[section]}
+                  </div>
+                  <div className="mt-0.5 text-sm font-bold text-white">
+                    {baselineLoading ? "…" : average === null || average === undefined ? "—" : `${average.toFixed(1)}%`}
+                  </div>
+                  <div className="text-[10px] text-zinc-600">
+                    {baselineError ? "Unavailable" : workouts > 0 ? `${workouts} workout${workouts === 1 ? "" : "s"}` : "No recent shots"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Zone breakdown */}
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-xs">
@@ -626,14 +818,26 @@ export function ShootingHeatmap({
               const zone = COURT_ZONES[zoneName];
               if (!zone) return null;
               const total = data.made + data.missed;
-              const color = getHeatColor(data.percentage);
+              const color = personalizedScale
+                ? data.personalBandIndex !== undefined
+                  ? getPersonalHeatColor(data.personalBandIndex)
+                  : UNGRADED_ZONE_COLOR
+                : getHeatColor(data.percentage);
               const label = zoneLabelMap[zoneName]?.join(' / ') || zone.label;
+              const comparisonText = data.personalBaselinePct !== undefined
+                ? `${data.personalDeviationPct! >= 0 ? "+" : ""}${data.personalDeviationPct!.toFixed(1)} pp vs personal average`
+                : personalizedScale
+                  ? data.personalBaselineMissing
+                    ? "A recent baseline is missing for one or more shot types in this zone"
+                    : "No recent personal baseline"
+                  : "";
               return (
                 <div
                   key={zoneName}
                   className="flex items-center justify-between p-1.5 rounded"
                   style={{ backgroundColor: color + "28", border: `1px solid ${color}44` }}
                   data-testid={`heatmap-zone-${zoneName}`}
+                  title={comparisonText || undefined}
                 >
                   <span className="text-zinc-300 truncate">{label}</span>
                   <span className="font-semibold ml-1 shrink-0" style={{ color }}>

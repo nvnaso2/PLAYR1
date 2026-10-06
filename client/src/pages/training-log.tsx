@@ -744,6 +744,7 @@ export default function TrainingLogPage() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/shot-heatmap-baselines'] });
       queryClient.invalidateQueries({ queryKey: ['/api/assigned-drills'] });
       track("drill_log_completed", { drillId: variables?.drillId, duration: variables?.duration });
     },
@@ -781,6 +782,7 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs', viewEditLogId] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/shot-heatmap-baselines'] });
       toast({ title: "Training log updated" });
       setViewEditLogId(null);
       setIsEditMode(false);
@@ -798,6 +800,7 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/shot-heatmap-baselines'] });
       toast({ title: "Training log deleted" });
     },
     onError: () => {
@@ -813,6 +816,7 @@ export default function TrainingLogPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats/weekly'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats/shot-heatmap-baselines'] });
       toast({ title: "Workout session deleted" });
     },
     onError: () => {
@@ -1599,6 +1603,7 @@ export default function TrainingLogPage() {
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['/api/stats/by-category'] });
         queryClient.invalidateQueries({ queryKey: ['/api/stats/shots'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/stats/shot-heatmap-baselines'] });
         queryClient.invalidateQueries({ queryKey: ['/api/stats/dashboard-training'] });
       }, 1600);
     } catch (error) {

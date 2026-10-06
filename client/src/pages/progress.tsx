@@ -11,6 +11,10 @@ import { StatsCard } from "@/components/stats-card";
 import { ShootingHeatmap, type ShotData } from "@/components/shooting-heatmap";
 import { DashboardShareDialog } from "@/components/dashboard-share-dialog";
 import {
+  EMPTY_SHOT_HEATMAP_BASELINES,
+  type ShotHeatmapBaselineResponse,
+} from "@shared/shot-heatmap";
+import {
   BarChart,
   Bar,
   XAxis,
@@ -232,6 +236,20 @@ export default function ProgressPage() {
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     }
+  });
+
+  const {
+    data: shotHeatmapBaselines,
+    isLoading: shotHeatmapBaselinesLoading,
+    isError: shotHeatmapBaselinesError,
+  } = useQuery<ShotHeatmapBaselineResponse>({
+    queryKey: ["/api/stats/shot-heatmap-baselines"],
+    enabled: activeSkill === "all" || activeSkill === "shooting",
+    queryFn: async () => {
+      const res = await nativeFetch("/api/stats/shot-heatmap-baselines");
+      if (!res.ok) throw new Error("Failed to fetch recent shooting averages");
+      return res.json();
+    },
   });
 
   const { data: trainingStats, isLoading: trainingLoading } = useQuery<Record<string, number>>({
@@ -518,7 +536,15 @@ export default function ProgressPage() {
 
             {showShootingHeatmap && (
               shotHeatmapData.length > 0 ? (
-                <ShootingHeatmap shotData={shotHeatmapData} title="Shooting Heatmap" />
+                <ShootingHeatmap
+                  shotData={shotHeatmapData}
+                  title="Shooting Heatmap"
+                  personalizedScale
+                  personalBaselines={shotHeatmapBaselines?.sections ?? EMPTY_SHOT_HEATMAP_BASELINES}
+                  baselineWindow={shotHeatmapBaselines?.workoutWindow ?? 10}
+                  baselineLoading={shotHeatmapBaselinesLoading}
+                  baselineError={shotHeatmapBaselinesError}
+                />
               ) : (
                 <Card className="border-zinc-800 bg-zinc-950/70 shadow-none">
                   <CardHeader>

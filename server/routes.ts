@@ -9,6 +9,7 @@ import {
   calculateWorkoutShareTotals,
   getWorkoutShareLogShootingTotals,
 } from "@shared/workout-story-data";
+import { buildRecentShotHeatmapBaselines } from "@shared/shot-heatmap";
 import { getWorkoutShareScope, resolveWorkoutShareSessionId } from "./workout-share-scope";
 import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth, getAppBaseUrl, type AuthenticatedRequest } from "./auth";
 import { ObjectStorageService, registerObjectStorageRoutes, processVideoObject } from "./replit_integrations/object_storage";
@@ -6299,6 +6300,20 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
     } catch (error) {
       console.error("Error fetching shot stats:", error);
       res.status(500).json({ message: "Failed to fetch shot stats" });
+    }
+  });
+
+  app.get("/api/stats/shot-heatmap-baselines", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [logs, locations] = await Promise.all([
+        storage.getUserShotBaselineLogs(userId),
+        storage.getShotLocations(),
+      ]);
+      res.json(buildRecentShotHeatmapBaselines(logs, locations, 10));
+    } catch (error) {
+      console.error("Error fetching shot heatmap baselines:", error);
+      res.status(500).json({ message: "Failed to fetch shot heatmap baselines" });
     }
   });
 

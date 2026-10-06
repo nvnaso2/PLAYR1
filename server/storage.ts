@@ -336,6 +336,7 @@ export interface IStorage {
 
   // Shot Stats (for heatmap)
   getUserShotStats(userId: string, period?: string): Promise<Array<{ location: string; made: number; missed: number }>>;
+  getUserShotBaselineLogs(userId: string): Promise<Array<Pick<TrainingLog, "id" | "workoutSessionId" | "shotLocation" | "shotsMade" | "shotsAttempted" | "completedAt">>>;
 
   // Seasons
   getUserSeasons(userId: string): Promise<Season[]>;
@@ -2706,6 +2707,29 @@ export class DatabaseStorage {
         made: l.made,
         missed: l.attempted - l.made
       }));
+  }
+
+  async getUserShotBaselineLogs(
+    userId: string,
+  ): Promise<Array<Pick<TrainingLog, "id" | "workoutSessionId" | "shotLocation" | "shotsMade" | "shotsAttempted" | "completedAt">>> {
+    return await db
+      .select({
+        id: trainingLogs.id,
+        workoutSessionId: trainingLogs.workoutSessionId,
+        shotLocation: trainingLogs.shotLocation,
+        shotsMade: trainingLogs.shotsMade,
+        shotsAttempted: trainingLogs.shotsAttempted,
+        completedAt: trainingLogs.completedAt,
+      })
+      .from(trainingLogs)
+      .where(and(
+        eq(trainingLogs.userId, userId),
+        isNotNull(trainingLogs.shotLocation),
+        isNotNull(trainingLogs.shotsAttempted),
+        isNotNull(trainingLogs.completedAt),
+        sql`${trainingLogs.shotsAttempted} > 0`,
+      ))
+      .orderBy(desc(trainingLogs.completedAt));
   }
 
   // Seasons

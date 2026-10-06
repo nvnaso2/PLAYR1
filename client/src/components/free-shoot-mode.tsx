@@ -355,6 +355,7 @@ export function FreeShotMode({
         queryClient.invalidateQueries({ queryKey: ["/api/stats/weekly"] });
         queryClient.invalidateQueries({ queryKey: ["/api/stats/dashboard-training"] });
         queryClient.invalidateQueries({ queryKey: ["/api/stats/by-category"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/stats/shot-heatmap-baselines"] });
         queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
         toast({ title: "Session saved!", description: `${totalMade}/${totalAttempted} (${totalPct}%)` });
         onClose();
