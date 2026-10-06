@@ -293,6 +293,57 @@
   }
 }
 
+/* Focused account entry: quiet black canvas, warm orange edge light. */
+.auth-pill-input {
+  border: 1px solid rgba(240, 120, 54, 0.74) !important;
+  border-radius: 9999px !important;
+  background-color: #090909 !important;
+  box-shadow: 0 0 16px rgba(240, 120, 54, 0.11);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.auth-pill-input:focus-visible {
+  border-color: #ff9a5e !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 154, 94, 0.54),
+    0 0 25px rgba(240, 120, 54, 0.29);
+}
+
+.playr1-progress-fill {
+  overflow: hidden;
+  background: linear-gradient(90deg, #ed6b2c 0%, #ff9a51 52%, #ffbf79 100%);
+  box-shadow: 0 0 12px rgba(255, 126, 58, 0.62);
+}
+
+.playr1-progress-fill::after {
+  position: absolute;
+  inset-block: 0;
+  left: -42%;
+  width: 42%;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(255, 242, 218, 0.9), transparent);
+  animation: playr1-progress-sheen 1.35s ease-in-out infinite;
+}
+
+@keyframes playr1-progress-sheen {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(360%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playr1-progress-fill::after {
+    animation: none;
+    left: 64%;
+    width: 18%;
+    opacity: 0.7;
+  }
+}
+
 /* Capacitor-specific styles */
 html.plt-capacitor {
   /* Prevent text selection on mobile */

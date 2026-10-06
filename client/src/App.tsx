@@ -156,18 +156,30 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
   const showButton = barFull && !isAuthLoading && !isAuthenticated;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-12 bg-background px-8">
-      <Playr1Logo className="w-[360px] object-contain" />
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-12 bg-black px-6">
+      <Playr1Logo className="w-[min(82vw,360px)] object-contain" />
       <div className="w-full max-w-xs space-y-8">
-        <div className="h-1 bg-muted rounded-full overflow-hidden">
+        <div
+          className="h-1.5 overflow-hidden rounded-full bg-[#24150f]"
+          role="progressbar"
+          aria-label="Loading PLAYR1"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progress)}
+        >
           <div
-            className="h-full bg-primary rounded-full"
+            className="playr1-progress-fill relative h-full rounded-full"
             style={{ width: `${progress}%`, transition: "width 80ms linear" }}
           />
         </div>
         {showButton && (
-          <Button onClick={onComplete} className="w-full" size="lg" data-testid="button-get-started">
-            Get Started
+          <Button
+            onClick={onComplete}
+            className="h-14 w-full rounded-full border border-orange-300 bg-orange-500 text-[12px] font-bold tracking-[0.04em] text-black shadow-[0_8px_28px_rgba(249,115,22,0.28)] transition-colors hover:bg-orange-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[#ffd0b5] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            size="lg"
+            data-testid="button-get-started"
+          >
+            Start Your PLAYR1 Journey
           </Button>
         )}
       </div>

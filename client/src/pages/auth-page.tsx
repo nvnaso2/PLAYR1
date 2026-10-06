@@ -13,7 +13,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
-import heroImage from "@assets/bballpic5_1.1.1_1769377307157.png";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -64,22 +63,26 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   });
 
   return (
-    <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur">
-      <CardHeader className="text-center pb-2">
-        <CardTitle className="text-2xl font-bold" data-testid="text-login-title">Sign In</CardTitle>
-        <CardDescription>Welcome back to PLAYR1</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Card className="w-full max-w-md rounded-none border-0 bg-transparent text-[#f5f2eb] shadow-none">
+      <CardContent className="px-0 pb-0">
         <Form {...form}>
           <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
+                <FormItem className="space-y-1.5">
+                  <FormLabel className="sr-only">Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="you@example.com" data-testid="input-login-email" {...field} />
+                    <Input
+                      type="email"
+                      autoComplete="email"
+                      placeholder="Email"
+                      aria-label="Email"
+                      data-testid="input-login-email"
+                      className="auth-pill-input h-[58px] px-5 pr-5 text-[15px] text-[#f5f2eb] placeholder:text-[#88837e] focus-visible:ring-0 focus-visible:ring-offset-0"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -89,22 +92,26 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
+                <FormItem className="space-y-1.5">
+                  <FormLabel className="sr-only">Password</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Input
                         type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
+                        autoComplete="current-password"
+                        placeholder="Password"
+                        aria-label="Password"
                         data-testid="input-login-password"
+                        className="auth-pill-input h-[58px] px-5 pr-14 text-[15px] text-[#f5f2eb] placeholder:text-[#88837e] focus-visible:ring-0 focus-visible:ring-offset-0"
                         {...field}
                       />
                       <button
                         type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-[#aaa39d] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9a5e] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                         onClick={() => setShowPassword(!showPassword)}
                         data-testid="button-toggle-password"
-                        tabIndex={-1}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-pressed={showPassword}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -114,25 +121,33 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
                 </FormItem>
               )}
             />
-            <div className="flex justify-end">
-              <a
-                href="/forgot-password"
-                className="text-sm text-primary hover:underline"
-                data-testid="link-forgot-password"
-              >
-                Forgot password?
-              </a>
-            </div>
-            <Button type="submit" className="w-full" disabled={loginMutation.isPending} data-testid="button-login-submit">
-              {loginMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Sign In
+            <Button
+              type="submit"
+              className="h-[58px] w-full rounded-full border border-orange-300 bg-orange-500 text-[13px] font-bold tracking-[0.04em] text-black shadow-[0_8px_28px_rgba(249,115,22,0.22)] transition-colors hover:bg-orange-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[#ffd0b5] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              disabled={loginMutation.isPending}
+              data-testid="button-login-submit"
+            >
+              {loginMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+              {loginMutation.isPending ? "Signing in…" : "Sign In"}
             </Button>
           </form>
         </Form>
-        <div className="mt-3 text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <button onClick={onSwitch} className="text-primary hover:underline font-medium" data-testid="button-switch-register">
-            Create one
+        <div className="mt-5 flex items-center justify-center gap-5 text-[13px]">
+          <a
+            href="/forgot-password"
+            className="rounded-sm font-medium text-[#d9d3cd] transition-colors hover:text-[#ff9a5e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9a5e] focus-visible:ring-offset-4 focus-visible:ring-offset-black"
+            data-testid="link-forgot-password"
+          >
+            Forgot Password
+          </a>
+          <span className="h-1 w-1 rounded-full bg-[#f07836]/70" aria-hidden="true" />
+          <button
+            type="button"
+            onClick={onSwitch}
+            className="rounded-sm font-medium text-[#d9d3cd] transition-colors hover:text-[#ff9a5e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9a5e] focus-visible:ring-offset-4 focus-visible:ring-offset-black"
+            data-testid="button-switch-register"
+          >
+            New Profile?
           </button>
         </div>
       </CardContent>
@@ -172,12 +187,16 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   });
 
   return (
-    <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur">
-      <CardHeader className="text-center pb-2">
-        <CardTitle className="text-2xl font-bold" data-testid="text-register-title">Create Account</CardTitle>
-        <CardDescription>Join PLAYR1 and start training</CardDescription>
+    <Card className="w-full max-w-md rounded-none border-0 bg-transparent text-[#f5f2eb] shadow-none">
+      <CardHeader className="px-0 pb-5 pt-0 text-left">
+        <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#f07836]">
+          <span className="h-px w-7 bg-[#f07836]" />
+          Start with the fundamentals
+        </div>
+        <CardTitle className="font-heading text-4xl font-bold uppercase leading-none tracking-[0.04em] text-[#f5f2eb] sm:text-5xl" data-testid="text-register-title">Create Account</CardTitle>
+        <CardDescription className="mt-2 text-sm text-[#a6a39c]">Make your work count. Your player profile begins now.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0 pb-0">
         <Form {...form}>
           <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -185,10 +204,10 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                 control={form.control}
                 name="firstName"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>First Name</FormLabel>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">First Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="First" data-testid="input-register-firstname" {...field} />
+                      <Input placeholder="First" data-testid="input-register-firstname" className="h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-3 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -198,10 +217,10 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                 control={form.control}
                 name="lastName"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Last Name</FormLabel>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">Last Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Last" data-testid="input-register-lastname" {...field} />
+                      <Input placeholder="Last" data-testid="input-register-lastname" className="h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-3 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -212,10 +231,10 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d7d3cb]">Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="you@example.com" data-testid="input-register-email" {...field} />
+                    <Input type="email" placeholder="you@example.com" data-testid="input-register-email" className="h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-4 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -225,21 +244,24 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d7d3cb]">Password</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Input
                         type={showPassword ? "text" : "password"}
                         placeholder="Min. 8 characters"
                         data-testid="input-register-password"
+                        className="h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-4 pr-12 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0"
                         {...field}
                       />
                       <button
                         type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-sm text-[#a6a39c] transition-colors hover:text-[#f5f2eb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f07836] focus-visible:ring-offset-2 focus-visible:ring-offset-[#201f1d]"
                         onClick={() => setShowPassword(!showPassword)}
-                        tabIndex={-1}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-pressed={showPassword}
+                        data-testid="button-toggle-register-password"
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -253,24 +275,24 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
               control={form.control}
               name="confirmPassword"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d7d3cb]">Confirm Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="Re-enter password" data-testid="input-register-confirm" {...field} />
+                    <Input type="password" placeholder="Re-enter password" data-testid="input-register-confirm" className="h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-4 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={registerMutation.isPending} data-testid="button-register-submit">
+            <Button type="submit" className="mt-1 h-12 w-full rounded-sm border-[#f07836] bg-[#f07836] text-[12px] font-bold uppercase tracking-[0.17em] text-[#17120f] transition-colors hover:bg-[#ff8b4b] hover:text-[#17120f] focus-visible:ring-2 focus-visible:ring-[#ffd0b5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171716]" disabled={registerMutation.isPending} data-testid="button-register-submit">
               {registerMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Create Account
+              Create your player profile
             </Button>
           </form>
         </Form>
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <button onClick={onSwitch} className="text-primary hover:underline font-medium" data-testid="button-switch-login">
+        <div className="mt-6 border-t border-[#393835] pt-5 text-sm text-[#a6a39c]">
+          Already on PLAYR1?{" "}
+          <button onClick={onSwitch} className="rounded-sm font-semibold text-[#f5f2eb] underline decoration-[#f07836] decoration-2 underline-offset-4 transition-colors hover:text-[#f07836] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f07836] focus-visible:ring-offset-4 focus-visible:ring-offset-[#171716]" data-testid="button-switch-login">
             Sign in
           </button>
         </div>
@@ -286,33 +308,25 @@ export default function AuthPage() {
   const [, navigate] = useLocation();
 
   return (
-    <div className="min-h-screen flex safe-area-top" data-testid="page-auth">
-      <div className="flex-1 bg-background flex flex-col justify-center">
-        <div className="flex flex-col items-center px-6 py-6">
-          <div className="w-full max-w-md">
-            <div className="flex justify-center mb-2">
-              <img src={logoLandscape} alt="PLAYR1" className="h-28 w-[280px] max-w-full object-contain invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0" data-testid="img-auth-logo" />
-            </div>
-            {mode === "login" ? (
-              <LoginForm onSwitch={() => navigate("/app-setup")} />
-            ) : (
-              <RegisterForm onSwitch={() => setMode("login")} />
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="hidden lg:flex flex-1 relative items-center justify-center bg-black overflow-hidden">
-        <img src={heroImage} alt="Basketball training" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/70" />
-        <div className="relative text-center text-white px-12 max-w-lg">
-          <h2 className="text-4xl font-bold mb-4">
-            Master Your <span className="text-primary">Game</span>
-          </h2>
-          <p className="text-white/80 text-lg">
-            Professional basketball drills, progress tracking, and community benchmarking. Train smarter with PLAYR1.
-          </p>
-        </div>
-      </div>
+    <div
+      className="flex min-h-[100dvh] w-full items-center justify-center bg-black px-5 py-12 text-[#f5f2eb] safe-area-inset sm:px-8"
+      data-testid="page-auth"
+    >
+      <main className="w-full max-w-[400px]">
+        <img
+          src={logoLandscape}
+          alt="PLAYR1"
+          className="mx-auto mb-11 h-12 w-[200px] max-w-[72%] object-contain object-center mix-blend-screen sm:mb-12 sm:h-[58px] sm:w-[228px]"
+          data-testid="img-auth-logo"
+        />
+        <section aria-label={mode === "login" ? "Sign in" : "Create account"}>
+          {mode === "login" ? (
+            <LoginForm onSwitch={() => navigate("/app-setup")} />
+          ) : (
+            <RegisterForm onSwitch={() => setMode("login")} />
+          )}
+        </section>
+      </main>
     </div>
   );
 }
