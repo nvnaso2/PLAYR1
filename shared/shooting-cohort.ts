@@ -54,7 +54,7 @@ export const shootingCohortApplicationSchema = z.object({
 
 export type ShootingCohortApplicationAnswers = z.infer<typeof shootingCohortApplicationSchema>;
 
-export const SHOOTING_COHORT_SPOT_UP_LOCATIONS = [
+export const SHOOTING_COHORT_TEST_SPOTS = [
   "leftCorner",
   "leftWing",
   "top",
@@ -62,33 +62,34 @@ export const SHOOTING_COHORT_SPOT_UP_LOCATIONS = [
   "rightCorner",
 ] as const;
 
-export const SHOOTING_COHORT_OFF_DRIBBLE_LOCATIONS = ["left", "center", "right"] as const;
-
-const shotMakeCount = z.number().int().min(0).max(5);
+export const SHOOTING_COHORT_SPOT_UP_LOCATIONS = SHOOTING_COHORT_TEST_SPOTS;
+const threePointMakeCount = z.number().int().min(0).max(20);
+const midRangeMakeCount = z.number().int().min(0).max(8);
 
 export const shootingCohortAssessmentSchema = z.object({
   type: z.enum(["baseline", "retest"]),
-  distanceFeet: z.number().int().min(3).max(40),
-  freeThrowsMade: z.number().int().min(0).max(20),
-  spotUp: z.object({
-    leftCorner: shotMakeCount,
-    leftWing: shotMakeCount,
-    top: shotMakeCount,
-    rightWing: shotMakeCount,
-    rightCorner: shotMakeCount,
+  freeThrowsMade: z.number().int().min(0).max(50),
+  threePointResults: z.object({
+    leftCorner: threePointMakeCount,
+    leftWing: threePointMakeCount,
+    top: threePointMakeCount,
+    rightWing: threePointMakeCount,
+    rightCorner: threePointMakeCount,
   }),
-  offDribble: z.object({
-    left: shotMakeCount,
-    center: shotMakeCount,
-    right: shotMakeCount,
+  midRangeResults: z.object({
+    leftCorner: midRangeMakeCount,
+    leftWing: midRangeMakeCount,
+    top: midRangeMakeCount,
+    rightWing: midRangeMakeCount,
+    rightCorner: midRangeMakeCount,
   }),
   notes: z.string().trim().max(1000).optional().default(""),
 });
 
 export type ShootingCohortAssessmentInput = z.infer<typeof shootingCohortAssessmentSchema>;
 export type ShootingCohortAssessmentType = ShootingCohortAssessmentInput["type"];
-export type ShootingCohortSpotUpResults = ShootingCohortAssessmentInput["spotUp"];
-export type ShootingCohortOffDribbleResults = ShootingCohortAssessmentInput["offDribble"];
+export type ShootingCohortThreePointResults = ShootingCohortAssessmentInput["threePointResults"];
+export type ShootingCohortMidRangeResults = ShootingCohortAssessmentInput["midRangeResults"];
 
 export const shootingCohortVideoSubmissionSchema = z.object({
   title: z.string().trim().min(1).max(100),
@@ -114,13 +115,12 @@ export function canAssignShootingCohortSeat(
   return !nextReservesSeat || currentReservesSeat || occupiedSeats < capacity;
 }
 
-export function getAssessmentTotals(assessment: Pick<ShootingCohortAssessmentInput, "freeThrowsMade" | "spotUp" | "offDribble">) {
-  const spotUpMade = Object.values(assessment.spotUp).reduce((total, made) => total + made, 0);
-  const offDribbleMade = Object.values(assessment.offDribble).reduce((total, made) => total + made, 0);
+export function getAssessmentTotals(assessment: Pick<ShootingCohortAssessmentInput, "freeThrowsMade" | "threePointResults" | "midRangeResults">) {
+  const threePointMade = Object.values(assessment.threePointResults).reduce((total, made) => total + made, 0);
+  const midRangeMade = Object.values(assessment.midRangeResults).reduce((total, made) => total + made, 0);
   return {
-    freeThrows: { made: assessment.freeThrowsMade, attempted: 20 },
-    spotUp: { made: spotUpMade, attempted: 25 },
-    offDribble: { made: offDribbleMade, attempted: 15 },
-    total: { made: assessment.freeThrowsMade + spotUpMade + offDribbleMade, attempted: 60 },
+    freeThrows: { made: assessment.freeThrowsMade, attempted: 50, percent: assessment.freeThrowsMade * 2 },
+    threePoint: { made: threePointMade, attempted: 100, percent: threePointMade },
+    midRange: { made: midRangeMade, attempted: 40, percent: midRangeMade * 2.5 },
   };
 }
