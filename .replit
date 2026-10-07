@@ -60,3 +60,6 @@ ADMIN_EMAIL = "nvnaso@outlook.com"
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 180000
+
+[objectStorage]
+defaultBucketID = "replit-objstore-da8898e4-c08a-4675-ac08-d978d78acca6"
