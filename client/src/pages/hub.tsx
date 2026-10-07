@@ -91,6 +91,9 @@ const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
   workoutsDrills: "#34d399",
 };
 
+// Keep the test panel available in source for later; flip this to true to show it in development.
+const SHOW_HUB_DEV_TEST_TOOLS = false;
+
 function greeting(firstName?: string | null) {
   const h = new Date().getHours();
   const word = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -592,7 +595,7 @@ export default function HubPage() {
             </button>
           </div>
         )}
-        {import.meta.env.DEV && (
+        {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Test tools · development only</span>
