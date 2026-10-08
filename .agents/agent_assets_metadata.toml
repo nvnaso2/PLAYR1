@@ -196,3 +196,17 @@ mtime_ms = 1791485271524
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:1c84d0cc-428f-49ee-b59e-eeb7b2f6becf/acbff80c-4ab1-4ea2-8643-9588b0360632/6256bfdf-fcbf-43a3-bb71-f46f4d34d10a"
 storage_version_token = "1791485281329232"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "gm8_MDnntcmU33WFJ_Ole"
+uri = "file://PLAYR1-ios-public-folder-update-2026-10-08.zip"
+type = "unspecified"
+title = "Corrected PLAYR1 iOS public folder"
+description = "Capacitor-copied iOS web bundle packaged with a public/ folder at the ZIP root. Extract into ios/App/App so Xcode finds App.app/public."
+logical_id = "ff641bd9-739c-4aea-b78d-e0f4ff5b89c8"
+content_hash = "sha256:028a89ba85119b2d44590a00c42aba5467768b3c2de938b30dd2b0522461506c"
+size = 4921236
+mtime_ms = 1791485489666
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:1c84d0cc-428f-49ee-b59e-eeb7b2f6becf/ff641bd9-739c-4aea-b78d-e0f4ff5b89c8/c7d57687-76b0-496d-9b3f-26bd0f41e4c0"
+storage_version_token = "1791485498151683"
+content_type = "application/octet-stream"
