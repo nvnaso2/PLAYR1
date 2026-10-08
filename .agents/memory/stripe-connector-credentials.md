@@ -1,10 +1,10 @@
 ---
-name: Stripe connector credential shape
-description: Compatibility rule for resolving Stripe credentials from Replit's connector response.
+name: PLAYR1 Stripe credential model
+description: The project-specific choice to use manual Stripe keys with separate test/live environments.
 ---
 
-The installed Stripe connector may expose the API credential as `settings.secret`, while older integration templates expect `settings.secret_key`. Resolve either field and never persist or log its value.
+PLAYR1 uses direct Stripe API keys because the owner chose to bypass the Replit Stripe Publishing connector after its claim flow failed. Keep development on a test key and production on a live key. `stripe-replit-sync` can create and persist its managed webhook signing secret in its own schema, so do not make a manually copied webhook secret a second source of truth. Keep the old connector installed until the published app has been verified on the manual production path.
 
-**Why:** The connector response shape can differ from the published template even when the connection is healthy. Assuming only the legacy field makes catalog seeding and startup fail with a misleading “not connected” error.
+**Why:** The connector's Publishing claim flow blocked the owner's launch, but disconnecting it before the replacement is live and verified could break the existing deployment.
 
-**How to apply:** Any Stripe client factory that reads the Replit connection endpoint should support both names. Let managed webhooks store their signing secret in the sync library's private Stripe schema rather than copying it into application state.
+**How to apply:** Preserve environment-specific key-mode checks and the sync package's managed-webhook flow. Do not disconnect the connector until production uses the manual key path successfully.

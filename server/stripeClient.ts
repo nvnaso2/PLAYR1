@@ -1,59 +1,46 @@
 import Stripe from "stripe";
 import { StripeSync } from "stripe-replit-sync";
 
-async function getStripeCredentials(): Promise<{ secretKey: string; webhookSecret?: string }> {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const identity = process.env.REPL_IDENTITY
-    ? `repl ${process.env.REPL_IDENTITY}`
-    : process.env.WEB_REPL_RENEWAL
-      ? `depl ${process.env.WEB_REPL_RENEWAL}`
-      : null;
-
-  if (!hostname || !identity) {
-    throw new Error("Stripe integration is not connected. Connect Stripe in Integrations.");
-  }
-
-  const response = await fetch(
-    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=stripe`,
-    {
-      headers: { Accept: "application/json", X_REPLIT_TOKEN: identity },
-      signal: AbortSignal.timeout(10_000),
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`Failed to fetch Stripe credentials: ${response.status}`);
-  }
-
-  const data = await response.json() as {
-    items?: Array<{
-      settings?: {
-        secret?: string;
-        secret_key?: string;
-        webhook_secret?: string;
-      };
-    }>;
-  };
-  const settings = data.items?.[0]?.settings;
-  const secretKey = settings?.secret_key ?? settings?.secret;
+export function getStripeSecretKey(env: NodeJS.ProcessEnv = process.env): string {
+  const secretKey = env.STRIPE_SECRET_KEY?.trim();
   if (!secretKey) {
-    throw new Error("Stripe integration is missing its secret key.");
+    throw new Error("Stripe is not configured. Set STRIPE_SECRET_KEY in this environment's Secrets.");
   }
-  return { secretKey, webhookSecret: settings?.webhook_secret };
+
+  const keyMode = secretKey.startsWith("sk_test_")
+    ? "test"
+    : secretKey.startsWith("sk_live_")
+      ? "live"
+      : null;
+  if (!keyMode) {
+    throw new Error("STRIPE_SECRET_KEY must be a Stripe secret key beginning with sk_test_ or sk_live_.");
+  }
+
+  const expectedMode = env.NODE_ENV === "production"
+    ? "live"
+    : env.NODE_ENV === "development"
+      ? "test"
+      : null;
+  if (expectedMode && keyMode !== expectedMode) {
+    throw new Error(
+      `Stripe key mode mismatch: ${env.NODE_ENV} requires an sk_${expectedMode}_ key. ` +
+      "Use a test key in development and a live key in production.",
+    );
+  }
+
+  return secretKey;
 }
 
 export async function getUncachableStripeClient(): Promise<Stripe> {
-  const { secretKey } = await getStripeCredentials();
-  return new Stripe(secretKey);
+  return new Stripe(getStripeSecretKey());
 }
 
 export async function getStripeSync(): Promise<StripeSync> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required for Stripe sync.");
-  const { secretKey, webhookSecret } = await getStripeCredentials();
   return new StripeSync({
     poolConfig: { connectionString: databaseUrl },
-    stripeSecretKey: secretKey,
-    stripeWebhookSecret: webhookSecret ?? "",
+    stripeSecretKey: getStripeSecretKey(),
     backfillRelatedEntities: true,
     revalidateObjectsViaStripeApi: ["product", "price", "subscription"],
   });
