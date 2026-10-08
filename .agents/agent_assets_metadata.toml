@@ -182,3 +182,17 @@ uri = "file://playr1-ios-bundle.zip"
 type = "unspecified"
 title = "PLAYR1 iOS Bundle — Frame Fix"
 logical_id = "b342e974-e1ba-4b2e-a743-2f1655c2d184"
+
+[[outputs]]
+id = "UkCoOQEKdg0AiY6GayQly"
+uri = "file://PLAYR1-public-update-2026-10-08.zip"
+type = "unspecified"
+title = "Updated PLAYR1 public bundle"
+description = "The current built web app files, zipped with index.html, assets, icons, and other public files at the archive root for replacing the existing iOS App/App/public bundle."
+logical_id = "acbff80c-4ab1-4ea2-8643-9588b0360632"
+content_hash = "sha256:7361cda8d19d3d61ab2f98af20fe91830c1644d512c9537e6f4116eaf5208ce0"
+size = 4917758
+mtime_ms = 1791485271524
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:1c84d0cc-428f-49ee-b59e-eeb7b2f6becf/acbff80c-4ab1-4ea2-8643-9588b0360632/6256bfdf-fcbf-43a3-bb71-f46f4d34d10a"
+storage_version_token = "1791485281329232"
+content_type = "application/octet-stream"
