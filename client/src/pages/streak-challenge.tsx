@@ -206,9 +206,8 @@ export default function StreakChallengePage() {
   const { slug } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const requestedReturnTo = new URLSearchParams(window.location.search).get("returnTo");
-  const backHref = requestedReturnTo === "/profile-hub" ? "/profile-hub" : "/hub";
-  const backLabel = requestedReturnTo === "/profile-hub" ? "Profile" : "Hub";
+  const backHref = "/hub";
+  const backLabel = "Hub";
 
   const [challengeView, setChallengeView] = useState<"progress" | "leaderboard">("progress");
   const [leaderSort, setLeaderSort] = useState<"best" | "closest" | "percent">("best");

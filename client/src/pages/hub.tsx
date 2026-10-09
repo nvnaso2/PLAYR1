@@ -552,7 +552,7 @@ export default function HubPage() {
       {drillLibraryLoading ? (
         <div className="grid grid-cols-3 gap-2" aria-label="Loading suggested drills">
           {[0, 1, 2].map((item) => (
-            <Skeleton key={item} className="aspect-[11/5] rounded-t-xl" data-testid={`suggested-drill-loading-${item}`} />
+            <Skeleton key={item} className="h-[154px] rounded-xl" data-testid={`suggested-drill-loading-${item}`} />
           ))}
         </div>
       ) : drillLibraryError ? (
@@ -562,8 +562,8 @@ export default function HubPage() {
       ) : dailyDrillSuggestions.length > 0 ? (
         <div className="grid grid-cols-3 gap-2" data-testid="suggested-drills-row">
           {dailyDrillSuggestions.slice(0, 3).map((drill, index) => (
-            <div key={drill.id} className="min-w-0" data-testid={`button-suggested-drill-${index + 1}`}>
-              <DrillCard drill={drill} viewMode="grid" />
+            <div key={drill.id} className="h-full min-w-0" data-testid={`button-suggested-drill-${index + 1}`}>
+              <DrillCard drill={drill} viewMode="grid" hubFeatured />
             </div>
           ))}
         </div>
@@ -640,6 +640,10 @@ export default function HubPage() {
             <h1 className="text-2xl font-bold text-white mt-0.5">
               {greetText}
             </h1>
+            <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-zinc-400">
+              <Dumbbell className="h-3.5 w-3.5 text-orange-400" />
+              Your next rep starts here.
+            </p>
           </div>
           {!showProfileSetup && streak > 0 && (() => {
               const sa = streak >= 30
@@ -757,7 +761,7 @@ export default function HubPage() {
             </div>
             <Dumbbell className="w-5 h-5 text-orange-400" />
           </div>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { label: "Log a session", detail: "Track today's work", path: "/log", icon: Dumbbell, testId: "button-start-log" },
               { label: "Start a program", detail: "Follow a plan", path: "/programs", icon: Layers3, testId: "button-start-program" },
@@ -775,7 +779,7 @@ export default function HubPage() {
                 key={path}
                 type="button"
                 onClick={() => navigate(path)}
-                className={`group flex min-h-[104px] w-full cursor-pointer rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] ${
+                className={`group flex min-h-[104px] w-full cursor-pointer rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:p-4 ${
                   isCoachPrompt
                     ? "flex-row items-center gap-2"
                     : "flex-col gap-3"

@@ -351,12 +351,12 @@ export default function ProgressPage() {
             Track your improvement and training performance
           </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="grid w-full grid-cols-4 gap-2 sm:flex sm:items-center sm:justify-between">
+          <div className="col-span-4 grid grid-cols-2 gap-2 sm:flex sm:gap-2">
             <Button
               size="sm"
               onClick={() => setShareOpen(true)}
-              className="h-10 w-full gap-2 bg-orange-500 font-bold text-black hover:bg-orange-400 sm:w-auto"
+              className="h-9 w-full gap-1.5 bg-orange-500 px-2 text-[11px] font-bold text-black hover:bg-orange-400 sm:h-10 sm:w-auto sm:px-3 sm:text-sm"
               data-testid="button-share-dashboard"
             >
               <Share2 className="h-4 w-4" />
@@ -366,13 +366,13 @@ export default function ProgressPage() {
               size="sm"
               variant="outline"
               onClick={() => setLocation(`/progress/customize${fromHub ? "?from=hub" : ""}`)}
-              className="h-10 w-full border-white/35 bg-white/5 text-white hover:bg-white/10 hover:text-white sm:min-w-[136px] sm:w-auto"
+              className="h-9 w-full border-white/35 bg-white/5 px-2 text-[11px] text-white hover:bg-white/10 hover:text-white sm:h-10 sm:min-w-[136px] sm:w-auto sm:px-3 sm:text-sm"
               data-testid="button-customize-dashboard-stats"
             >
               Customize Hub
             </Button>
           </div>
-          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto" role="group" aria-label="Choose dashboard time range">
+          <div className="col-span-4 grid w-full grid-cols-4 gap-1 sm:flex sm:w-auto sm:gap-2" role="group" aria-label="Choose dashboard time range">
             {(["daily", "weekly", "monthly", "annual"] as TimePeriod[]).map((period) => (
               <Button
                 key={period}
@@ -380,8 +380,8 @@ export default function ProgressPage() {
                 variant={timePeriod === period ? "default" : "outline"}
                 onClick={() => setTimePeriod(period)}
                 className={timePeriod === period
-                  ? "h-10 min-w-0 bg-orange-500 px-2 text-xs font-bold text-black hover:bg-orange-400"
-                  : "h-10 min-w-0 border-zinc-800 bg-transparent px-2 text-xs text-zinc-400 hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300"}
+                  ? "h-9 min-w-0 bg-orange-500 px-1 text-[10px] font-bold text-black hover:bg-orange-400 sm:h-10 sm:px-2 sm:text-xs"
+                  : "h-9 min-w-0 border-zinc-800 bg-transparent px-1 text-[10px] text-zinc-400 hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300 sm:h-10 sm:px-2 sm:text-xs"}
                 data-testid={`button-period-${period}`}
               >
                 {TIME_PERIOD_LABELS[period]}
@@ -391,7 +391,7 @@ export default function ProgressPage() {
         </div>
       </header>
 
-      <section className="grid grid-cols-1 gap-3 sm:max-w-[780px] sm:grid-cols-3 sm:gap-4" aria-label="Training summary">
+      <section className="grid grid-cols-3 gap-2 sm:max-w-[780px] sm:gap-4" aria-label="Training summary">
         {overviewLoading ? (
           <>
             <Skeleton className="h-[68px] rounded-lg sm:h-[72px]" />

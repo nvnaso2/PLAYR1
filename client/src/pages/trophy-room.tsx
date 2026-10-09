@@ -431,7 +431,7 @@ export default function TrophyRoomPage() {
               <span className="text-[9px] text-zinc-600">Calculated from your game logs</span>
             </div>
             {automaticRecordsLoading ? (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid max-h-[min(42vh,24rem)] grid-cols-2 gap-2 overflow-y-auto overscroll-contain pr-1">
                 <Skeleton className="h-32 rounded-xl bg-zinc-900" />
                 <Skeleton className="h-32 rounded-xl bg-zinc-900" />
                 <Skeleton className="h-32 rounded-xl bg-zinc-900" />
@@ -439,7 +439,7 @@ export default function TrophyRoomPage() {
             ) : automaticRecordsError ? (
               <p className="rounded-xl border border-red-400/15 bg-red-400/[0.04] p-4 text-sm text-red-200">Game and season records couldn’t load. Refresh to try again.</p>
             ) : automaticRecords && [...automaticRecords.gameRecords, ...automaticRecords.seasonRecords].length > 0 ? (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid max-h-[min(42vh,24rem)] grid-cols-2 gap-2 overflow-y-auto overscroll-contain pr-1">
                 {automaticRecords.gameRecords.map((record) => (
                   <RecordCard key={`game-${record.title}`} {...record} kind="game" />
                 ))}
@@ -463,7 +463,7 @@ export default function TrophyRoomPage() {
               </div>
             </div>
             {recordsLoading && (
-              <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mb-3 grid max-h-[min(42vh,24rem)] grid-cols-2 gap-2 overflow-y-auto overscroll-contain pr-1">
                 <Skeleton className="h-28 rounded-xl bg-zinc-900" />
                 <Skeleton className="h-28 rounded-xl bg-zinc-900" />
                 <Skeleton className="h-28 rounded-xl bg-zinc-900" />
@@ -473,11 +473,11 @@ export default function TrophyRoomPage() {
               <p className="mb-3 rounded-xl border border-red-400/15 bg-red-400/[0.04] p-3 text-xs text-red-200">Saved personal records couldn’t load. You can still set a new personal best or create a record.</p>
             )}
             {!recordsLoading && (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid max-h-[min(48vh,28rem)] grid-cols-2 gap-2 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-2 lg:grid-cols-3">
                 {DEFAULT_RECORDS.map((record) => {
                   const saved = defaultRecordMap.get(record.metricName);
                   return (
-                    <article key={record.key} className="rounded-xl border border-amber-300/15 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.08),transparent_68%),#17150f] p-3.5" data-testid={`default-record-${record.key}`}>
+                    <article key={record.key} className="rounded-xl border border-amber-300/15 bg-[radial-gradient(ellipse_at_top_left,rgba(245,190,65,0.08),transparent_68%),#17150f] p-2.5 sm:p-3.5" data-testid={`default-record-${record.key}`}>
                       <div className="flex items-start justify-between gap-2">
                         <p className="min-w-0 text-xs font-semibold leading-relaxed text-zinc-100">{record.title}</p>
                         <Badge variant="outline" className="shrink-0 border-amber-300/15 bg-amber-300/[0.04] text-[8px] uppercase tracking-wider text-amber-100/60">Best</Badge>

@@ -138,8 +138,8 @@ export default function LeadMagnetsPage() {
         <div className="max-w-md text-center">
           <h1 className="text-2xl font-black">Game insight not found</h1>
           <p className="mt-2 text-sm text-zinc-400">Choose one of the available PLAYR1 tools.</p>
-          <Link href="/lead-magnets">
-            <Button className="mt-5 bg-orange-500 font-bold text-black hover:bg-orange-400">Browse Game Insights</Button>
+          <Link href="/hub">
+            <Button className="mt-5 bg-orange-500 font-bold text-black hover:bg-orange-400">Back to Hub</Button>
           </Link>
         </div>
       </main>
@@ -150,15 +150,15 @@ export default function LeadMagnetsPage() {
     return (
       <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-5 text-white sm:px-6 sm:pt-7">
         <div className="mx-auto max-w-5xl">
-          <Link href="/profile-hub">
+          <Link href="/hub">
             <Button
               type="button"
               variant="ghost"
               className="h-9 gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 text-zinc-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
-              data-testid="button-back-to-profile"
+              data-testid="button-back-to-hub"
             >
               <ArrowLeft className="h-4 w-4" />
-              Profile
+              Hub
             </Button>
           </Link>
 
@@ -216,15 +216,15 @@ export default function LeadMagnetsPage() {
     <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10">
       <div className="mx-auto max-w-3xl">
         <header className="mb-5">
-          <Link href="/lead-magnets">
+          <Link href="/hub">
             <Button
               type="button"
               variant="ghost"
               className="h-9 gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 text-zinc-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
-              data-testid="button-back-to-game-insights"
+              data-testid="button-back-to-hub"
             >
               <ArrowLeft className="h-4 w-4" />
-              All Game Insights
+              Back to Hub
             </Button>
           </Link>
         </header>

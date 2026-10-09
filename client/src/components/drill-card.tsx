@@ -15,6 +15,7 @@ interface DrillCardProps {
   selected?: boolean;
   onSelect?: (drillId: string) => void;
   viewMode?: "grid" | "list";
+  hubFeatured?: boolean;
 }
 
 const difficultyColors = {
@@ -62,6 +63,7 @@ export function DrillCard({
   selected = false,
   onSelect,
   viewMode = "grid",
+  hubFeatured = false,
 }: DrillCardProps) {
   const formatDuration = (seconds?: number | null) => {
     if (!seconds) return "N/A";
@@ -75,6 +77,7 @@ export function DrillCard({
       <Card
         className={cn(
           "group cursor-pointer overflow-hidden border-white/[0.08] bg-zinc-950/90 text-zinc-100 shadow-[0_8px_24px_rgba(0,0,0,0.28)] transition-all duration-200",
+          hubFeatured && "flex h-full min-h-[154px] flex-col",
           viewMode === "list" && "flex min-h-[88px] flex-row",
           selectable
             ? "relative hover:border-white/70"
@@ -96,7 +99,7 @@ export function DrillCard({
       >
         <div className={cn(
           "relative shrink-0 overflow-hidden bg-zinc-900",
-          viewMode === "list" ? "h-[88px] w-28 sm:h-24 sm:w-36" : "aspect-[11/5] w-full"
+          viewMode === "list" ? "h-[88px] w-28 sm:h-24 sm:w-36" : hubFeatured ? "aspect-[1.35/1] w-full" : "aspect-[11/5] w-full"
         )}>
           {drill.videoUrl ? (
             <video
@@ -137,8 +140,12 @@ export function DrillCard({
               <Play className="ml-0.5 h-4 w-4 fill-current" />
             </div>
           </div>
-          <div className="absolute left-2 top-2 flex max-w-[calc(100%-1rem)] gap-2">
-            <Badge className={cn("max-w-full truncate px-1.5 py-0 text-[9px] capitalize", difficultyColors[drill.difficulty || 'beginner'])}>
+          <div className={cn("absolute left-2 top-2 flex max-w-[calc(100%-1rem)] gap-2", hubFeatured && "left-1 top-1 max-w-[calc(100%-0.5rem)]")}>
+            <Badge className={cn(
+              "max-w-full truncate px-1.5 py-0 text-[9px] capitalize",
+              hubFeatured && "px-1 text-[7px] leading-3",
+              difficultyColors[drill.difficulty || 'beginner']
+            )}>
               {categoryLabels[drill.category] || drill.category}
               <span className="mx-1 opacity-60">·</span>
               {drill.difficulty || 'beginner'}
@@ -166,20 +173,21 @@ export function DrillCard({
         </div>
         <CardContent className={cn(
           "min-w-0 flex-1",
-          viewMode === "list" ? "flex items-center gap-3 p-2.5 sm:p-3" : "p-2.5"
+          viewMode === "list" ? "flex items-center gap-3 p-2.5 sm:p-3" : hubFeatured ? "flex min-h-0 flex-1 flex-col justify-between gap-1 p-2" : "p-2.5"
         )}>
           <div className={cn("min-w-0 flex-1", viewMode === "list" && "flex flex-col items-start")}>
             <h3 className={cn(
               "font-semibold leading-snug transition-colors group-hover:text-primary",
-              viewMode === "list" ? "line-clamp-2 text-sm" : "line-clamp-2 text-[13px]"
+              viewMode === "list" ? "line-clamp-2 text-sm" : hubFeatured ? "line-clamp-2 text-[10px] leading-tight sm:text-[11px]" : "line-clamp-2 text-[13px]"
             )} data-testid={`text-drill-title-${drill.id}`}>
               {drill.title}
             </h3>
             <div className={cn(
-              "flex min-w-0 items-center gap-3 text-[10px] text-zinc-400"
+              "flex min-w-0 items-center gap-3 text-[10px] text-zinc-400",
+              hubFeatured && "gap-1.5 text-[8px]"
             )}>
               <span className="flex shrink-0 items-center gap-1">
-                <Clock className="h-3 w-3 text-orange-400" />
+                <Clock className={cn("h-3 w-3 text-orange-400", hubFeatured && "h-2.5 w-2.5")} />
                 {formatDuration(drill.duration)}
               </span>
               <CompactDrillRating drillId={drill.id} />
@@ -195,5 +203,5 @@ export function DrillCard({
   );
 
   if (selectable) return card;
-  return <Link href={`/drill/${drill.id}`}>{card}</Link>;
+  return <Link href={`/drill/${drill.id}`} className={hubFeatured ? "block h-full" : undefined}>{card}</Link>;
 }

@@ -445,11 +445,11 @@ export default function JournalPage() {
   const initialSourceKind = params.get("trainingLogId") ? "workout" : params.get("gameId") ? "game" : null;
   const initialSourceId = params.get("trainingLogId") || params.get("gameId");
   return (
-    <div className="dark min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
+    <div className="dark flex h-full min-h-0 flex-col overflow-hidden bg-zinc-950 text-zinc-100 sm:h-auto sm:min-h-full sm:overflow-visible">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-4 p-4 sm:h-auto sm:min-h-full sm:p-6">
         <header className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            <Button variant="ghost" size="icon" className="shrink-0 text-zinc-400 hover:bg-zinc-900 hover:text-white" onClick={() => navigate("/profile-hub")} aria-label="Back to Profile" data-testid="button-back-to-profile">
+            <Button variant="ghost" size="icon" className="shrink-0 text-zinc-400 hover:bg-zinc-900 hover:text-white" onClick={() => navigate("/hub")} aria-label="Back to Hub" data-testid="button-back-to-hub">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h1 className="truncate text-xl font-bold text-zinc-100">Journal</h1>
@@ -473,7 +473,7 @@ export default function JournalPage() {
           <Badge className="border border-orange-300/20 bg-orange-400/10 text-[10px] text-orange-200 hover:bg-orange-400/10">{isPro ? "Ready" : "Pro"}</Badge>
         </div>
 
-        <section className="space-y-3" aria-labelledby="saved-reflections-heading">
+        <section className="flex min-h-0 flex-1 flex-col gap-3" aria-labelledby="saved-reflections-heading">
           <div className="flex items-center justify-between gap-3">
             <h2 id="saved-reflections-heading" className="text-lg font-bold">Saved reflections</h2>
             <span className="text-xs text-zinc-500">{entries.length} saved</span>
@@ -523,6 +523,7 @@ export default function JournalPage() {
             </details>
           </div>
 
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
           {isLoading ? (
             <div className="space-y-2">{[1, 2, 3].map((item) => <div key={item} className="h-20 animate-pulse rounded-xl bg-zinc-900" />)}</div>
           ) : entries.length === 0 ? (
@@ -578,6 +579,7 @@ export default function JournalPage() {
               )}
             </div>
           )}
+          </div>
         </section>
       </div>
 

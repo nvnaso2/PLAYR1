@@ -60,7 +60,7 @@ export default function ProfilePage() {
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl" data-testid="text-page-title">My Profile</h1>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
           <Button
             asChild
             size="sm"

@@ -1901,8 +1901,8 @@ export async function seedDatabase() {
     }
 
     // ─── Streak Challenge seed ───────────────────────────────────────────────
-    const [existingStreak] = await db.select().from(streakChallenges).limit(1);
-    if (!existingStreak) {
+    const existingStreak = await db.select().from(streakChallenges).where(eq(streakChallenges.slug, "fifty-in-a-row")).limit(1);
+    if (existingStreak.length === 0) {
       await db.insert(streakChallenges).values({
         slug: "fifty-in-a-row",
         title: "50-in-a-Row 3-Point Challenge",
@@ -1916,7 +1916,7 @@ export async function seedDatabase() {
       });
       console.log("Streak challenge 'fifty-in-a-row' seeded");
     } else {
-      console.log("Streak challenge already seeded, skipping");
+      console.log("Streak challenge 'fifty-in-a-row' already exists, skipping");
     }
 
     await seedCommunityDemo();

@@ -1336,7 +1336,7 @@ export default function CoachPPage() {
         <section
           ref={scrollRef}
           className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth ${
-            messages.length === 0 ? "pt-10 sm:pt-14" : "pt-7"
+            messages.length === 0 ? "pt-5 sm:pt-14" : "pt-4 sm:pt-7"
           } overflow-x-hidden pb-6 [scrollbar-color:rgb(63_63_70)_transparent]`}
         >
           <div className="min-w-0 w-full">
@@ -1453,7 +1453,7 @@ export default function CoachPPage() {
           </div>
         )}
 
-        <div className="relative z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="relative z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-2 pt-3">
           <div className="relative flex min-h-[58px] items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 px-3 py-2 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)] transition-colors focus-within:border-orange-400/45 focus-within:shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_34px_rgba(249,115,22,0.16)]">
             <div className="flex min-w-0 flex-1 items-center">
               <Textarea

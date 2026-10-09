@@ -170,9 +170,10 @@ export default function TrainingLogPage() {
     if (typeof window === "undefined") return true;
     try {
       const saved = window.localStorage.getItem("playr1-training-log-saved-workouts-expanded");
-      return saved === null ? true : saved === "true";
+      if (saved !== null) return saved === "true";
+      return window.matchMedia("(max-width: 639px)").matches ? false : true;
     } catch {
-      return true;
+      return window.innerWidth >= 640;
     }
   });
   const persistSavedWorkoutsExpanded = (expanded: boolean) => {
@@ -1725,18 +1726,18 @@ export default function TrainingLogPage() {
 
   // Render drill selection list
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6 pb-24">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-heading tracking-wide uppercase" data-testid="text-page-title">Training Log</h1>
-          <p className="text-sm text-muted-foreground">Build workouts, track progress, get better</p>
+    <div className="mx-auto max-w-6xl space-y-4 p-3 pb-4 sm:space-y-6 sm:p-6 sm:pb-24">
+      <div className="flex flex-nowrap items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-heading uppercase tracking-wide sm:text-4xl" data-testid="text-page-title">Training Log</h1>
+          <p className="hidden text-sm text-muted-foreground sm:block">Build workouts, track progress, get better</p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <Button 
             variant={activeView === "history" ? "default" : "outline"} 
             onClick={() => setActiveView(activeView === "history" ? "library" : "history")}
-            className="gap-2"
+            className="h-9 gap-1.5 px-2.5 text-xs sm:h-10 sm:gap-2 sm:px-4 sm:text-sm"
             data-testid="button-view-history"
           >
             <Calendar className="w-4 h-4" />
@@ -2111,74 +2112,74 @@ export default function TrainingLogPage() {
 
       {/* Main Content Area */}
       {activeView === "library" && !workoutInProgress && (
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-6">
           {!showCreateWorkoutMode ? (
             <>
               {/* Main action layout: 2×2 on mobile, 4-across on desktop. */}
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 <button
                   type="button"
-                  className="group flex min-h-[132px] cursor-pointer flex-col gap-3 rounded-xl border border-orange-400/70 bg-gradient-to-br from-orange-500 to-orange-700 p-4 text-left text-white shadow-lg shadow-orange-950/30 transition hover:from-orange-400 hover:to-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                  className="group flex min-h-[76px] cursor-pointer flex-row items-center gap-2 rounded-xl border border-orange-400/70 bg-gradient-to-br from-orange-500 to-orange-700 p-2.5 text-left text-white shadow-lg shadow-orange-950/30 transition hover:from-orange-400 hover:to-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
                   onClick={() => setLocation("/drills?build=1")}
                   data-testid="action-start-workout"
                   aria-label="Start a workout"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-white via-zinc-300 to-white p-[2px]">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-white via-zinc-300 to-white p-[2px] sm:h-10 sm:w-10">
                     <span className="flex h-full w-full items-center justify-center rounded-[6px] bg-black">
                       <Play className="h-4 w-4 fill-current" />
                     </span>
                   </span>
                   <span>
-                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Start Workout</span>
-                    <span className="mt-0.5 block text-[11px] text-orange-50/80">Select drills and go</span>
+                    <span className="block font-heading text-[11px] uppercase leading-tight tracking-wide sm:text-sm">Start Workout</span>
+                    <span className="mt-0.5 hidden text-[11px] text-orange-50/80 sm:block">Select drills and go</span>
                   </span>
                 </button>
 
                 <button
                   type="button"
-                  className="group flex min-h-[132px] cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                  className="group flex min-h-[76px] cursor-pointer flex-row items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-2.5 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
                   onClick={() => setIsCreateDrillOpen(true)}
                   data-testid="action-create-drill"
                   aria-label="Create a drill"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
                     <Plus className="h-4 w-4" />
                   </span>
                   <span>
-                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Create a Drill</span>
-                    <span className="mt-0.5 block text-[11px] text-zinc-500">Add a custom drill</span>
+                    <span className="block font-heading text-[11px] uppercase leading-tight tracking-wide sm:text-sm">Create a Drill</span>
+                    <span className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">Add a custom drill</span>
                   </span>
                 </button>
 
                 <button
                   type="button"
-                  className="group flex min-h-[132px] cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                  className="group flex min-h-[76px] cursor-pointer flex-row items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-2.5 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
                   onClick={() => setLocation("/drills?build=1")}
                   data-testid="action-create-workout"
                   aria-label="Create a workout"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
                     <Layers className="h-4 w-4" />
                   </span>
                   <span>
-                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Create a Workout</span>
-                    <span className="mt-0.5 block text-[11px] text-zinc-500">Combine 2+ drills</span>
+                    <span className="block font-heading text-[11px] uppercase leading-tight tracking-wide sm:text-sm">Create a Workout</span>
+                    <span className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">Combine 2+ drills</span>
                   </span>
                 </button>
 
                 <button
                   type="button"
-                  className="group flex min-h-[132px] cursor-pointer flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                  className="group flex min-h-[76px] cursor-pointer flex-row items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-2.5 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
                   onClick={() => setShowChallengeDialog(true)}
                   data-testid="action-create-challenge"
                   aria-label="Create a challenge"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
                     <Trophy className="h-4 w-4" />
                   </span>
                   <span>
-                    <span className="block font-heading text-sm uppercase tracking-wide leading-tight">Create a Challenge</span>
-                    <span className="mt-0.5 block text-[11px] text-zinc-500">Set goals & track</span>
+                    <span className="block font-heading text-[11px] uppercase leading-tight tracking-wide sm:text-sm">Create a Challenge</span>
+                    <span className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">Set goals &amp; track</span>
                   </span>
                 </button>
               </div>
@@ -2236,7 +2237,7 @@ export default function TrainingLogPage() {
                     </div>
                   )}
 
-                  <CollapsibleContent className="pt-2">
+                  <CollapsibleContent className="max-h-[28vh] overflow-y-auto overscroll-contain pt-2 sm:max-h-none sm:overflow-visible">
                     {personalWorkoutsLoading ? (
                       <div className="space-y-2">
                         <Skeleton className="h-12 rounded-lg" />
@@ -2333,12 +2334,12 @@ export default function TrainingLogPage() {
                 const favDrills = (allDrills || []).filter(d => favoriteDrillIds?.includes(d.id));
                 if (!favDrills.length) return null;
                 return (
-                  <section className="space-y-3" data-testid="section-favorite-drills">
+                  <section className="space-y-2 sm:space-y-3" data-testid="section-favorite-drills">
                     <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                       <Heart className="h-4 w-4 fill-current text-primary" />
                       Favorite Drills
                     </h3>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="grid max-h-[18vh] grid-cols-2 gap-2 overflow-y-auto overscroll-contain pr-1 sm:max-h-none sm:overflow-visible sm:pr-0">
                       {favDrills.map(drill => (
                         <Card
                           key={`fav-drill-${drill.id}`}
@@ -2346,13 +2347,13 @@ export default function TrainingLogPage() {
                           onClick={() => quickStartDrill(drill.id)}
                           data-testid={`fav-drill-${drill.id}`}
                         >
-                          <CardContent className="flex items-center gap-3 p-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
+                          <CardContent className="flex min-h-[56px] items-center gap-2 p-2 sm:gap-3 sm:p-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 sm:h-9 sm:w-9">
                               <Target className="h-4 w-4 text-orange-500" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h4 className="truncate text-sm font-medium">{drill.title}</h4>
-                              <p className="text-xs text-muted-foreground">
+                              <h4 className="truncate text-xs font-medium sm:text-sm">{drill.title}</h4>
+                              <p className="truncate text-[10px] text-muted-foreground sm:text-xs">
                                 {formatCategory(drill.category)} · {drill.difficulty}
                               </p>
                             </div>
@@ -2388,7 +2389,7 @@ export default function TrainingLogPage() {
                         <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${challengesSectionOpen ? 'rotate-90' : ''}`} />
                       </div>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-2 pt-3">
+                    <CollapsibleContent className="max-h-[28vh] space-y-2 overflow-y-auto overscroll-contain pt-3 sm:max-h-none sm:overflow-visible">
                       {inProgressChallenges.map(uc => {
                         const progressPercent = Math.min(100, Math.round(((uc.currentValue || 0) / (uc.challenge.targetValue || 1)) * 100));
                         return (
@@ -2500,36 +2501,36 @@ export default function TrainingLogPage() {
                   <Layers className="h-4 w-4 text-primary" />
                   Explore Training
                 </h3>
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                   <Link
                     href="/drills"
-                    className="group flex min-h-[76px] items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="group flex min-h-[68px] min-w-0 items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-[76px] sm:gap-3 sm:px-4 sm:py-3"
                     data-testid="action-drill-library"
                     aria-label="Open Drill Library"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
                       <ClipboardList className="h-4 w-4" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-heading text-base uppercase tracking-wide leading-none">Drill Library</span>
-                      <span className="mt-1 block text-[11px] text-zinc-500">Browse every drill</span>
+                      <span className="block font-heading text-[11px] uppercase leading-tight tracking-wide sm:text-base">Drill Library</span>
+                      <span className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">Browse every drill</span>
                     </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400 sm:h-4 sm:w-4" />
                   </Link>
                   <Link
                     href="/courses"
-                    className="group flex min-h-[76px] items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="group flex min-h-[68px] min-w-0 items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-[76px] sm:gap-3 sm:px-4 sm:py-3"
                     data-testid="action-courses"
                     aria-label="Open Courses"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
                       <Layers className="h-4 w-4" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-heading text-base uppercase tracking-wide leading-none">Courses</span>
-                      <span className="mt-1 block text-[11px] text-zinc-500">Follow a structured plan</span>
+                      <span className="block font-heading text-[11px] uppercase leading-tight tracking-wide sm:text-base">Courses</span>
+                      <span className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">Follow a structured plan</span>
                     </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400" />
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-orange-400 sm:h-4 sm:w-4" />
                   </Link>
                 </div>
               </section>

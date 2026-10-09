@@ -189,7 +189,45 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const isNative = Capacitor.isNativePlatform();
+  const [location] = useLocation();
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   usePageViewTracking();
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const initialHeight = viewport?.height ?? window.innerHeight;
+    let baselineHeight = initialHeight;
+
+    const updateViewport = () => {
+      const height = viewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--playr1-viewport-height", `${height}px`);
+
+      const active = document.activeElement;
+      const isTextEntry = active instanceof HTMLInputElement
+        || active instanceof HTMLTextAreaElement
+        || (active instanceof HTMLElement && active.isContentEditable);
+      if (!isTextEntry) baselineHeight = height;
+      setKeyboardOpen(isTextEntry && baselineHeight - height > 120);
+    };
+    const handleFocusIn = () => {
+      baselineHeight = viewport?.height ?? window.innerHeight;
+      requestAnimationFrame(updateViewport);
+    };
+    const handleFocusOut = () => window.setTimeout(updateViewport, 250);
+
+    updateViewport();
+    viewport?.addEventListener("resize", updateViewport);
+    window.addEventListener("resize", updateViewport);
+    document.addEventListener("focusin", handleFocusIn);
+    document.addEventListener("focusout", handleFocusOut);
+    return () => {
+      viewport?.removeEventListener("resize", updateViewport);
+      window.removeEventListener("resize", updateViewport);
+      document.removeEventListener("focusin", handleFocusIn);
+      document.removeEventListener("focusout", handleFocusOut);
+      document.documentElement.style.removeProperty("--playr1-viewport-height");
+    };
+  }, []);
 
   const sidebarStyle = {
     "--sidebar-width": "16rem",
@@ -198,11 +236,17 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider style={sidebarStyle}>
-      <div className="flex h-screen w-full overflow-hidden">
+      <div className="flex h-screen w-full overflow-hidden" style={{ height: "var(--playr1-viewport-height, 100dvh)" }}>
         <AppSidebar />
         <SidebarInset className="flex flex-col min-h-0 flex-1 overflow-hidden">
           {/* Header */}
-          <header className="shrink-0 flex items-center gap-2 border-b border-zinc-800/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 px-4 h-14">
+          <header
+            className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-zinc-800/60 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+            style={isNative ? {
+              height: "calc(3.5rem + env(safe-area-inset-top, 0px))",
+              paddingTop: "env(safe-area-inset-top, 0px)",
+            } : { height: "3.5rem" }}
+          >
             <SidebarTrigger data-testid="button-sidebar-toggle" className="-ml-1" />
             <div className="flex-1 flex items-center justify-center">
               <Playr1Logo className="h-8 w-auto" />
@@ -218,7 +262,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           </main>
 
           {/* Bottom tab bar */}
-          <BottomTabBar />
+          {!(location.split("?")[0] === "/coach-p" && keyboardOpen) && <BottomTabBar />}
         </SidebarInset>
       </div>
     </SidebarProvider>

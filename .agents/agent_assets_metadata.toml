@@ -210,3 +210,17 @@ mtime_ms = 1791485489666
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:1c84d0cc-428f-49ee-b59e-eeb7b2f6becf/ff641bd9-739c-4aea-b78d-e0f4ff5b89c8/c7d57687-76b0-496d-9b3f-26bd0f41e4c0"
 storage_version_token = "1791485498151683"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "A3N6Dio6UPSNq6CBA5Zgr"
+uri = "file://PLAYR1-ios-public-folder-update-2026-10-09.zip"
+type = "unspecified"
+title = "Updated PLAYR1 iOS web assets"
+description = "Final Xcode web assets for the updated mobile UI. Archive root contains public/. Replace the existing App/App/public folder with this folder, then create a new Xcode build for TestFlight. Native Swift and Xcode project files are not included."
+logical_id = "fac74db1-28f1-4f58-bdf7-b1b066940515"
+content_hash = "sha256:034bdaf74e750ccf1499e1ac4b233a1feca24d755900bf822f9f10f8947902d1"
+size = 4922283
+mtime_ms = 1791561333290
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:1c84d0cc-428f-49ee-b59e-eeb7b2f6becf/fac74db1-28f1-4f58-bdf7-b1b066940515/59c70c9e-82ac-461a-ae76-d7bfc95abccc"
+storage_version_token = "1791561356166479"
+content_type = "application/octet-stream"
