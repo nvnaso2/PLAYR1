@@ -1121,7 +1121,7 @@ export default function CoachPPage() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#080808] text-white">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#080808] text-white" style={{ height: "100%", boxSizing: "border-box", paddingTop: "env(safe-area-inset-top, 0px)" }}>
       <AlertDialog
         open={Boolean(conversationToDelete)}
         onOpenChange={(open) => !open && setConversationToDelete(null)}
@@ -1201,7 +1201,7 @@ export default function CoachPPage() {
           </form>
         </DialogContent>
       </Dialog>
-      <header className="relative z-40 h-16 border-b border-white/[0.06] bg-[#080808]/90 px-4 backdrop-blur-xl sm:px-6 flex items-center justify-between">
+      <header className="relative z-40 h-14 shrink-0 border-b border-white/[0.06] bg-[#080808] px-3 flex items-center justify-between sm:px-6">
         <div className="flex items-center gap-2">
           <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
             <SheetTrigger asChild>
@@ -1332,12 +1332,12 @@ export default function CoachPPage() {
         )}
       </header>
 
-      <main className="mx-auto flex min-h-0 min-w-0 flex-1 w-full max-w-3xl flex-col px-4 sm:px-6">
+      <main className="mx-auto flex min-h-0 min-w-0 flex-1 w-full max-w-3xl flex-col px-3 sm:px-6">
         <section
           ref={scrollRef}
           className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth ${
             messages.length === 0 ? "pt-5 sm:pt-14" : "pt-4 sm:pt-7"
-          } overflow-x-hidden pb-6 [scrollbar-color:rgb(63_63_70)_transparent]`}
+          } overflow-x-hidden pb-5 [scrollbar-color:rgb(63_63_70)_transparent]`}
         >
           <div className="min-w-0 w-full">
             {messages.length === 0 ? (
@@ -1453,7 +1453,7 @@ export default function CoachPPage() {
           </div>
         )}
 
-        <div className="relative z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-2 pt-3">
+        <div className="relative z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2">
           <div className="relative flex min-h-[58px] items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 px-3 py-2 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)] transition-colors focus-within:border-orange-400/45 focus-within:shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_34px_rgba(249,115,22,0.16)]">
             <div className="flex min-w-0 flex-1 items-center">
               <Textarea
@@ -1482,7 +1482,7 @@ export default function CoachPPage() {
                 {chatMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
               </Button>
           </div>
-          <p className="mt-2 text-center text-[10px] tracking-wide text-zinc-700">Shift + Enter for a new line</p>
+          <p className="mt-1 hidden text-center text-[10px] tracking-wide text-zinc-700 sm:block">Shift + Enter for a new line</p>
         </div>
       </main>
     </div>

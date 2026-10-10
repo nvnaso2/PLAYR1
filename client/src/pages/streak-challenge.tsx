@@ -25,7 +25,7 @@ import {
   Play, Plus, CheckCircle2, Info, Video, Upload, Link2, X,
   Loader2, LogOut, ExternalLink, Film, Crown,
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, nativeFetch } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { StreakChallenge, StreakChallengeParticipant, StreakChallengeAttempt } from "@shared/schema";
 
@@ -249,7 +249,7 @@ export default function StreakChallengePage() {
   const { data, isLoading } = useQuery<ChallengeDetail>({
     queryKey: ["/api/streak-challenges", slug],
     queryFn: async () => {
-      const res = await fetch(`/api/streak-challenges/${slug}`);
+      const res = await nativeFetch(`/api/streak-challenges/${slug}`);
       if (!res.ok) throw new Error("Not found");
       return res.json();
     },
@@ -258,7 +258,7 @@ export default function StreakChallengePage() {
   const { data: leaderboard, isLoading: leaderLoading } = useQuery<LeaderboardEntry[]>({
     queryKey: ["/api/streak-challenges", slug, "leaderboard", leaderSort],
     queryFn: async () => {
-      const res = await fetch(`/api/streak-challenges/${slug}/leaderboard?sort=${leaderSort}`);
+      const res = await nativeFetch(`/api/streak-challenges/${slug}/leaderboard?sort=${leaderSort}`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },

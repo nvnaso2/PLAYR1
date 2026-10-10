@@ -64,12 +64,14 @@ export function ProfileCardShareButton({
   canShareInteractiveCard,
   className,
   testId = "button-share-profile-card",
+  compact = false,
 }: {
   cardRef: RefObject<HTMLDivElement>;
   slug?: string | null;
   canShareInteractiveCard: boolean;
   className?: string;
   testId?: string;
+  compact?: boolean;
 }) {
   const [isSharing, setIsSharing] = useState(false);
   const [fallbackImages, setFallbackImages] = useState<{
@@ -131,8 +133,8 @@ export function ProfileCardShareButton({
         className={className}
         data-testid={testId}
       >
-        {isSharing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Share2 className="mr-1 h-4 w-4" />}
-        {isSharing ? "Preparing card…" : "Share card"}
+        {isSharing ? <Loader2 className={`${compact ? "" : "mr-1"} h-4 w-4 animate-spin`} /> : <Share2 className={`${compact ? "" : "mr-1"} h-4 w-4`} />}
+        {compact ? <span className="sr-only">Share profile</span> : isSharing ? "Preparing card…" : "Share card"}
       </Button>
       <Dialog open={Boolean(fallbackImages)} onOpenChange={(open) => { if (!open) setFallbackImages(null); }}>
         <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-md" data-testid="profile-card-download-fallback">

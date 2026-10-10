@@ -638,14 +638,10 @@ export default function HubPage() {
           <div>
             <p className="text-zinc-400 text-sm">{formatDate()}</p>
             <h1 className="text-2xl font-bold text-white mt-0.5">
-              {greetText}
+              {greetText} <span aria-hidden="true">🏀</span>
             </h1>
-            <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-zinc-400">
-              <Dumbbell className="h-3.5 w-3.5 text-orange-400" />
-              Your next rep starts here.
-            </p>
           </div>
-          {!showProfileSetup && streak > 0 && (() => {
+          {!showProfileSetup && streak >= 0 && (() => {
               const sa = streak >= 30
                 ? { bg: "bg-red-500/20", border: "border-red-400/50", color: "text-red-200", flames: 3, pulse: true, scale: "scale-125", glow: "shadow-[0_0_24px_rgba(248,113,113,0.55)]" }
                 : streak >= 14
@@ -761,14 +757,14 @@ export default function HubPage() {
             </div>
             <Dumbbell className="w-5 h-5 text-orange-400" />
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { label: "Log a session", detail: "Track today's work", path: "/log", icon: Dumbbell, testId: "button-start-log" },
               { label: "Start a program", detail: "Follow a plan", path: "/programs", icon: Layers3, testId: "button-start-program" },
               { label: "Drill library", detail: "Find your next drill", path: "/drills", icon: BookOpen, testId: "button-start-drills" },
               {
                 label: "Coach P",
-                detail: coachPrompt,
+                detail: "Ask about your game",
                 path: `/coach-p?prompt=${encodeURIComponent(coachPrompt)}`,
                 icon: MessageCircle,
                 testId: "button-start-coach-p-prompt",

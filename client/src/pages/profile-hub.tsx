@@ -91,7 +91,29 @@ export default function ProfileHubPage() {
         <div>
           <h1 className="font-display text-2xl font-black tracking-tight text-zinc-50 sm:text-3xl" data-testid="text-page-title">My Profile</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
+          <ProfileCardShareButton
+            cardRef={cardRef}
+            slug={playerProfile?.slug}
+            canShareInteractiveCard={playerProfile?.isPublic === true && playerProfile?.cardShowPlayerCard !== false}
+            compact
+            testId="button-share-profile"
+            className="h-9 w-9 border-zinc-700 bg-zinc-900 p-0 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            aria-label="Settings"
+            title="Settings"
+            onClick={() => navigate("/settings")}
+            className="h-9 w-9 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+      <div className="flex justify-center gap-2" aria-label="Profile editing actions">
           <Button
             type="button"
             size="sm"
@@ -112,19 +134,7 @@ export default function ProfileHubPage() {
             <Crown className="mr-1.5 h-3.5 w-3.5" />
             PLAYR1 Pro
           </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            aria-label="Settings"
-            title="Settings"
-            onClick={() => navigate("/settings")}
-            className="h-9 w-9 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        </div>
-      </header>
+      </div>
 
       <section className="flex justify-center" aria-label="Basketball player trading card">
         <div className="flex flex-col items-center">
@@ -158,14 +168,17 @@ export default function ProfileHubPage() {
         </div>
       </section>
 
-      <section className="flex w-full flex-wrap items-center justify-center gap-2" aria-label="Profile actions" data-testid="section-profile-actions">
-        <ProfileCardShareButton
-          cardRef={cardRef}
-          slug={playerProfile?.slug}
-          canShareInteractiveCard={playerProfile?.isPublic === true && playerProfile?.cardShowPlayerCard !== false}
-          testId="button-share-profile"
-          className="h-10 border-zinc-700 bg-zinc-900 px-4 text-zinc-200 hover:bg-zinc-800 hover:text-white"
-        />
+      <section className="flex w-full flex-wrap items-center justify-center gap-2" aria-label="Profile navigation" data-testid="section-profile-actions">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => navigate("/career")}
+          className="h-10 rounded-full border-zinc-700 bg-zinc-900 px-4 text-xs font-bold text-zinc-200 hover:border-orange-400/40 hover:bg-zinc-800 hover:text-white"
+          data-testid="button-career-stats-hub"
+        >
+          <Target className="mr-2 h-4 w-4 text-orange-300" />
+          Career Stats
+        </Button>
         <Button
           asChild
           variant="outline"
@@ -178,7 +191,6 @@ export default function ProfileHubPage() {
           </Link>
         </Button>
       </section>
-
       <section aria-labelledby="profile-stats-heading" className="space-y-4" data-testid="section-profile-career-stats">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>

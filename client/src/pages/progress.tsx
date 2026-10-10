@@ -46,6 +46,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Share2,
+  Settings2,
+  ChevronDown,
 } from "lucide-react";
 
 const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444"];
@@ -194,6 +196,7 @@ export default function ProgressPage() {
   const [activeSkill, setActiveSkill] = useState("all");
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("shotsMade");
   const [shareOpen, setShareOpen] = useState(false);
+  const [shotBreakdownOpen, setShotBreakdownOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const fromHub = location.includes("from=hub");
 
@@ -345,34 +348,31 @@ export default function ProgressPage() {
     <div className="min-h-full w-full min-w-0 overflow-x-clip bg-[#090909] p-4 sm:p-6 max-w-7xl mx-auto space-y-5 sm:space-y-6">
       <header className="space-y-4">
         <div>
-          <p className="font-heading text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Player dashboard</p>
           <h1 className="mt-1 text-2xl sm:text-3xl font-black uppercase tracking-wide text-white" data-testid="text-page-title">Dashboard</h1>
-          <p className="mt-1 text-sm sm:text-base text-zinc-500">
-            Track your improvement and training performance
-          </p>
         </div>
-        <div className="grid w-full grid-cols-4 gap-2 sm:flex sm:items-center sm:justify-between">
-          <div className="col-span-4 grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex items-center justify-end gap-2">
             <Button
-              size="sm"
+              size="icon"
               onClick={() => setShareOpen(true)}
-              className="h-9 w-full gap-1.5 bg-orange-500 px-2 text-[11px] font-bold text-black hover:bg-orange-400 sm:h-10 sm:w-auto sm:px-3 sm:text-sm"
+              className="h-9 w-9 border border-orange-400/30 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 hover:text-orange-200"
               data-testid="button-share-dashboard"
+              aria-label="Share dashboard"
             >
               <Share2 className="h-4 w-4" />
-              Share Dashboard
             </Button>
             <Button
-              size="sm"
+              size="icon"
               variant="outline"
               onClick={() => setLocation(`/progress/customize${fromHub ? "?from=hub" : ""}`)}
-              className="h-9 w-full border-white/35 bg-white/5 px-2 text-[11px] text-white hover:bg-white/10 hover:text-white sm:h-10 sm:min-w-[136px] sm:w-auto sm:px-3 sm:text-sm"
+              className="h-9 w-9 border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-orange-400/40 hover:bg-zinc-800 hover:text-orange-300"
               data-testid="button-customize-dashboard-stats"
+              aria-label="Customize dashboard"
             >
-              Customize Hub
+              <Settings2 className="h-4 w-4" />
             </Button>
           </div>
-          <div className="col-span-4 grid w-full grid-cols-4 gap-1 sm:flex sm:w-auto sm:gap-2" role="group" aria-label="Choose dashboard time range">
+          <div className="grid w-full grid-cols-4 gap-1 sm:w-auto" role="group" aria-label="Choose dashboard time range">
             {(["daily", "weekly", "monthly", "annual"] as TimePeriod[]).map((period) => (
               <Button
                 key={period}
@@ -467,7 +467,7 @@ export default function ProgressPage() {
               <div className="flex items-center justify-between">
                 <p className="font-heading text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Breakdown by skill</p>
               </div>
-              <div className="flex min-w-0 flex-wrap gap-1.5 pb-1" role="tablist" aria-label="Filter stats by skill">
+              <div className="flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Filter stats by skill">
               {SKILL_TABS.map((tab) => {
                 const hasData = tab.key === "all" || skillsWithData.has(tab.key);
                 return (
@@ -536,14 +536,41 @@ export default function ProgressPage() {
 
             {showShootingHeatmap && (
               shotHeatmapData.length > 0 ? (
-                <ShootingHeatmap
-                  shotData={shotHeatmapData}
-                  title="Shooting Heatmap"
-                  personalizedScale
-                  personalBaselines={shotHeatmapBaselines?.sections ?? EMPTY_SHOT_HEATMAP_BASELINES}
-                  baselineLoading={shotHeatmapBaselinesLoading}
-                  baselineError={shotHeatmapBaselinesError}
-                />
+                <>
+                  <ShootingHeatmap
+                    shotData={shotHeatmapData}
+                    title="Shooting Heatmap"
+                    personalizedScale
+                    personalBaselines={shotHeatmapBaselines?.sections ?? EMPTY_SHOT_HEATMAP_BASELINES}
+                    baselineLoading={shotHeatmapBaselinesLoading}
+                    baselineError={shotHeatmapBaselinesError}
+                  />
+                  <div className="mt-2 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/70">
+                  <button
+                    type="button"
+                    onClick={() => setShotBreakdownOpen((open) => !open)}
+                    aria-expanded={shotBreakdownOpen}
+                    className="flex min-h-10 w-full items-center justify-between px-3 text-left text-xs font-semibold text-zinc-300 hover:bg-white/[0.03]"
+                    data-testid="button-toggle-shot-breakdown"
+                  >
+                    Shot breakdown
+                    <ChevronDown className={`h-4 w-4 transition-transform ${shotBreakdownOpen ? "rotate-180 text-orange-300" : "text-zinc-500"}`} />
+                  </button>
+                  {shotBreakdownOpen && (
+                    <div className="divide-y divide-white/[0.06] border-t border-zinc-800">
+                      {(shotStats ?? []).map((shot) => {
+                        const attempts = shot.made + shot.missed;
+                        return (
+                          <div key={shot.location} className="flex items-center justify-between px-3 py-2 text-xs">
+                            <span className="capitalize text-zinc-400">{shot.location.replace(/-/g, " ")}</span>
+                            <span className="font-mono tabular-nums text-zinc-200">{shot.made}/{attempts} <span className="text-zinc-500">({attempts ? Math.round(shot.made / attempts * 100) : 0}%)</span></span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  </div>
+                </>
               ) : (
                 <Card className="border-zinc-800 bg-zinc-950/70 shadow-none">
                   <CardHeader>

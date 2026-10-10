@@ -284,32 +284,32 @@ const LOCATION_TO_ZONE: Record<string, string> = {
 };
 
 // ── Color scale matching the PLAYR1 reference heatmap ───────────────────────
-// Dark jewel red (cold/poor) → molten gold → electric lime → deep emerald (hot/excellent)
+// Direct performance scale: clear red at the low end, clean green at the high end.
 export const SHOT_HEAT_COLOR_BANDS = [
-  { maxPct: 30, label: "≤30%", color: "#51142A" },
-  { maxPct: 38, label: "31–38%", color: "#71172D" },
-  { maxPct: 45, label: "39–45%", color: "#921C28" },
-  { maxPct: 52, label: "46–52%", color: "#AD2C20" },
-  { maxPct: 58, label: "53–58%", color: "#B94A1D" },
-  { maxPct: 65, label: "59–65%", color: "#777D20" },
-  { maxPct: 72, label: "66–72%", color: "#3C7428" },
-  { maxPct: 80, label: "73–80%", color: "#287D35" },
-  { maxPct: 88, label: "81–88%", color: "#1D804B" },
-  { maxPct: Infinity, label: ">88%", color: "#176B57" },
+  { maxPct: 30, label: "≤30%", color: "#8F1D22" },
+  { maxPct: 38, label: "31–38%", color: "#B32824" },
+  { maxPct: 45, label: "39–45%", color: "#D53A2D" },
+  { maxPct: 52, label: "46–52%", color: "#E95B32" },
+  { maxPct: 58, label: "53–58%", color: "#E88736" },
+  { maxPct: 65, label: "59–65%", color: "#D6A934" },
+  { maxPct: 72, label: "66–72%", color: "#9CAE35" },
+  { maxPct: 80, label: "73–80%", color: "#63A83E" },
+  { maxPct: 88, label: "81–88%", color: "#378F45" },
+  { maxPct: Infinity, label: ">88%", color: "#237746" },
 ] as const;
 
 const PERSONAL_SHOT_HEAT_STOPS = [
-  "#65172D",
-  "#7C1C32",
-  "#98212F",
-  "#AF3029",
-  "#C64B25",
-  "#91B843",
-  "#7DAE36",
-  "#68A334",
-  "#519442",
-  "#3B8251",
-  "#286E59",
+  "#8F1D22",
+  "#A92325",
+  "#C42E29",
+  "#D9432E",
+  "#E86B32",
+  "#E8A036",
+  "#C5AD36",
+  "#91A936",
+  "#639E3C",
+  "#408D45",
+  "#237746",
 ] as const;
 const PERSONAL_SHOT_HEAT_GRADIENT = `linear-gradient(90deg, ${PERSONAL_SHOT_HEAT_STOPS
   .map((color, index) => `${color} ${index * 10}%`)

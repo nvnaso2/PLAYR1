@@ -21,6 +21,7 @@
 - [Community feed baseline](community-feed-baseline.md) — uniform, multi-item activity feed is the approved rollback baseline before single-activity browsing
 - [Community first-release navigation](community-first-release-navigation.md) — preserve Community code while keeping its entry point in the admin menu, not player tabs
 - [Wouter search routing](wouter-search-routing.md) — pathname and query are separate, and useSearch omits the leading question mark
+- [Capacitor API requests](capacitor-api-requests.md) — use the native-aware API helper for reads; relative fetches can resolve against the bundled file origin and look like 404s
 - [Business analytics sources](business-analytics-sources.md) — separate Stripe revenue, app subscription state, tracked AI costs, and unavailable platform billing
 - [Activity duration estimates](activity-analytics-duration.md) — report usage time as an event-span estimate; heartbeats improve future precision without rewriting history
 - [Analytics demo fixture](analytics-demo-fixture.md) — dense analytics sample data is development-only and marked as demo to keep production metrics clean

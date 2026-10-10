@@ -371,7 +371,7 @@ export function FreeShotMode({
   const currentZoneTotal = currentZoneShots ? currentZoneShots.made + currentZoneShots.missed : 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-[100] flex min-h-[100dvh] flex-col overflow-hidden bg-black" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-zinc-950 border-b border-zinc-800 shrink-0">
         <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white"
@@ -396,15 +396,15 @@ export function FreeShotMode({
       </div>
 
       {/* Court */}
-      <div className="flex-1 flex items-center justify-center px-3 py-2 min-h-0">
-        <div className="w-full max-w-[420px] aspect-[500/470]">
+      <div className="flex min-h-0 flex-1 items-center justify-center px-3 py-1">
+        <div className="h-full max-h-full w-full max-w-[420px] aspect-[500/470]">
           <InteractiveCourtSVG shots={shots} onZoneClick={setActiveZone} activeZone={activeZone} />
         </div>
       </div>
 
       {/* Bottom panel */}
       {activeZone && activeZoneDef ? (
-        <div className="shrink-0 bg-zinc-900 border-t-2 border-orange-500/50 px-4 pt-4 pb-6">
+        <div className="shrink-0 bg-zinc-900 border-t-2 border-orange-500/50 px-4 pt-3 pb-3">
           <div className="flex items-center justify-between mb-3">
             <div>
               <span className="text-white font-bold text-base">{activeZoneDef.label}</span>
@@ -421,17 +421,17 @@ export function FreeShotMode({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Button
-              className="h-[72px] text-2xl font-black bg-green-600 hover:bg-green-500 active:scale-95 transition-transform text-white rounded-xl"
+              className="h-14 text-xl font-black bg-green-600 hover:bg-green-500 active:scale-95 transition-transform text-white rounded-xl sm:h-[72px] sm:text-2xl"
               onClick={() => addShot(true)} data-testid="button-made-shot"
             >✓ MADE</Button>
             <Button
-              className="h-[72px] text-2xl font-black bg-red-800 hover:bg-red-700 active:scale-95 transition-transform text-white rounded-xl"
+              className="h-14 text-xl font-black bg-red-800 hover:bg-red-700 active:scale-95 transition-transform text-white rounded-xl sm:h-[72px] sm:text-2xl"
               onClick={() => addShot(false)} data-testid="button-missed-shot"
             >✗ MISS</Button>
           </div>
         </div>
       ) : (
-        <div className="shrink-0 px-4 pb-6 pt-3 bg-zinc-950 border-t border-zinc-800">
+        <div className="shrink-0 px-4 pb-3 pt-3 bg-zinc-950 border-t border-zinc-800">
           {totalAttempted === 0 ? (
             <p className="text-center text-zinc-500 text-sm py-1">Tap any zone on the court to log a shot</p>
           ) : (

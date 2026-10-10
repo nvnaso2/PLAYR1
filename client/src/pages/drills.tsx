@@ -36,8 +36,6 @@ import { track } from "@/lib/track";
 import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
 import { 
   Search, 
-  Grid3X3, 
-  List,
   Play,
   HandMetal,
   Target,
@@ -198,6 +196,7 @@ export default function Drills() {
   
   const [activeTab, setActiveTab] = useState(urlTab);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(urlCategory);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -344,20 +343,6 @@ export default function Drills() {
   const filteredCommunityDrills = useMemo(() => filterDrills(communityDrills), [communityDrills, searchQuery, selectedCategory, selectedDifficulty]);
   const filteredMyDrills = useMemo(() => filterDrills(myDrills), [myDrills, searchQuery, selectedCategory, selectedDifficulty]);
 
-  const categoryStats = useMemo(() => {
-    const sourceMap: Record<string, Drill[] | undefined> = {
-      'handlz': adminDrills,
-      'community': communityDrills,
-      'my-drills': myDrills,
-    };
-    const source = sourceMap[activeTab];
-    if (!source) return {};
-    return source.reduce((acc, drill) => {
-      acc[drill.category] = (acc[drill.category] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  }, [adminDrills, communityDrills, myDrills, activeTab]);
-
   if (drillsError) {
     return (
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -418,9 +403,6 @@ export default function Drills() {
         className={selectionMode ? "workout-builder-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 pr-1" : undefined}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <span className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:block">
-            Browse
-          </span>
           <TabsList
             className={`grid h-auto w-full max-w-[560px] ${user ? "grid-cols-3" : "grid-cols-2"} gap-1 rounded-xl border border-border/60 bg-muted/30 p-1`}
             data-testid="tabs-drill-library"
@@ -455,24 +437,47 @@ export default function Drills() {
         </div>
 
         <div className="mt-4 space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:max-w-[400px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search drills..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 pl-10"
-                data-testid="input-search-drills"
-              />
-            </div>
+          <div className="flex items-center gap-2">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="h-10 min-w-0 flex-1 rounded-xl border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100 sm:max-w-[240px]" aria-label="Choose drill category" data-testid="select-category">
+                <SelectValue placeholder="All Drills" />
+              </SelectTrigger>
+              <SelectContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+                {Object.entries(categoryInfo).map(([key, { label }]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {searchOpen && (
+              <div className="relative min-w-0 flex-1 sm:max-w-[300px]">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-orange-300" />
+                <Input
+                  autoFocus
+                  placeholder="Search drills"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && !searchQuery) setSearchOpen(false);
+                  }}
+                  className="h-10 rounded-xl border-zinc-700 bg-zinc-900 pl-10 text-zinc-100 placeholder:text-zinc-500"
+                  data-testid="input-search-drills"
+                />
+              </div>
+            )}
+            <Button type="button" variant="outline" size="icon" onClick={() => {
+              if (searchOpen && searchQuery) setSearchQuery("");
+              else setSearchOpen((open) => !open);
+            }} aria-label={searchOpen ? (searchQuery ? "Clear drill search" : "Close drill search") : "Search drills"}
+              className="h-10 w-10 shrink-0 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-orange-400/50 hover:text-orange-300">
+              {searchOpen && !searchQuery ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+            </Button>
 
             <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
               <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-                <SelectTrigger className="h-9 w-[128px] text-xs" data-testid="select-difficulty">
+                <SelectTrigger className="h-10 w-[118px] rounded-xl border-zinc-700 bg-zinc-900 text-xs font-medium text-zinc-100 focus:ring-orange-400/50" data-testid="select-difficulty">
                   <SelectValue placeholder="All levels" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
                   <SelectItem value="all">All levels</SelectItem>
                   <SelectItem value="beginner">Beginner</SelectItem>
                   <SelectItem value="intermediate">Intermediate</SelectItem>
@@ -481,52 +486,7 @@ export default function Drills() {
                 </SelectContent>
               </Select>
 
-              <div className="flex shrink-0 rounded-md border">
-                <Button
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("grid")}
-                  aria-label="Grid view"
-                  className="h-9 w-9"
-                  data-testid="button-view-grid"
-                >
-                  <Grid3X3 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "secondary" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("list")}
-                  aria-label="List view"
-                  className="h-9 w-9"
-                  data-testid="button-view-list"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter drills by category">
-            {Object.entries(categoryInfo).map(([key, { label }]) => {
-              const count = key === "all"
-                ? Object.values(categoryStats).reduce((total, categoryCount) => total + categoryCount, 0)
-                : categoryStats[key];
-              return (
-                <Button
-                  key={key}
-                  type="button"
-                  size="sm"
-                  variant={selectedCategory === key ? "secondary" : "ghost"}
-                  onClick={() => setSelectedCategory(key)}
-                  aria-pressed={selectedCategory === key}
-                  className="h-8 shrink-0 gap-1.5 px-2.5 text-xs"
-                  data-testid={`button-category-${key}`}
-                >
-                  {label}
-                  {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
-                </Button>
-              );
-            })}
           </div>
 
           <TabsContent value="handlz" className="mt-0 space-y-4">

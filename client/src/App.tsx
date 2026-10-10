@@ -5,7 +5,6 @@ import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { ProUpgradeProvider } from "@/components/pro-upgrade-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
@@ -19,6 +18,7 @@ import { useAdmin } from "@/hooks/use-admin";
 import { useRole, RoleProvider } from "@/hooks/use-role";
 import { pageLoaders, preloadCommonPages } from "@/lib/pageLoaders";
 import { usePageViewTracking } from "@/lib/track";
+import { MessageSquarePlus } from "lucide-react";
 
 // Critical path — load immediately
 import Landing from "@/pages/landing";
@@ -189,8 +189,7 @@ function SplashScreen({ isAuthLoading, isAuthenticated, onComplete }: {
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const isNative = Capacitor.isNativePlatform();
-  const [location] = useLocation();
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [location, setLocation] = useLocation();
   usePageViewTracking();
 
   useEffect(() => {
@@ -207,7 +206,6 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         || active instanceof HTMLTextAreaElement
         || (active instanceof HTMLElement && active.isContentEditable);
       if (!isTextEntry) baselineHeight = height;
-      setKeyboardOpen(isTextEntry && baselineHeight - height > 120);
     };
     const handleFocusIn = () => {
       baselineHeight = viewport?.height ?? window.innerHeight;
@@ -233,14 +231,15 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   } as React.CSSProperties;
+  const isCoachChat = location.split("?")[0] === "/coach-p";
 
   return (
     <SidebarProvider style={sidebarStyle}>
       <div className="flex h-screen w-full overflow-hidden" style={{ height: "var(--playr1-viewport-height, 100dvh)" }}>
-        <AppSidebar />
+        {!isCoachChat && <AppSidebar />}
         <SidebarInset className="flex flex-col min-h-0 flex-1 overflow-hidden">
-          {/* Header */}
-          <header
+          {/* Coach P is an immersive chat surface; keep the shell chrome out of its viewport. */}
+          {!isCoachChat && <header
             className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-zinc-800/60 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60"
             style={isNative ? {
               height: "calc(3.5rem + env(safe-area-inset-top, 0px))",
@@ -251,18 +250,29 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
             <div className="flex-1 flex items-center justify-center">
               <Playr1Logo className="h-8 w-auto" />
             </div>
-            <ThemeToggle />
-          </header>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation("/feedback")}
+              aria-label="Send feedback"
+              title="Send feedback"
+              className="text-zinc-400 hover:bg-orange-500/10 hover:text-orange-300"
+              data-testid="button-header-feedback"
+            >
+              <MessageSquarePlus className="h-5 w-5" />
+            </Button>
+          </header>}
 
           {/* Scrollable page content */}
-          <main className="flex-1 min-w-0 overflow-y-auto min-h-0">
+          <main className={`flex-1 min-w-0 min-h-0 ${isCoachChat ? "overflow-hidden" : "overflow-y-auto"}`}>
             <Suspense fallback={<PageLoader />}>
               {children}
             </Suspense>
           </main>
 
           {/* Bottom tab bar */}
-          {!(location.split("?")[0] === "/coach-p" && keyboardOpen) && <BottomTabBar />}
+          {!isCoachChat && <BottomTabBar />}
         </SidebarInset>
       </div>
     </SidebarProvider>

@@ -1726,7 +1726,7 @@ export default function TrainingLogPage() {
 
   // Render drill selection list
   return (
-    <div className="mx-auto max-w-6xl space-y-4 p-3 pb-4 sm:space-y-6 sm:p-6 sm:pb-24">
+     <div className="mx-auto max-w-6xl space-y-4 p-3 pb-4 sm:space-y-6 sm:p-6 sm:pb-24">
       <div className="flex flex-nowrap items-center justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-xl font-heading uppercase tracking-wide sm:text-4xl" data-testid="text-page-title">Training Log</h1>
@@ -2112,14 +2112,14 @@ export default function TrainingLogPage() {
 
       {/* Main Content Area */}
       {activeView === "library" && !workoutInProgress && (
-        <div className="space-y-3 sm:space-y-6">
+        <div className="space-y-5 sm:space-y-6">
           {!showCreateWorkoutMode ? (
             <>
               {/* Main action layout: 2×2 on mobile, 4-across on desktop. */}
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <button
                   type="button"
-                  className="group flex min-h-[76px] cursor-pointer flex-row items-center gap-2 rounded-xl border border-orange-400/70 bg-gradient-to-br from-orange-500 to-orange-700 p-2.5 text-left text-white shadow-lg shadow-orange-950/30 transition hover:from-orange-400 hover:to-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
+                  className="group flex min-h-[94px] cursor-pointer flex-row items-center gap-2.5 rounded-xl border border-orange-400/60 bg-gradient-to-br from-orange-500 to-orange-700 p-3 text-left text-white shadow-lg shadow-orange-950/30 transition hover:from-orange-400 hover:to-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
                   onClick={() => setLocation("/drills?build=1")}
                   data-testid="action-start-workout"
                   aria-label="Start a workout"
@@ -2137,12 +2137,12 @@ export default function TrainingLogPage() {
 
                 <button
                   type="button"
-                  className="group flex min-h-[76px] cursor-pointer flex-row items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-2.5 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
+                  className="group flex min-h-[94px] cursor-pointer flex-row items-center gap-2.5 rounded-xl border border-zinc-700/70 bg-zinc-900 p-3 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
                   onClick={() => setIsCreateDrillOpen(true)}
                   data-testid="action-create-drill"
                   aria-label="Create a drill"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700/60 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
                     <Plus className="h-4 w-4" />
                   </span>
                   <span>
@@ -2153,12 +2153,12 @@ export default function TrainingLogPage() {
 
                 <button
                   type="button"
-                  className="group flex min-h-[76px] cursor-pointer flex-row items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-2.5 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
+                  className="group flex min-h-[94px] cursor-pointer flex-row items-center gap-2.5 rounded-xl border border-zinc-700/70 bg-zinc-900 p-3 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
                   onClick={() => setLocation("/drills?build=1")}
                   data-testid="action-create-workout"
                   aria-label="Create a workout"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700/60 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
                     <Layers className="h-4 w-4" />
                   </span>
                   <span>
@@ -2169,12 +2169,12 @@ export default function TrainingLogPage() {
 
                 <button
                   type="button"
-                  className="group flex min-h-[76px] cursor-pointer flex-row items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-2.5 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
+                  className="group flex min-h-[94px] cursor-pointer flex-row items-center gap-2.5 rounded-xl border border-zinc-700/70 bg-zinc-900 p-3 text-left text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] sm:min-h-[132px] sm:flex-col sm:items-start sm:gap-3 sm:p-4"
                   onClick={() => setShowChallengeDialog(true)}
                   data-testid="action-create-challenge"
                   aria-label="Create a challenge"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700/60 bg-zinc-950 text-orange-400 sm:h-10 sm:w-10">
                     <Trophy className="h-4 w-4" />
                   </span>
                   <span>
@@ -2376,7 +2376,7 @@ export default function TrainingLogPage() {
                 if (!hasChallenges) return null;
 
                 return (
-                  <Collapsible open={challengesSectionOpen} onOpenChange={setChallengesSectionOpen}>
+                   <Collapsible open={challengesSectionOpen} onOpenChange={setChallengesSectionOpen}>
                     <CollapsibleTrigger asChild>
                       <div className="flex items-center gap-2 cursor-pointer select-none" data-testid="section-challenges">
                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -2389,25 +2389,25 @@ export default function TrainingLogPage() {
                         <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${challengesSectionOpen ? 'rotate-90' : ''}`} />
                       </div>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="max-h-[28vh] space-y-2 overflow-y-auto overscroll-contain pt-3 sm:max-h-none sm:overflow-visible">
+                     <CollapsibleContent className="max-h-[30vh] space-y-2 overflow-y-auto overscroll-contain pt-3 sm:max-h-none sm:overflow-visible">
                       {inProgressChallenges.map(uc => {
                         const progressPercent = Math.min(100, Math.round(((uc.currentValue || 0) / (uc.challenge.targetValue || 1)) * 100));
                         return (
-                          <Card key={uc.id} data-testid={`challenge-item-${uc.id}`}>
-                            <CardContent className="p-3 space-y-2">
+                           <Card key={uc.id} className="overflow-hidden border-orange-500/15 bg-gradient-to-r from-orange-500/[0.06] via-zinc-900/90 to-zinc-900 shadow-none" data-testid={`challenge-item-${uc.id}`}>
+                             <CardContent className="space-y-2 p-2.5 sm:p-3">
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <p className="font-medium text-sm">{uc.challenge.name}</p>
+                                     <p className="line-clamp-1 font-semibold text-sm text-zinc-100">{uc.challenge.name}</p>
                                     <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Active</Badge>
                                   </div>
                                   {uc.challenge.description && (
-                                    <p className="text-xs text-muted-foreground">{uc.challenge.description}</p>
+                                     <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">{uc.challenge.description}</p>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">{uc.challenge.category}</Badge>
-                                  <Button size="icon" variant="ghost" onClick={() => deleteChallengeMutation.mutate(uc.challengeId)}>
+                                   <Badge variant="outline" className="border-zinc-700/80 text-[10px] text-zinc-400">{uc.challenge.category}</Badge>
+                                   <Button size="icon" variant="ghost" aria-label={`Remove ${uc.challenge.name}`} className="h-8 w-8" onClick={() => deleteChallengeMutation.mutate(uc.challengeId)}>
                                     <Trash2 className="w-4 h-4 text-muted-foreground" />
                                   </Button>
                                 </div>
@@ -2419,12 +2419,12 @@ export default function TrainingLogPage() {
                                 </div>
                                 <Progress value={progressPercent} />
                               </div>
-                              <div className="flex items-center gap-2 pt-1">
+                               <div className="flex items-center gap-2 pt-0.5">
                                 <Input
                                   type="number"
                                   min={0}
                                   placeholder="Update progress"
-                                  className="h-8 text-xs w-32"
+                                   className="h-8 w-28 border-zinc-700/70 bg-zinc-950/60 text-xs"
                                   data-testid={`input-challenge-progress-${uc.id}`}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
@@ -2496,7 +2496,7 @@ export default function TrainingLogPage() {
               })()}
 
               {/* Training destinations — separate from actions and challenge tracking. */}
-              <section className="space-y-3" data-testid="section-training-destinations">
+               <section className="mt-8 space-y-3 sm:mt-5" data-testid="section-training-destinations">
                 <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   <Layers className="h-4 w-4 text-primary" />
                   Explore Training

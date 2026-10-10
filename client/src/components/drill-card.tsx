@@ -76,8 +76,9 @@ export function DrillCard({
   const card = (
       <Card
         className={cn(
-          "group cursor-pointer overflow-hidden border-white/[0.08] bg-zinc-950/90 text-zinc-100 shadow-[0_8px_24px_rgba(0,0,0,0.28)] transition-all duration-200",
-          hubFeatured && "flex h-full min-h-[154px] flex-col",
+          "group cursor-pointer overflow-hidden border-white/[0.08] bg-zinc-950/90 text-zinc-100 shadow-[0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-200",
+          viewMode === "grid" && !hubFeatured && "flex h-[220px] flex-col",
+          hubFeatured && "flex h-full min-h-[128px] flex-col",
           viewMode === "list" && "flex min-h-[88px] flex-row",
           selectable
             ? "relative hover:border-white/70"
@@ -173,12 +174,12 @@ export function DrillCard({
         </div>
         <CardContent className={cn(
           "min-w-0 flex-1",
-          viewMode === "list" ? "flex items-center gap-3 p-2.5 sm:p-3" : hubFeatured ? "flex min-h-0 flex-1 flex-col justify-between gap-1 p-2" : "p-2.5"
+          viewMode === "list" ? "flex items-center gap-3 p-2.5 sm:p-3" : hubFeatured ? "flex min-h-0 flex-1 flex-col justify-between gap-1 p-2" : "flex min-h-0 flex-1 flex-col justify-between gap-2 p-3"
         )}>
           <div className={cn("min-w-0 flex-1", viewMode === "list" && "flex flex-col items-start")}>
             <h3 className={cn(
               "font-semibold leading-snug transition-colors group-hover:text-primary",
-              viewMode === "list" ? "line-clamp-2 text-sm" : hubFeatured ? "line-clamp-2 text-[10px] leading-tight sm:text-[11px]" : "line-clamp-2 text-[13px]"
+              viewMode === "list" ? "line-clamp-2 text-sm" : hubFeatured ? "line-clamp-2 text-[10px] leading-tight sm:text-[11px]" : "line-clamp-2 min-h-[2.5em] text-[13px]"
             )} data-testid={`text-drill-title-${drill.id}`}>
               {drill.title}
             </h3>
