@@ -140,15 +140,7 @@ export function getPersonalHeatScalePosition(observedPct: number, baselinePct: n
   const observed = Math.max(0, Math.min(100, observedPct));
   const baseline = Math.max(0, Math.min(100, baselinePct));
   if (observed === baseline) return center;
-
-  if (observed < baseline) {
-    if (baseline === 0) return 0;
-    return Math.max(0, Math.min(center, (observed / baseline) * center));
-  }
-
-  if (baseline === 100) return 10;
-  return Math.max(
-    center,
-    Math.min(10, center + ((observed - baseline) / (100 - baseline)) * center),
-  );
+  // A tighter, symmetric personal window makes meaningful zone differences
+  // visible even when a player's overall volume is high.
+  return Math.max(0, Math.min(10, center + ((observed - baseline) / 8) * center));
 }

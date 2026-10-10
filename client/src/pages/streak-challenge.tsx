@@ -380,14 +380,16 @@ export default function StreakChallengePage() {
   const recentScoreLabel = todayAttempt ? "Today's Score" : myParticipation?.isDaily ? "Last Daily Score" : "Latest Score";
 
   const hasVideo = videoMode === "file" ? Boolean(selectedFile) : Boolean(videoUrl);
-  const displayedRules = challenge.slug === "fifty-in-a-row" ? SIGNATURE_CHALLENGE_RULES : challenge.rules;
+  const isSignatureChallenge = challenge.slug === "fifty-in-a-row";
+  const displayedRules = isSignatureChallenge ? SIGNATURE_CHALLENGE_RULES : challenge.rules;
 
   return (
     <div className="min-h-screen bg-black pb-16" data-testid="page-streak-challenge">
 
       {/* ─── Hero ─── */}
-      <div className="relative overflow-hidden border-b border-zinc-800/80 bg-zinc-950">
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-6 md:py-7">
+      <div className={`relative overflow-hidden border-b border-zinc-800/80 ${isSignatureChallenge ? "bg-[radial-gradient(ellipse_at_top,rgba(249,115,22,0.22),transparent_65%),linear-gradient(120deg,#1a0b04,#090909_60%,#170b05)]" : "bg-zinc-950"}`}>
+        {isSignatureChallenge && <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full border-[32px] border-orange-500/10 blur-sm" />}
+        <div className="relative mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-5">
           <Link href={backHref}>
             <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-zinc-500 hover:text-white" data-testid="button-back-to-origin">
               <ChevronLeft className="w-4 h-4 mr-1" />{backLabel}
@@ -395,6 +397,7 @@ export default function StreakChallengePage() {
           </Link>
           <div className="border-l-2 border-orange-400 pl-4 sm:pl-5" style={{ borderColor: accent }}>
             <div className="flex flex-wrap items-center gap-2">
+              {isSignatureChallenge && <Badge className="border-orange-400/35 bg-orange-500/15 font-bold tracking-[0.14em] text-orange-200">PLAYR1 SIGNATURE</Badge>}
               <Badge className="border-orange-500/30 bg-orange-500/10 text-orange-300">
                 <Flame className="w-3 h-3 mr-1" aria-hidden="true" />Live now
               </Badge>
@@ -402,10 +405,10 @@ export default function StreakChallengePage() {
                 <Users className="w-3 h-3 mr-1" aria-hidden="true" />{participantCount} players
               </Badge>
             </div>
-            <h1 className="mt-4 text-3xl font-heading uppercase tracking-wide leading-none text-white md:text-4xl" data-testid="text-challenge-title">
+            <h1 className={`mt-3 font-heading uppercase tracking-wide leading-none text-white ${isSignatureChallenge ? "text-4xl font-black sm:text-5xl" : "text-3xl md:text-4xl"}`} data-testid="text-challenge-title">
               {challenge.title}
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">{challenge.description}</p>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-300">{isSignatureChallenge ? "Can you hit 50 threes in a row? Step to the line, lock in, and build your streak." : challenge.description}</p>
             {displayedRules && (
               <details className="mt-3">
                 <summary className="flex w-fit cursor-pointer items-center gap-1 text-xs text-zinc-500 transition-colors hover:text-zinc-300">
@@ -418,7 +421,7 @@ export default function StreakChallengePage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-zinc-950 p-1" role="tablist" aria-label="Challenge view">
           <Button
             type="button"

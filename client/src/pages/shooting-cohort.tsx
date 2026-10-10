@@ -1051,13 +1051,15 @@ export default function ShootingCohortPage() {
     <main className="shooting-cohort-page min-h-full bg-[#080808] px-4 pb-12 pt-5 text-zinc-100 sm:px-7 sm:pt-8">
       <div className="mx-auto max-w-6xl">
         <section className="border-b border-zinc-800 pb-5">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="font-heading text-3xl uppercase leading-tight tracking-wide text-white sm:text-4xl">Build an Effortless Shot</h1>
+          <div className="flex flex-row items-center justify-between gap-2">
+            <Button variant="ghost" onClick={() => navigate("/hub")} className="order-1 h-9 shrink-0 px-1 text-zinc-400 hover:bg-transparent hover:text-white">
+              <ChevronRight className="mr-1 h-4 w-4 rotate-180" /> Back
+            </Button>
+            <div className="order-2 min-w-0 flex-1 text-center">
+              <h1 className="font-heading text-xl uppercase leading-tight tracking-wide text-white sm:text-4xl">Build an Effortless Shot</h1>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="order-3 flex shrink-0 gap-2">
               {(canStartApplication || isEditingSurvey) && <Button onClick={toggleInterestSurvey} disabled={canStartApplication && !settings?.applicationsOpen && !showInterestSurvey} aria-expanded={showInterestSurvey} aria-controls="shooting-cohort-interest-survey" className="bg-orange-500 font-bold text-black hover:bg-orange-400 disabled:opacity-50">{showInterestSurvey ? "Close survey" : isEditingSurvey ? "Edit Interest Survey" : "Interest Survey"}</Button>}
-              <Button variant="ghost" onClick={() => navigate("/hub")} className="text-zinc-500 hover:bg-white/[0.04] hover:text-white">Hub <ChevronRight className="ml-1 h-4 w-4" /></Button>
             </div>
           </div>
           {canStartApplication && !settings?.applicationsOpen && <p className="mt-3 text-xs text-[#9d8f7e]">Applications are paused right now.</p>}

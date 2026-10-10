@@ -784,20 +784,11 @@ export default function HubPage() {
                 data-testid={testId}
               >
                 {isCoachPrompt ? (
-                  <>
-                    <span className="flex w-[58px] shrink-0 flex-col items-start gap-2">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="whitespace-nowrap font-heading text-sm uppercase leading-tight tracking-wide text-white">{label}</span>
-                    </span>
-                    <span className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 py-1.5 pl-3 pr-1.5 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)]" aria-hidden="true">
-                      <span className="block min-w-0 flex-1 whitespace-normal break-words text-[10px] leading-tight text-zinc-400">{detail}</span>
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.22)]">
-                        <ArrowUp className="h-4 w-4" />
-                      </span>
-                    </span>
-                  </>
+                  <span className="flex min-h-[50px] min-w-0 flex-1 items-center gap-2 rounded-full border border-orange-400/25 bg-zinc-950/95 px-2.5 py-1.5 shadow-[0_0_20px_rgba(249,115,22,0.08)]" aria-hidden="true">
+                    <Icon className="h-4 w-4 shrink-0 text-orange-400" />
+                    <span className="min-w-0 flex-1" />
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black"><ArrowUp className="h-3.5 w-3.5" /></span>
+                  </span>
                 ) : (
                   <>
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 text-orange-400">
@@ -825,12 +816,17 @@ export default function HubPage() {
               aria-label="3 Point Challenge"
               data-testid="button-hub-3-point-challenge"
             >
-              <span className="flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-orange-300/70 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-700 shadow-[0_7px_22px_rgba(249,115,22,0.24)] transition group-hover:scale-[1.03]">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-white/90 bg-zinc-950 shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
-                  <Play className="h-5 w-5 fill-white text-white" />
+              <span className="relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-[20px] border border-orange-300/70 bg-[radial-gradient(circle_at_50%_18%,rgba(255,220,170,0.4),transparent_38%),linear-gradient(145deg,#fb923c_0%,#ea580c_48%,#7c2d12_100%)] shadow-[0_7px_24px_rgba(249,115,22,0.3)] transition group-hover:scale-[1.04] group-hover:shadow-[0_0_28px_rgba(249,115,22,0.48)]">
+                <span aria-hidden="true" className="absolute inset-1 rounded-[16px] border border-white/20" />
+                <span className="relative -translate-y-0.5 text-center">
+                  <span className="block text-[27px] font-black leading-[0.9] tracking-tighter text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.45)]">50</span>
+                  <span className="mt-1 block text-[7px] font-black uppercase tracking-[0.18em] text-orange-50">IN A ROW</span>
+                </span>
+                <span className="absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-zinc-950 text-white shadow-lg">
+                  <Play className="h-2.5 w-2.5 fill-current" />
                 </span>
               </span>
-              <span className="text-[10px] font-bold leading-tight text-zinc-300">3 Point Challenge</span>
+              <span className="text-[9px] font-black uppercase leading-tight tracking-wide text-orange-100">3PT Challenge</span>
             </button>
             <button
               type="button"

@@ -1453,8 +1453,8 @@ export default function CoachPPage() {
           </div>
         )}
 
-        <div className="relative z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2">
-          <div className="relative flex min-h-[58px] items-center gap-2 rounded-full border border-orange-400/20 bg-zinc-950/95 px-3 py-2 shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_30px_rgba(249,115,22,0.08)] transition-colors focus-within:border-orange-400/45 focus-within:shadow-[0_12px_44px_rgba(0,0,0,0.42),0_0_34px_rgba(249,115,22,0.16)]">
+        <div className="sticky bottom-0 z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2">
+          <div className="relative flex min-h-[48px] items-center gap-2 rounded-[24px] border border-zinc-800 bg-zinc-950 px-2.5 py-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors focus-within:border-orange-400/45">
             <div className="flex min-w-0 flex-1 items-center">
               <Textarea
                 value={draft}
@@ -1467,16 +1467,15 @@ export default function CoachPPage() {
                 }}
                 placeholder={projectBuilderMode ? "Or type your own answer..." : canSend ? "Ask Coach P anything about your game..." : "Monthly limit reached — type here after upgrading"}
                 disabled={chatMutation.isPending}
-                className="min-h-[40px] max-h-32 resize-none rounded-none border-0 bg-transparent px-2 py-2.5 text-[15px] text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-0"
+                className="min-h-[34px] max-h-28 resize-none rounded-none border-0 bg-transparent px-2 py-1.5 text-[15px] text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-0"
                 data-testid="textarea-coach-p"
               />
             </div>
-            <span className="hidden shrink-0 px-2 text-xs font-medium tracking-wide text-zinc-600 sm:inline">Coach P</span>
               <Button
                 size="icon"
                 onClick={() => sendMessage(draft)}
                 disabled={!draft.trim() || !canSend || chatMutation.isPending}
-                className="h-10 w-10 shrink-0 rounded-full bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.22)] hover:bg-orange-400"
+                className="h-9 w-9 shrink-0 rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)] hover:bg-orange-400"
                 data-testid="button-send-coach-p"
               >
                 {chatMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}

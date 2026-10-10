@@ -77,9 +77,9 @@ describe("personalized shot heatmap baselines", () => {
     assert.equal(getPersonalHeatScalePosition(80, 80), 5);
     assert.equal(getPersonalHeatScalePosition(0, 60), 0);
     assert.equal(getPersonalHeatScalePosition(100, 60), 10);
-    assert.equal(getPersonalHeatScalePosition(30, 60), 2.5);
-    assert.equal(getPersonalHeatScalePosition(54, 60), 4.5);
-    assert.equal(getPersonalHeatScalePosition(80, 60), 7.5);
+    assert.equal(getPersonalHeatScalePosition(30, 60), 0);
+    assert.equal(getPersonalHeatScalePosition(54, 60), 1.25);
+    assert.equal(getPersonalHeatScalePosition(80, 60), 10);
     assert.equal(getPersonalHeatScalePosition(0, 0), 5);
     assert.equal(getPersonalHeatScalePosition(100, 100), 5);
   });

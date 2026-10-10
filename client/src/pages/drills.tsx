@@ -120,6 +120,7 @@ function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, 
             <DrillCard
               drill={drill}
               viewMode={viewMode}
+              hubFeatured
               selectable={selectionMode}
               selected={selectedDrillIds?.has(drill.id)}
               onSelect={onSelect}

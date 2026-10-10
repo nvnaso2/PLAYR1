@@ -472,10 +472,6 @@ export default function TrainingLogPage() {
     queryKey: ['/api/challenges/my-challenges'],
   });
 
-  const { data: allChallenges } = useQuery<Challenge[]>({
-    queryKey: ['/api/challenges']
-  });
-
   const { data: favoriteDrillIds } = useQuery<string[]>({
     queryKey: ['/api/user/favorite-drills'],
   });
@@ -1744,7 +1740,7 @@ export default function TrainingLogPage() {
             History
           </Button>
           <Dialog open={isCreateDrillOpen} onOpenChange={setIsCreateDrillOpen}>
-            <DialogContent className="max-h-[90vh] flex flex-col">
+            <DialogContent className="z-[100] flex max-h-[82dvh] w-[min(94vw,34rem)] flex-col overflow-hidden border-zinc-800 bg-zinc-950 p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Create Your Own Drill</DialogTitle>
                 <DialogDescription>
@@ -1753,7 +1749,7 @@ export default function TrainingLogPage() {
               </DialogHeader>
               <Form {...createDrillForm}>
                 <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="flex flex-col flex-1 min-h-0">
-                  <div className="flex-1 overflow-y-auto pr-1 -mr-1">
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 -mr-1">
                     <div className="space-y-4 pb-4">
                       <FormField
                         control={createDrillForm.control}
@@ -1817,7 +1813,7 @@ export default function TrainingLogPage() {
                                     <SelectValue />
                                   </SelectTrigger>
                                 </FormControl>
-                                <SelectContent>
+                                 <SelectContent className="z-[120] border-zinc-700 bg-zinc-950 text-zinc-100">
                                   {DRILL_CATEGORIES.map(cat => (
                                     <SelectItem key={cat} value={cat}>
                                       {formatCategory(cat)}
@@ -2369,9 +2365,7 @@ export default function TrainingLogPage() {
               {/* My Challenges Section */}
               {(() => {
                 const inProgressChallenges = activeChallenges?.filter(uc => !uc.isCompleted) || [];
-                const startedChallengeIds = new Set(activeChallenges?.map(uc => uc.challengeId) || []);
-                const availableChallenges = allChallenges?.filter(c => !startedChallengeIds.has(c.id)) || [];
-                const hasChallenges = inProgressChallenges.length > 0 || availableChallenges.length > 0;
+                const hasChallenges = inProgressChallenges.length > 0;
 
                 if (!hasChallenges) return null;
 
@@ -2393,8 +2387,8 @@ export default function TrainingLogPage() {
                       {inProgressChallenges.map(uc => {
                         const progressPercent = Math.min(100, Math.round(((uc.currentValue || 0) / (uc.challenge.targetValue || 1)) * 100));
                         return (
-                           <Card key={uc.id} className="overflow-hidden border-orange-500/15 bg-gradient-to-r from-orange-500/[0.06] via-zinc-900/90 to-zinc-900 shadow-none" data-testid={`challenge-item-${uc.id}`}>
-                             <CardContent className="space-y-2 p-2.5 sm:p-3">
+                            <Card key={uc.id} className="overflow-hidden border-orange-500/15 bg-zinc-950 shadow-none" data-testid={`challenge-item-${uc.id}`}>
+                              <CardContent className="space-y-2 p-2.5">
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <div>
                                   <div className="flex items-center gap-2">
@@ -2465,31 +2459,6 @@ export default function TrainingLogPage() {
                           </Card>
                         );
                       })}
-                      {availableChallenges.map(challenge => (
-                        <Card key={challenge.id} data-testid={`available-challenge-${challenge.id}`}>
-                          <CardContent className="p-3 flex items-center justify-between gap-2 flex-wrap">
-                            <div>
-                              <p className="font-medium text-sm">{challenge.name}</p>
-                              {challenge.description && (
-                                <p className="text-xs text-muted-foreground">{challenge.description}</p>
-                              )}
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="outline" className="text-xs">{challenge.category}</Badge>
-                                <span className="text-xs text-muted-foreground">{challenge.targetValue} {challenge.metric}</span>
-                              </div>
-                            </div>
-                            <Button
-                              variant="outline"
-                              onClick={() => startChallengeMutation.mutate(challenge.id)}
-                              disabled={startChallengeMutation.isPending}
-                              data-testid={`button-start-challenge-${challenge.id}`}
-                            >
-                              <Play className="w-4 h-4 mr-1" />
-                              Start
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      ))}
                     </CollapsibleContent>
                   </Collapsible>
                 );

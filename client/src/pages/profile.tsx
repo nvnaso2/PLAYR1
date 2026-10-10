@@ -44,7 +44,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl px-4 pb-24 pt-5">
+    <main className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-2xl flex-col px-4 pb-24 pt-5">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
         <div className="flex items-start gap-3">
           <button
@@ -97,7 +97,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <section className="flex flex-col items-center gap-5">
+      <section className="flex flex-1 flex-col items-center justify-evenly gap-6 py-2">
           <div className="flex w-full justify-center">
             <BaseballCard
               profile={career || { cardPhotoUrl: null, jerseyNumber: null, positions: [], teamName: null, schoolName: null }}

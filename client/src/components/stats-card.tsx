@@ -54,18 +54,18 @@ export function StatsCard({
       onDrop={onDrop}
       className={`min-w-0 border-zinc-800 bg-zinc-950/70 shadow-none transition-colors hover:border-orange-500/35 ${isDragging ? "opacity-40" : ""} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      <CardContent className={`${compact ? "flex min-h-[72px] items-center px-3 py-2.5 sm:min-h-[78px] sm:px-3.5 sm:py-3" : "flex min-h-[136px] items-center px-4 py-5 sm:min-h-[156px] sm:px-5 sm:py-6"}`}>
-        <div className={`flex min-w-0 items-center ${compact ? "gap-3" : "gap-4"}`}>
+      <CardContent className={`${compact ? "flex min-h-[68px] items-center px-2 py-2 sm:min-h-[78px] sm:px-3.5 sm:py-3" : "flex min-h-[136px] items-center px-4 py-5 sm:min-h-[156px] sm:px-5 sm:py-6"}`}>
+        <div className={`flex min-w-0 items-center ${compact ? "gap-1.5 sm:gap-3" : "gap-4"}`}>
           {draggable && (
             <GripVertical className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
           )}
           {icon && !draggable && (
-            <div className={`${compact ? "h-8 w-8 rounded-md" : "h-14 w-14 rounded-xl"} flex flex-shrink-0 items-center justify-center border border-orange-500/20 bg-orange-500/10 text-primary`}>{icon}</div>
+            <div className={`${compact ? "h-7 w-7 rounded-md sm:h-8 sm:w-8" : "h-14 w-14 rounded-xl"} flex flex-shrink-0 items-center justify-center border border-orange-500/20 bg-orange-500/10 text-primary [&>svg]:h-4 [&>svg]:w-4 sm:[&>svg]:h-6 sm:[&>svg]:w-6`}>{icon}</div>
           )}
           <div className="min-w-0 flex-1">
-            <p className={`${compact ? "text-[10px]" : "text-[11px] sm:text-xs"} font-heading font-bold uppercase leading-tight tracking-[0.12em] text-zinc-500`}>{title}</p>
+            <p className={`${compact ? "truncate text-[8px] sm:text-[10px]" : "text-[11px] sm:text-xs"} font-heading font-bold uppercase leading-tight tracking-[0.08em] sm:tracking-[0.12em] text-zinc-500`}>{title}</p>
             <div className="mt-1 flex min-w-0 items-baseline gap-2">
-              <p className={`${compact ? "text-lg sm:text-xl" : "text-3xl sm:text-4xl"} truncate font-black leading-none tabular-nums text-white`} data-testid={`${testId}-value`}>{value}</p>
+              <p className={`${compact ? "text-[15px] sm:text-xl" : "text-3xl sm:text-4xl"} truncate font-black leading-none tabular-nums text-white`} data-testid={`${testId}-value`}>{value}</p>
               {typeof change === 'number' && (
                 <span className={`flex items-center gap-0.5 text-[10px] ${getTrendColor()}`}>
                   {getTrendIcon()}
