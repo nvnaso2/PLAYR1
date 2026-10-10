@@ -6,7 +6,7 @@ import { BaseballCard, StatsTab } from "@/pages/career";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Fingerprint, Target, Trophy, Settings, Pencil, Crown } from "lucide-react";
+import { ArrowLeft, Fingerprint, Target, Trophy, Settings, Pencil, Crown } from "lucide-react";
 import { ProfileCardShareButton } from "@/components/profile-card-share-button";
 import type { CareerProfile } from "@shared/schema";
 
@@ -210,21 +210,21 @@ export default function ProfileHubPage() {
 export function CareerStatsPage() {
   const [, navigate] = useLocation();
   return (
-    <main className="mx-auto min-h-full max-w-6xl space-y-4 px-4 pb-8 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
+    <main className="mx-auto min-h-full w-full min-w-0 max-w-7xl space-y-5 overflow-x-clip bg-[#090909] p-4 text-zinc-100 sm:space-y-6 sm:p-6">
       <header className="flex items-center justify-between gap-3">
-        <div>
-          <button
-            type="button"
-            onClick={() => navigate("/profile-hub")}
-            className="mb-2 text-xs font-semibold text-zinc-500 transition hover:text-orange-300"
-            data-testid="button-back-to-profile"
-          >
-            ← My Profile
-          </button>
-          <h1 className="font-display text-2xl font-black uppercase tracking-wide text-white sm:text-3xl" data-testid="text-career-stats-title">
-            Career Stats
-          </h1>
-        </div>
+        <h1 className="text-2xl font-black uppercase tracking-wide text-white sm:text-3xl" data-testid="text-career-stats-title">
+          Career Stats
+        </h1>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => navigate("/profile-hub")}
+          className="h-9 shrink-0 border-zinc-800 bg-transparent px-3 text-xs text-zinc-300 hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300"
+          data-testid="button-back-to-profile"
+        >
+          <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+          Profile
+        </Button>
       </header>
       <StatsTab />
     </main>

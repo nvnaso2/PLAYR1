@@ -2848,8 +2848,7 @@ function StatsOverviewCard({
   const recordCount = totals.wins + totals.losses;
 
   return (
-    <Card className="overflow-hidden border-white/[0.08] bg-[#141414] text-zinc-100">
-      <CardContent className="space-y-4 p-3 sm:p-4">
+    <section className="space-y-4 text-zinc-100" data-testid="career-stats-overview">
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="order-2 flex min-w-0 items-center gap-2 sm:order-1">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-orange-400/20 bg-orange-400/[0.08] text-orange-300">
@@ -3128,8 +3127,7 @@ function StatsOverviewCard({
         <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.07] pt-3">
           <p className="text-[10px] text-zinc-600">{statsScope === "career" ? "All recorded seasons" : selectedSeason ? `${selectedSeason.year}${selectedSeason.teamName ? ` · ${selectedSeason.teamName}` : ""}` : "Season totals"}</p>
         </div>
-      </CardContent>
-    </Card>
+    </section>
   );
 }
 
