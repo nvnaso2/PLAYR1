@@ -407,6 +407,7 @@ function getZoneData(
     let comparedMade = 0;
     let comparedAttempts = 0;
     let expectedPctTimesAttempts = 0;
+    let scalePositionTimesAttempts = 0;
     let hasSectionWithoutBaseline = false;
 
     for (const section of SHOT_HEATMAP_SECTIONS) {
@@ -421,6 +422,11 @@ function getZoneData(
       comparedMade += sectionStats.made;
       comparedAttempts += sectionStats.attempted;
       expectedPctTimesAttempts += baseline.averagePct * sectionStats.attempted;
+      scalePositionTimesAttempts += getPersonalHeatScalePosition(
+        (sectionStats.made / sectionStats.attempted) * 100,
+        baseline.averagePct,
+        section === "three-pointers" ? "original-three-point" : "balanced",
+      ) * sectionStats.attempted;
     }
 
     if (hasSectionWithoutBaseline) {
@@ -432,7 +438,7 @@ function getZoneData(
       result[zone].personalObservedPct = observedPct;
       result[zone].personalBaselinePct = baselinePct;
       result[zone].personalDeviationPct = deviationPct;
-      result[zone].personalScalePosition = getPersonalHeatScalePosition(observedPct, baselinePct);
+      result[zone].personalScalePosition = scalePositionTimesAttempts / comparedAttempts;
     }
   });
 

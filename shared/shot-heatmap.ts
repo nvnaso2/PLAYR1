@@ -134,11 +134,18 @@ export function buildRecentShotHeatmapBaselines(
 
 // Keep ordinary variation near a player's baseline green. Only substantial
 // differences should move zones into the red/orange ends of the scale.
-export function getPersonalHeatScalePosition(observedPct: number, baselinePct: number): number {
+export function getPersonalHeatScalePosition(
+  observedPct: number,
+  baselinePct: number,
+  mode: "balanced" | "original-three-point" = "balanced",
+): number {
   const center = 5;
   const observed = Math.max(0, Math.min(100, observedPct));
   const baseline = Math.max(0, Math.min(100, baselinePct));
   const deviation = observed - baseline;
+  if (mode === "original-three-point") {
+    return Math.max(0, Math.min(10, center + (deviation / 8) * center));
+  }
   const deadband = 7;
   const meaningfulDeviation = Math.max(0, Math.abs(deviation) - deadband);
   if (meaningfulDeviation === 0) return center;
