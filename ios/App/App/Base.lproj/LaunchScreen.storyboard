@@ -15,20 +15,17 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <label opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="PLAYR1" textAlignment="center" lineBreakMode="middleTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="GJd-Yh-RWb">
-                                <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
-                                <fontDescription key="fontDescription" type="boldSystem" pointSize="42"/>
-                                <color key="textColor" red="0.97647058823" green="0.45490196078" blue="0.08627450980" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                <nil key="highlightedColor"/>
-                            </label>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchLogo" translatesAutoresizingMaskIntoConstraints="NO" id="lch-PL-Logo">
+                                <rect key="frame" x="27.5" y="173.5" width="320" height="320"/>
+                            </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeAreaLayoutGuide" id="Bcu-3y-fUS"/>
-                        <color key="backgroundColor" red="0.03921568627" green="0.03921568627" blue="0.03921568627" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="backgroundColor" red="0" green="0" blue="0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="GJd-Yh-RWb" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="moa-c2-u7t"/>
-                            <constraint firstItem="GJd-Yh-RWb" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="ohe-3r-Bts"/>
-                            <constraint firstItem="GJd-Yh-RWb" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="pXa-HM-KRr"/>
-                            <constraint firstItem="GJd-Yh-RWb" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="qXa-HM-KRs"/>
+                            <constraint firstItem="lch-PL-Logo" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="lch-center-x"/>
+                            <constraint firstItem="lch-PL-Logo" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="lch-center-y"/>
+                            <constraint firstItem="lch-PL-Logo" firstAttribute="width" constant="320" id="lch-width"/>
+                            <constraint firstItem="lch-PL-Logo" firstAttribute="height" constant="320" id="lch-height"/>
                         </constraints>
                     </view>
                 </viewController>

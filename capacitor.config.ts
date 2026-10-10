@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.playr1.training',
-  appName: 'PLAYR1 Training',
+  appName: 'PLAYR1',
   webDir: 'dist/public',
   plugins: {
     SplashScreen: {
