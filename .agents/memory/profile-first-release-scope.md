@@ -50,3 +50,9 @@ The Profile and Profile Hub Share action shares only the player's card front and
 **Why:** The user wants recipients to be able to view and flip the real card when the existing public settings allow it, while still sharing card images to Stories and messaging apps.
 
 **How to apply:** Use the native share sheet for both card faces. Keep the public interactive card route card-only and pass it only data permitted by current profile visibility settings. Do not publish private cards or claim a canceled/failed share was sent.
+
+On mobile, fill the actual space between the app header and bottom tab bar with the Profile layout. Keep the card and action buttons large enough to use that space and avoid a large empty gap below them.
+
+**Why:** The user repeatedly asked for the mobile Profile to occupy the same available screen area as the desktop layout, with the card and buttons sized to reduce unused space.
+
+**How to apply:** Size Profile relative to the app shell's remaining content area, not the full device viewport minus an assumed nav height. Anchor the lower actions near the bottom tab bar and scale the card/buttons to fit without introducing page scrolling.

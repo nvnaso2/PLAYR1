@@ -2,7 +2,7 @@
 - [Type-check compatibility boundaries](typecheck-compatibility.md) — contain schema drift at stale adapters and persistence boundaries without excluding active app code
 - [PLAYR1 Stripe credentials](stripe-connector-credentials.md) — use separate test/live manual keys and managed webhooks; verify production behavior, not just secret presence
 - [Hub onboarding path](hub-onboarding-path.md) — profile-derived Hub states share one Coach P prompt; daily drill picks are deterministic and profile-based
-- [Profile and Hub scope](profile-first-release-scope.md) — lead Profile with the unframed card and concise stats; keep Pro pricing in the compact black/orange shared dialog
+- [Profile and Hub scope](profile-first-release-scope.md) — lead Profile with the player card; fill the mobile content area and keep Pro pricing compact
 - [Auth and launch visual direction](auth-startup-visual-direction.md) — keep PLAYR1 sign-in sparse and centered, and preserve the black splash as the app's preview entry
 - [Archetype content source](archetype-content-source.md) — descriptions and four core characteristics come from database definitions with explicit assessment-label mapping
 - [Coach P model budget](coach-p-model-budget.md) — leave enough completion budget for reasoning and visible coaching text

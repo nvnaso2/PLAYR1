@@ -2358,7 +2358,7 @@ function PlayerCardBack({
           <p className="truncate text-[12px] font-black uppercase tracking-wide text-white">
             {userProfile?.displayName || userName || teamLabel || "Player"}
           </p>
-          <p className="mt-0.5 line-clamp-2 text-[9px] font-semibold leading-tight text-orange-200">
+          <p className="mt-0.5 line-clamp-2 text-[9px] font-semibold leading-tight text-white/90">
             {playerProfile?.headline || [positionsText, teamLabel].filter(Boolean).join(" | ") || "Player"}
           </p>
           {location && (
@@ -2625,7 +2625,7 @@ export function BaseballCard({
                   </p>
                 )}
                 {(profile.schoolName || profile.teamName || positionsText) && (
-                  <p className="text-orange-300 font-semibold text-[11px] uppercase tracking-wider leading-none mt-1 truncate [text-shadow:0_0_10px_rgba(249,115,22,0.45)]">
+                   <p className="text-white font-semibold text-[11px] uppercase tracking-wider leading-none mt-1 truncate">
                 {[positionsText, teamLabel].filter(Boolean).join(" | ")}
                   </p>
                 )}
