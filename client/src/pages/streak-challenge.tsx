@@ -211,6 +211,7 @@ export default function StreakChallengePage() {
 
   const [challengeView, setChallengeView] = useState<"progress" | "leaderboard">("progress");
   const [leaderSort, setLeaderSort] = useState<"best" | "closest" | "percent">("best");
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [showLeaveConfirm1, setShowLeaveConfirm1] = useState(false);
@@ -367,7 +368,7 @@ export default function StreakChallengePage() {
     );
   }
 
-  const { challenge, participantCount, myParticipation } = data;
+  const { challenge, myParticipation } = data;
   const accent = challenge.accentColor || "#f97316";
   const myPercent = myParticipation
     ? Math.min(Math.round((myParticipation.bestRecord / myParticipation.personalGoal) * 100), 100)
@@ -380,48 +381,40 @@ export default function StreakChallengePage() {
   const recentScoreLabel = todayAttempt ? "Today's Score" : myParticipation?.isDaily ? "Last Daily Score" : "Latest Score";
 
   const hasVideo = videoMode === "file" ? Boolean(selectedFile) : Boolean(videoUrl);
-  const isSignatureChallenge = challenge.slug === "fifty-in-a-row";
-  const displayedRules = isSignatureChallenge ? SIGNATURE_CHALLENGE_RULES : challenge.rules;
+  const displayedRules = challenge.slug === "fifty-in-a-row" ? SIGNATURE_CHALLENGE_RULES : challenge.rules;
 
   return (
     <div className="min-h-screen bg-black pb-16" data-testid="page-streak-challenge">
 
-      {/* ─── Hero ─── */}
-      <div className={`relative overflow-hidden border-b border-zinc-800/80 ${isSignatureChallenge ? "bg-[radial-gradient(ellipse_at_top,rgba(249,115,22,0.22),transparent_65%),linear-gradient(120deg,#1a0b04,#090909_60%,#170b05)]" : "bg-zinc-950"}`}>
-        {isSignatureChallenge && <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full border-[32px] border-orange-500/10 blur-sm" />}
-        <div className="relative mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-5">
-          <Link href={backHref}>
-            <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-zinc-500 hover:text-white" data-testid="button-back-to-origin">
-              <ChevronLeft className="w-4 h-4 mr-1" />{backLabel}
-            </Button>
-          </Link>
-          <div className="border-l-2 border-orange-400 pl-4 sm:pl-5" style={{ borderColor: accent }}>
-            <div className="flex flex-wrap items-center gap-2">
-              {isSignatureChallenge && <Badge className="border-orange-400/35 bg-orange-500/15 font-bold tracking-[0.14em] text-orange-200">PLAYR1 SIGNATURE</Badge>}
-              <Badge className="border-orange-500/30 bg-orange-500/10 text-orange-300">
-                <Flame className="w-3 h-3 mr-1" aria-hidden="true" />Live now
-              </Badge>
-              <Badge className="border-white/10 bg-white/[0.04] text-zinc-400">
-                <Users className="w-3 h-3 mr-1" aria-hidden="true" />{participantCount} players
-              </Badge>
-            </div>
-            <h1 className={`mt-3 font-heading uppercase tracking-wide leading-none text-white ${isSignatureChallenge ? "text-4xl font-black sm:text-5xl" : "text-3xl md:text-4xl"}`} data-testid="text-challenge-title">
-              {challenge.title}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-300">{isSignatureChallenge ? "Can you hit 50 threes in a row? Step to the line, lock in, and build your streak." : challenge.description}</p>
-            {displayedRules && (
-              <details className="mt-3">
-                <summary className="flex w-fit cursor-pointer items-center gap-1 text-xs text-zinc-500 transition-colors hover:text-zinc-300">
-                  <Info className="h-3 w-3" aria-hidden="true" />Rules & how it works
-                </summary>
-                <p className="mt-2 max-w-xl border-l border-zinc-700 pl-3 text-xs leading-relaxed text-zinc-500">{displayedRules}</p>
-              </details>
-            )}
-          </div>
-        </div>
-      </div>
+      <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
+        <DialogContent className="border-zinc-800 bg-zinc-950 text-white">
+          <DialogHeader>
+            <DialogTitle>{challenge.title} rules</DialogTitle>
+            <DialogDescription className="space-y-3 text-zinc-400">
+              {challenge.description && <span className="block">{challenge.description}</span>}
+              {displayedRules && <span className="block">{displayedRules}</span>}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
 
-      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-6">
+      <header className="border-b border-zinc-800/70 bg-[#080808]">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link href={backHref}>
+              <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-zinc-400 hover:bg-zinc-900 hover:text-white" aria-label={`Back to ${backLabel}`} data-testid="button-back-to-origin">
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <h1 className="truncate font-heading text-xl uppercase tracking-wide text-white sm:text-2xl" data-testid="text-challenge-title">{challenge.title}</h1>
+          </div>
+          <Button type="button" variant="outline" size="icon" onClick={() => setRulesOpen(true)} aria-label="Challenge rules" title="Challenge rules" className="h-9 w-9 shrink-0 border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-orange-500/50 hover:text-orange-300" data-testid="button-challenge-rules">
+            <Info className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-5">
         <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-zinc-950 p-1" role="tablist" aria-label="Challenge view">
           <Button
             type="button"
