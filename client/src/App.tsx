@@ -94,6 +94,7 @@ const Journey = lazy(pageLoaders.journey);
 const OnboardingPreview = lazy(() => import("@/pages/onboarding-preview"));
 const CommunityPage = lazy(() => import("@/pages/community"));
 const ProfileHubPage = lazy(() => import("@/pages/profile-hub"));
+const CareerStatsPage = lazy(() => import("@/pages/profile-hub").then((module) => ({ default: module.CareerStatsPage })));
 
 const SubscriptionPage = lazy(() => import("@/pages/subscription"));
 const StreaksPage = lazy(() => import("@/pages/streaks"));
@@ -491,6 +492,7 @@ function Router() {
                 <Route path="/log" component={TrainingLog} />
                 <Route path="/videos" component={Videos} />
                 <Route path="/career">{() => <Redirect to="/profile-hub" />}</Route>
+                <Route path="/career-stats" component={CareerStatsPage} />
                 <Route path="/my-season" component={MySeason} />
                 <Route path="/development" component={Development} />
                 <Route path="/profile/edit" component={PlayerProfile} />

@@ -196,7 +196,6 @@ export default function ProgressPage() {
   const [activeSkill, setActiveSkill] = useState("all");
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("shotsMade");
   const [shareOpen, setShareOpen] = useState(false);
-  const [shotBreakdownOpen, setShotBreakdownOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const fromHub = location.includes("from=hub");
 
@@ -346,12 +345,10 @@ export default function ProgressPage() {
 
   return (
     <div className="min-h-full w-full min-w-0 overflow-x-clip bg-[#090909] p-4 sm:p-6 max-w-7xl mx-auto space-y-5 sm:space-y-6">
-      <header className="space-y-4">
-        <div>
+      <header className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
           <h1 className="mt-1 text-2xl sm:text-3xl font-black uppercase tracking-wide text-white" data-testid="text-page-title">Dashboard</h1>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex shrink-0 items-center justify-end gap-2">
             <Button
               size="icon"
               onClick={() => setShareOpen(true)}
@@ -372,7 +369,8 @@ export default function ProgressPage() {
               <Settings2 className="h-4 w-4" />
             </Button>
           </div>
-          <div className="grid w-full grid-cols-4 gap-1 sm:w-auto" role="group" aria-label="Choose dashboard time range">
+        </div>
+        <div className="grid w-full grid-cols-4 gap-1 sm:w-auto" role="group" aria-label="Choose dashboard time range">
             {(["daily", "weekly", "monthly", "annual"] as TimePeriod[]).map((period) => (
               <Button
                 key={period}
@@ -387,7 +385,6 @@ export default function ProgressPage() {
                 {TIME_PERIOD_LABELS[period]}
               </Button>
             ))}
-          </div>
         </div>
       </header>
 
@@ -536,8 +533,7 @@ export default function ProgressPage() {
 
             {showShootingHeatmap && (
               shotHeatmapData.length > 0 ? (
-                <>
-                  <ShootingHeatmap
+                <ShootingHeatmap
                     shotData={shotHeatmapData}
                     title="Shooting Heatmap"
                     personalizedScale
@@ -545,32 +541,6 @@ export default function ProgressPage() {
                     baselineLoading={shotHeatmapBaselinesLoading}
                     baselineError={shotHeatmapBaselinesError}
                   />
-                  <div className="mt-2 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/70">
-                  <button
-                    type="button"
-                    onClick={() => setShotBreakdownOpen((open) => !open)}
-                    aria-expanded={shotBreakdownOpen}
-                    className="flex min-h-10 w-full items-center justify-between px-3 text-left text-xs font-semibold text-zinc-300 hover:bg-white/[0.03]"
-                    data-testid="button-toggle-shot-breakdown"
-                  >
-                    Shot breakdown
-                    <ChevronDown className={`h-4 w-4 transition-transform ${shotBreakdownOpen ? "rotate-180 text-orange-300" : "text-zinc-500"}`} />
-                  </button>
-                  {shotBreakdownOpen && (
-                    <div className="divide-y divide-white/[0.06] border-t border-zinc-800">
-                      {(shotStats ?? []).map((shot) => {
-                        const attempts = shot.made + shot.missed;
-                        return (
-                          <div key={shot.location} className="flex items-center justify-between px-3 py-2 text-xs">
-                            <span className="capitalize text-zinc-400">{shot.location.replace(/-/g, " ")}</span>
-                            <span className="font-mono tabular-nums text-zinc-200">{shot.made}/{attempts} <span className="text-zinc-500">({attempts ? Math.round(shot.made / attempts * 100) : 0}%)</span></span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  </div>
-                </>
               ) : (
                 <Card className="border-zinc-800 bg-zinc-950/70 shadow-none">
                   <CardHeader>

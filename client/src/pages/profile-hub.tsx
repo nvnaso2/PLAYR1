@@ -33,11 +33,6 @@ type CareerNumbers = {
   }>;
 };
 
-function numeric(value: unknown): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 export default function ProfileHubPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
@@ -86,7 +81,7 @@ export default function ProfileHubPage() {
     user?.email?.split("@")[0] ||
     "Player";
   return (
-    <main className="mx-auto min-h-[100dvh] max-w-6xl space-y-8 px-4 pb-12 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
+    <main className="mx-auto max-w-6xl space-y-4 px-4 pb-4 pt-4 text-zinc-100 sm:px-6 sm:pt-5">
       <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
         <div>
           <h1 className="font-display text-2xl font-black tracking-tight text-zinc-50 sm:text-3xl" data-testid="text-page-title">My Profile</h1>
@@ -172,8 +167,8 @@ export default function ProfileHubPage() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => navigate("/career")}
-          className="h-10 rounded-full border-zinc-700 bg-zinc-900 px-4 text-xs font-bold text-zinc-200 hover:border-orange-400/40 hover:bg-zinc-800 hover:text-white"
+          onClick={() => navigate("/career-stats")}
+          className="h-10 rounded-full border border-orange-400/60 bg-zinc-950 px-4 text-xs font-bold text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.2),inset_0_0_0_1px_rgba(249,115,22,0.1)] transition hover:border-orange-300 hover:bg-orange-950/30 hover:text-white hover:shadow-[0_0_25px_rgba(249,115,22,0.35)]"
           data-testid="button-career-stats-hub"
         >
           <Target className="mr-2 h-4 w-4 text-orange-300" />
@@ -191,25 +186,6 @@ export default function ProfileHubPage() {
           </Link>
         </Button>
       </section>
-      <section aria-labelledby="profile-stats-heading" className="space-y-4" data-testid="section-profile-career-stats">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 id="profile-stats-heading" className="mt-1 font-display text-xl font-black tracking-tight sm:text-2xl">Career stats</h2>
-          </div>
-          <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-            {numeric(careerStats?.totalGames)} games logged
-          </span>
-        </div>
-        {careerStatsLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-11 w-full rounded-xl bg-zinc-900" />
-            <Skeleton className="h-36 w-full rounded-xl bg-zinc-900" />
-          </div>
-        ) : (
-          <StatsTab />
-        )}
-      </section>
-
       <section aria-labelledby="profile-development-heading" className="space-y-3" hidden>
         <div className="flex items-end justify-between gap-3">
           <div>
@@ -227,6 +203,30 @@ export default function ProfileHubPage() {
           </Button>
         </div>
       </section>
+    </main>
+  );
+}
+
+export function CareerStatsPage() {
+  const [, navigate] = useLocation();
+  return (
+    <main className="mx-auto min-h-full max-w-6xl space-y-4 px-4 pb-8 pt-5 text-zinc-100 sm:px-6 sm:pt-8">
+      <header className="flex items-center justify-between gap-3">
+        <div>
+          <button
+            type="button"
+            onClick={() => navigate("/profile-hub")}
+            className="mb-2 text-xs font-semibold text-zinc-500 transition hover:text-orange-300"
+            data-testid="button-back-to-profile"
+          >
+            ← My Profile
+          </button>
+          <h1 className="font-display text-2xl font-black uppercase tracking-wide text-white sm:text-3xl" data-testid="text-career-stats-title">
+            Career Stats
+          </h1>
+        </div>
+      </header>
+      <StatsTab />
     </main>
   );
 }

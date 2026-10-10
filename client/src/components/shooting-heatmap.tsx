@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ShotLocationDB } from "@shared/schema";
+import { ChevronDown } from "lucide-react";
 import {
   getPersonalHeatScalePosition,
   getShotHeatmapSection,
@@ -286,30 +287,30 @@ const LOCATION_TO_ZONE: Record<string, string> = {
 // ── Color scale matching the PLAYR1 reference heatmap ───────────────────────
 // Direct performance scale: clear red at the low end, clean green at the high end.
 export const SHOT_HEAT_COLOR_BANDS = [
-  { maxPct: 30, label: "≤30%", color: "#8F1D22" },
-  { maxPct: 38, label: "31–38%", color: "#B32824" },
-  { maxPct: 45, label: "39–45%", color: "#D53A2D" },
-  { maxPct: 52, label: "46–52%", color: "#E95B32" },
-  { maxPct: 58, label: "53–58%", color: "#E88736" },
-  { maxPct: 65, label: "59–65%", color: "#D6A934" },
-  { maxPct: 72, label: "66–72%", color: "#9CAE35" },
-  { maxPct: 80, label: "73–80%", color: "#63A83E" },
-  { maxPct: 88, label: "81–88%", color: "#378F45" },
-  { maxPct: Infinity, label: ">88%", color: "#237746" },
+  { maxPct: 30, label: "≤30%", color: "#6B0E0E" },
+  { maxPct: 38, label: "31–38%", color: "#9B1F0A" },
+  { maxPct: 45, label: "39–45%", color: "#C03410" },
+  { maxPct: 52, label: "46–52%", color: "#C86020" },
+  { maxPct: 58, label: "53–58%", color: "#9B7820" },
+  { maxPct: 65, label: "59–65%", color: "#6B7A20" },
+  { maxPct: 72, label: "66–72%", color: "#3D7A2A" },
+  { maxPct: 80, label: "73–80%", color: "#2E8E2E" },
+  { maxPct: 88, label: "81–88%", color: "#1AA81A" },
+  { maxPct: Infinity, label: ">88%", color: "#0DC80D" },
 ] as const;
 
 const PERSONAL_SHOT_HEAT_STOPS = [
-  "#8F1D22",
-  "#A92325",
-  "#C42E29",
-  "#D9432E",
-  "#E86B32",
-  "#E8A036",
-  "#C5AD36",
-  "#91A936",
-  "#639E3C",
-  "#408D45",
-  "#237746",
+  "#6B0E0E",
+  "#9B1F0A",
+  "#C03410",
+  "#C86020",
+  "#9B7820",
+  "#3D7A2A",
+  "#2E8E2E",
+  "#1AA81A",
+  "#0DC80D",
+  "#18D218",
+  "#2BE52B",
 ] as const;
 const PERSONAL_SHOT_HEAT_GRADIENT = `linear-gradient(90deg, ${PERSONAL_SHOT_HEAT_STOPS
   .map((color, index) => `${color} ${index * 10}%`)
@@ -685,6 +686,7 @@ export function ShootingHeatmap({
   baselineLoading = false,
   baselineError = false,
 }: ShootingHeatmapProps) {
+  const [zoneBreakdownOpen, setZoneBreakdownOpen] = useState(false);
   const { data: shotLocationOptions } = useQuery<ShotLocationDB[]>({
     queryKey: ['/api/shot-locations'],
   });
@@ -754,18 +756,17 @@ export function ShootingHeatmap({
                 className="h-3 w-36 sm:w-52 rounded"
                 data-testid="heatmap-color-scale"
                 role="img"
-                aria-label="Smooth scale from red below average through light green at average to deeper green above average"
-                title="Your recent shot-type average is at the light-green midpoint"
+                aria-label="Smooth scale from red below average through green at average to brighter green above average"
+                title="Your recent shot-type average is green"
                 style={{ background: PERSONAL_SHOT_HEAT_GRADIENT }}
               />
               <span className="text-[10px] text-zinc-500 ml-1">100%</span>
             </div>
             <div className="flex justify-center gap-1 text-[10px] text-zinc-500">
               <span>Lower</span>
-              <span className="mx-2" style={{ color: "#A6D451" }}>Your section average</span>
+              <span className="mx-2" style={{ color: "#3D7A2A" }}>Your section average</span>
               <span>Higher</span>
             </div>
-            <p className="text-center text-[10px] text-zinc-600">Gray zones need more recent data for every shot type they contain.</p>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-1 mt-3" data-testid="heatmap-legend">
@@ -779,43 +780,57 @@ export function ShootingHeatmap({
           </div>
         )}
 
-        {/* Zone breakdown */}
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-xs">
-          {Object.entries(zoneData)
-            .filter(([, d]) => d.made + d.missed > 0)
-            .sort((a, b) => b[1].percentage - a[1].percentage)
-            .map(([zoneName, data]) => {
-              const zone = COURT_ZONES[zoneName];
-              if (!zone) return null;
-              const total = data.made + data.missed;
-              const color = personalizedScale
-                ? data.personalScalePosition !== undefined
-                  ? getPersonalHeatColor(data.personalScalePosition)
-                  : UNGRADED_ZONE_COLOR
-                : getHeatColor(data.percentage);
-              const label = zoneLabelMap[zoneName]?.join(' / ') || zone.label;
-              const comparisonText = data.personalBaselinePct !== undefined
-                ? `${data.personalDeviationPct! >= 0 ? "+" : ""}${data.personalDeviationPct!.toFixed(1)} pp vs personal average`
-                : personalizedScale
-                  ? data.personalBaselineMissing
-                    ? "A recent baseline is missing for one or more shot types in this zone"
-                    : "No recent personal baseline"
-                  : "";
-              return (
-                <div
-                  key={zoneName}
-                  className="flex items-center justify-between p-1.5 rounded"
-                  style={{ backgroundColor: color + "28", border: `1px solid ${color}44` }}
-                  data-testid={`heatmap-zone-${zoneName}`}
-                  title={comparisonText || undefined}
-                >
-                  <span className="text-zinc-300 truncate">{label}</span>
-                  <span className="font-semibold ml-1 shrink-0" style={{ color }}>
-                    {data.made}/{total} ({data.percentage}%)
-                  </span>
-                </div>
-              );
-            })}
+        <div className="mt-3 overflow-hidden rounded-lg border border-zinc-800/80">
+          <button
+            type="button"
+            onClick={() => setZoneBreakdownOpen((open) => !open)}
+            aria-expanded={zoneBreakdownOpen}
+            aria-controls="shooting-heatmap-zone-breakdown"
+            className="flex min-h-10 w-full items-center justify-between px-3 text-left text-xs font-semibold text-zinc-300 transition hover:bg-white/[0.03]"
+            data-testid="button-toggle-shot-breakdown"
+          >
+            <span>Shot breakdown</span>
+            <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform ${zoneBreakdownOpen ? "rotate-180 text-orange-300" : ""}`} />
+          </button>
+          {zoneBreakdownOpen && (
+            <div id="shooting-heatmap-zone-breakdown" className="grid grid-cols-2 gap-1.5 border-t border-zinc-800 p-2 text-xs sm:grid-cols-3">
+              {Object.entries(zoneData)
+                .filter(([, d]) => d.made + d.missed > 0)
+                .sort((a, b) => b[1].percentage - a[1].percentage)
+                .map(([zoneName, data]) => {
+                  const zone = COURT_ZONES[zoneName];
+                  if (!zone) return null;
+                  const total = data.made + data.missed;
+                  const color = personalizedScale
+                    ? data.personalScalePosition !== undefined
+                      ? getPersonalHeatColor(data.personalScalePosition)
+                      : UNGRADED_ZONE_COLOR
+                    : getHeatColor(data.percentage);
+                  const label = zoneLabelMap[zoneName]?.join(" / ") || zone.label;
+                  const comparisonText = data.personalBaselinePct !== undefined
+                    ? `${data.personalDeviationPct! >= 0 ? "+" : ""}${data.personalDeviationPct!.toFixed(1)} pp vs personal average`
+                    : personalizedScale
+                      ? data.personalBaselineMissing
+                        ? "A recent baseline is missing for one or more shot types in this zone"
+                        : "No recent personal baseline"
+                      : "";
+                  return (
+                    <div
+                      key={zoneName}
+                      className="flex items-center justify-between rounded p-1.5"
+                      style={{ backgroundColor: color + "28", border: `1px solid ${color}44` }}
+                      data-testid={`heatmap-zone-${zoneName}`}
+                      title={comparisonText || undefined}
+                    >
+                      <span className="truncate text-zinc-300">{label}</span>
+                      <span className="ml-1 shrink-0 font-semibold" style={{ color }}>
+                        {data.made}/{total} ({data.percentage}%)
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
