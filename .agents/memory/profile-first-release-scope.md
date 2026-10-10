@@ -51,8 +51,8 @@ The Profile and Profile Hub Share action shares only the player's card front and
 
 **How to apply:** Use the native share sheet for both card faces. Keep the public interactive card route card-only and pass it only data permitted by current profile visibility settings. Do not publish private cards or claim a canceled/failed share was sent.
 
-On mobile, fill the actual space between the app header and bottom tab bar with the Profile layout. Keep the card and action buttons large enough to use that space and avoid a large empty gap below them.
+On mobile, center the whole Edit Profile/PLAYR1 Pro, player-card, and Career Stats/Trophy Room group vertically in the app content area. Keep the current card and button scale moderate; shift the group as a unit rather than enlarging every control to fill space.
 
-**Why:** The user repeatedly asked for the mobile Profile to occupy the same available screen area as the desktop layout, with the card and buttons sized to reduce unused space.
+**Why:** The user wants the Profile content centered in the available mobile area, not pushed upward by a large bottom gap or made oversized by stretching individual controls.
 
-**How to apply:** Size Profile relative to the app shell's remaining content area, not the full device viewport minus an assumed nav height. Anchor the lower actions near the bottom tab bar and scale the card/buttons to fit without introducing page scrolling.
+**How to apply:** Size Profile relative to the app shell's remaining content area, not the full device viewport minus an assumed nav height. Place the card in the flexible space between the two button rows, then shift the entire group together as needed. Avoid transform scaling that causes overlap unless the wrapper reserves the transformed dimensions.

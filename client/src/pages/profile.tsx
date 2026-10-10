@@ -60,6 +60,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
+      <div className="flex min-h-0 flex-1 flex-col max-md:translate-y-8">
       <div className="mt-3 flex shrink-0 justify-center gap-3">
         <Button asChild size="sm" className="h-10 border border-orange-400/80 bg-[#11100f] px-4 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18)] hover:bg-[#1b1510] hover:text-white" data-testid="button-edit-profile">
           <Link href="/profile/edit?returnTo=%2Fprofile"><Pencil className="mr-1.5 h-3.5 w-3.5" />Edit Profile</Link>
@@ -93,6 +94,7 @@ export default function ProfilePage() {
           </Button>
         </div>
       </section>
+      </div>
     </main>
   );
 }
