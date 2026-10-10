@@ -406,7 +406,7 @@ export default function ProgressPage() {
             />
             <StatsCard
               title="Hours Trained"
-              value={`${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`}
+              value={Math.floor(totalMinutes / 60)}
               icon={<Clock className="h-6 w-6 text-primary" />}
               testId="stats-hours"
               compact
@@ -490,7 +490,7 @@ export default function ProgressPage() {
             {trainingLoading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-[72px] rounded-lg" />
+                  <Skeleton key={i} className="h-[136px] rounded-lg" />
                 ))}
               </div>
             ) : filteredStats.length > 0 ? (
@@ -508,7 +508,6 @@ export default function ProgressPage() {
                       value={displayVal}
                       icon={card.icon}
                       testId={card.testId}
-                      compact
                     />
                   );
                 })}

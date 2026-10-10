@@ -72,14 +72,16 @@ describe("personalized shot heatmap baselines", () => {
     assert.equal(result.workoutWindow, 10);
   });
 
-  it("maps actual 0–100% rates continuously around each player's average", () => {
+  it("keeps ordinary variation around a player's average green and reserves red for larger gaps", () => {
     assert.equal(getPersonalHeatScalePosition(20, 20), 5);
     assert.equal(getPersonalHeatScalePosition(80, 80), 5);
+    assert.equal(getPersonalHeatScalePosition(94, 100), 5);
+    assert.equal(getPersonalHeatScalePosition(54, 60), 5);
+    assert.ok(getPersonalHeatScalePosition(65, 80) > 0);
     assert.equal(getPersonalHeatScalePosition(0, 60), 0);
     assert.equal(getPersonalHeatScalePosition(100, 60), 10);
     assert.equal(getPersonalHeatScalePosition(30, 60), 0);
-    assert.equal(getPersonalHeatScalePosition(54, 60), 1.25);
-    assert.equal(getPersonalHeatScalePosition(80, 60), 10);
+    assert.equal(getPersonalHeatScalePosition(90, 60), 10);
     assert.equal(getPersonalHeatScalePosition(0, 0), 5);
     assert.equal(getPersonalHeatScalePosition(100, 100), 5);
   });

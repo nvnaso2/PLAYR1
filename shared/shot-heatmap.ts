@@ -132,15 +132,16 @@ export function buildRecentShotHeatmapBaselines(
   return { workoutWindow, sections: sectionAverages };
 }
 
-// Map a real 0–100% shooting rate to a continuous color-scale position, with
-// the shot-type baseline always at the midpoint. The lower and upper spans
-// adapt to the baseline so the legend can retain meaningful percentage endpoints.
+// Keep ordinary variation near a player's baseline green. Only substantial
+// differences should move zones into the red/orange ends of the scale.
 export function getPersonalHeatScalePosition(observedPct: number, baselinePct: number): number {
   const center = 5;
   const observed = Math.max(0, Math.min(100, observedPct));
   const baseline = Math.max(0, Math.min(100, baselinePct));
-  if (observed === baseline) return center;
-  // A tighter, symmetric personal window makes meaningful zone differences
-  // visible even when a player's overall volume is high.
-  return Math.max(0, Math.min(10, center + ((observed - baseline) / 8) * center));
+  const deviation = observed - baseline;
+  const deadband = 7;
+  const meaningfulDeviation = Math.max(0, Math.abs(deviation) - deadband);
+  if (meaningfulDeviation === 0) return center;
+  const signedDeviation = Math.sign(deviation) * meaningfulDeviation;
+  return Math.max(0, Math.min(10, center + (signedDeviation / 18) * center));
 }

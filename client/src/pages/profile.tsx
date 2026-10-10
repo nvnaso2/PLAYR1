@@ -42,7 +42,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-2xl flex-col px-4 pb-20 pt-3">
+    <main className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-2xl flex-col px-4 pb-3 pt-3 max-md:h-[calc(100dvh-5rem)] max-md:min-h-0 max-md:overflow-hidden">
       <header className="flex items-center justify-between gap-3">
         <h1 className="font-heading text-2xl font-black uppercase tracking-tight sm:text-3xl" data-testid="text-page-title">My Profile</h1>
         <div className="flex shrink-0 items-center gap-2">
@@ -60,7 +60,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <div className="mt-4 flex justify-center gap-3">
+      <div className="mt-3 flex justify-center gap-3">
         <Button asChild size="sm" className="h-10 border border-orange-400/80 bg-[#11100f] px-4 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18)] hover:bg-[#1b1510] hover:text-white" data-testid="button-edit-profile">
           <Link href="/profile/edit?returnTo=%2Fprofile"><Pencil className="mr-1.5 h-3.5 w-3.5" />Edit Profile</Link>
         </Button>
@@ -69,8 +69,9 @@ export default function ProfilePage() {
         </Button>
       </div>
 
-      <section className="flex min-h-0 flex-1 flex-col items-center" aria-label="Player profile">
-        <div className="flex min-h-0 w-full flex-1 items-center justify-center py-3">
+      <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4" aria-label="Player profile">
+        <div className="flex shrink-0 items-center justify-center">
+          <div className="scale-[0.96]">
           <BaseballCard
             profile={career || { cardPhotoUrl: null, jerseyNumber: null, positions: [], teamName: null, schoolName: null }}
             playerProfile={playerProfile}
@@ -79,8 +80,9 @@ export default function ProfilePage() {
             rootRef={cardRef}
             onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })}
           />
+          </div>
         </div>
-        <div className="mt-auto grid w-full max-w-md grid-cols-2 gap-3 pb-1">
+        <div className="grid w-full max-w-md grid-cols-2 gap-3">
           <Button asChild variant="outline" className="h-12 rounded-full border border-orange-400/35 bg-zinc-950 px-3 text-sm font-bold text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.16)] hover:border-orange-300/70 hover:bg-zinc-900 hover:shadow-[0_0_24px_rgba(249,115,22,0.28)]" data-testid="button-open-career-stats">
             <Link href="/career-stats" className="flex items-center justify-center gap-2"><Trophy className="h-4 w-4 text-orange-300" />Career Stats</Link>
           </Button>
