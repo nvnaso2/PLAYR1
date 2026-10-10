@@ -224,3 +224,17 @@ mtime_ms = 1791563112995
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:1c84d0cc-428f-49ee-b59e-eeb7b2f6becf/fac74db1-28f1-4f58-bdf7-b1b066940515/f7337205-5d82-45db-8f18-c6336ad25373"
 storage_version_token = "1791591866636515"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "nczNb8sxYflMGc-nnt_Bg"
+uri = "file://generated-artifacts/PLAYR1-Xcode-public-assets-2026-10-09.zip"
+type = "unspecified"
+title = "PLAYR1 Xcode Web Assets"
+description = "Latest built iOS web assets as a ZIP with the required public/ folder at the archive root. Extract it and replace the existing App/public folder in Xcode."
+logical_id = "29525658-e4a1-4c66-b7f9-860d4b11b836"
+content_hash = "sha256:1bcdab428127d098574084e21d26de4e5fdc17c6232bbbe0dabb3aa1967e62d9"
+size = 4922482
+mtime_ms = 1791596928112
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:1c84d0cc-428f-49ee-b59e-eeb7b2f6becf/29525658-e4a1-4c66-b7f9-860d4b11b836/1e9f1150-3a3c-4058-ab58-52af8fe4f4c5"
+storage_version_token = "1791596934146219"
+content_type = "application/octet-stream"
