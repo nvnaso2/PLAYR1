@@ -40,3 +40,4 @@
 - [Founder-led shooting cohort](founder-shooting-cohort.md) — member-only portal, private Founder messaging, dated shooting progress, assigned workouts, and outstanding-review counts
 - [Mockup Vite preview cache](mockup-vite-preview-cache.md) — after an `Outdated Optimize Dep` 504, check stale sandbox prebundle metadata before changing dependencies
 - [Personalized shot heat map](personalized-shot-heatmap.md) — preserve the original dark red-to-green palette and map each player's personal average to green
+- [Portable npm lockfiles](npm-lockfile-registry.md) — Replit firewall tarball URLs in package-lock.json fail DNS on cloned Mac builds; keep resolved URLs public
