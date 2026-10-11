@@ -266,7 +266,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           </header>}
 
           {/* Scrollable page content */}
-          <main className={`flex-1 min-w-0 min-h-0 ${isCoachChat ? "overflow-hidden" : "overflow-y-auto"}`}>
+          <main data-app-scroll-container className={`flex-1 min-w-0 min-h-0 ${isCoachChat ? "overflow-hidden" : "overflow-y-auto"}`}>
             <Suspense fallback={<PageLoader />}>
               {children}
             </Suspense>

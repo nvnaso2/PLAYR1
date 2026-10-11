@@ -55,4 +55,4 @@ On mobile, center the whole Edit Profile/PLAYR1 Pro, player-card, and Career Sta
 
 **Why:** The user wants the Profile content centered in the available mobile area, not pushed upward by a large bottom gap or made oversized by stretching individual controls.
 
-**How to apply:** Size Profile relative to the app shell's remaining content area, not the full device viewport minus an assumed nav height. Place the card in the flexible space between the two button rows, then shift the entire group together as needed. Avoid transform scaling that causes overlap unless the wrapper reserves the transformed dimensions.
+**How to apply:** Size Profile relative to the app shell's remaining content area, not the full device viewport minus an assumed nav height. Center the button/card/button stack as one fixed-size group, and reset the shared app scroller to the top when Profile mounts so navigation history cannot offset it. Avoid transform scaling that causes overlap unless the wrapper reserves the transformed dimensions.

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Crown, Pencil, Settings, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -15,6 +15,11 @@ export default function ProfilePage() {
   const { openProOffer } = useProUpgrade();
   const [, setLocation] = useLocation();
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const appScroller = document.querySelector<HTMLElement>("[data-app-scroll-container]");
+    if (appScroller) appScroller.scrollTop = 0;
+  }, []);
 
   const { data: userProfile } = useQuery<any>({ queryKey: ["/api/profile"] });
   const { data: playerProfile, isLoading: isPlayerProfileLoading } = useQuery<any>({
@@ -60,32 +65,30 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col max-md:translate-y-8">
-      <div className="mt-3 flex shrink-0 justify-center gap-3">
-        <Button asChild size="sm" className="h-10 border border-orange-400/80 bg-[#11100f] px-4 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18)] hover:bg-[#1b1510] hover:text-white" data-testid="button-edit-profile">
-          <Link href="/profile/edit?returnTo=%2Fprofile"><Pencil className="mr-1.5 h-3.5 w-3.5" />Edit Profile</Link>
-        </Button>
-        <Button type="button" size="sm" onClick={() => openProOffer()} className="h-10 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-4 text-xs font-black text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] hover:brightness-110" data-testid="button-playr1-pro">
-          <Crown className="mr-1.5 h-3.5 w-3.5" />PLAYR1 Pro
-        </Button>
-      </div>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
+        <div className="flex shrink-0 justify-center gap-3">
+          <Button asChild size="sm" className="h-10 border border-orange-400/80 bg-[#11100f] px-4 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18)] hover:bg-[#1b1510] hover:text-white" data-testid="button-edit-profile">
+            <Link href="/profile/edit?returnTo=%2Fprofile"><Pencil className="mr-1.5 h-3.5 w-3.5" />Edit Profile</Link>
+          </Button>
+          <Button type="button" size="sm" onClick={() => openProOffer()} className="h-10 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-4 text-xs font-black text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] hover:brightness-110" data-testid="button-playr1-pro">
+            <Crown className="mr-1.5 h-3.5 w-3.5" />PLAYR1 Pro
+          </Button>
+        </div>
 
-      <section className="flex min-h-0 flex-1 flex-col items-center pt-2" aria-label="Player profile">
-        <div className="flex min-h-0 w-full flex-1 items-center justify-center">
-          <div className="flex h-[347px] w-[327px] shrink-0 items-center justify-center min-[390px]:h-[361px] min-[390px]:w-[340px]">
-            <div className="scale-[1.02] min-[390px]:scale-[1.06]">
-              <BaseballCard
-                profile={career || { cardPhotoUrl: null, jerseyNumber: null, positions: [], teamName: null, schoolName: null }}
-                playerProfile={playerProfile}
-                userProfile={userProfile || { profileImageUrl: user?.profileImageUrl }}
-                userName={displayName}
-                rootRef={cardRef}
-                onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })}
-              />
-            </div>
+        <div className="flex h-[347px] w-[327px] shrink-0 items-center justify-center min-[390px]:h-[361px] min-[390px]:w-[340px]">
+          <div className="scale-[1.02] min-[390px]:scale-[1.06]">
+            <BaseballCard
+              profile={career || { cardPhotoUrl: null, jerseyNumber: null, positions: [], teamName: null, schoolName: null }}
+              playerProfile={playerProfile}
+              userProfile={userProfile || { profileImageUrl: user?.profileImageUrl }}
+              userName={displayName}
+              rootRef={cardRef}
+              onPhotoUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/career"] })}
+            />
           </div>
         </div>
-        <div className="grid w-full max-w-md shrink-0 grid-cols-2 gap-3 pb-1 pt-2">
+
+        <div className="grid w-full max-w-md shrink-0 grid-cols-2 gap-3">
           <Button asChild variant="outline" className="h-12 rounded-full border border-orange-400/35 bg-zinc-950 px-3 text-sm font-bold text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.16)] hover:border-orange-300/70 hover:bg-zinc-900 hover:shadow-[0_0_24px_rgba(249,115,22,0.28)]" data-testid="button-open-career-stats">
             <Link href="/career-stats" className="flex items-center justify-center gap-2"><Trophy className="h-4 w-4 text-orange-300" />Career Stats</Link>
           </Button>
@@ -93,7 +96,6 @@ export default function ProfilePage() {
             <Link href="/trophy-room" className="flex items-center justify-center gap-2"><Trophy className="h-4 w-4 text-amber-300" />Trophy Room</Link>
           </Button>
         </div>
-      </section>
       </div>
     </main>
   );
