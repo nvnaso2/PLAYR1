@@ -7,7 +7,7 @@ Coach P has one canonical dedicated page. It is available from the player bottom
 
 **Why:** The user wants a focused first-version navigation and chose Coach P as a bottom-tab destination instead of a sidebar menu item.
 
-On iPhone, Coach P's composer should remain docked above the keyboard, with the iOS form accessory strip hidden. Hide starter prompts while the empty-chat composer is focused, but retain the Coach P icon and greeting. Lock native WebView scrolling only for that focused empty-chat state; restore it once a message exists so chat history remains scrollable.
+On iPhone, Coach P's composer should remain docked above the keyboard, with the iOS form accessory strip hidden. Hide starter prompts while the empty-chat composer is focused, but retain a larger greeting centered both vertically and horizontally in the remaining chat area. Lock native WebView scrolling only for that focused empty-chat state; restore it once a message exists so chat history remains scrollable.
 
 Animate the empty-chat greeting's size/alignment and the starter-prompt collapse/return on focus and blur; do not abruptly mount or remove the prompts.
 

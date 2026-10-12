@@ -1355,21 +1355,21 @@ export default function CoachPPage() {
         <section
           ref={scrollRef}
           className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth transition-[padding] duration-300 ease-out motion-reduce:transition-none ${
-            messages.length === 0 ? (composerFocused ? "pt-3" : "pt-5 sm:pt-14") : "pt-4 sm:pt-7"
-          } overflow-x-hidden pb-5 [scrollbar-color:rgb(63_63_70)_transparent]`}
+            messages.length === 0
+              ? composerFocused
+                ? "flex flex-col justify-center py-0"
+                : "pt-5 pb-5 sm:pt-14"
+              : "pt-4 pb-5 sm:pt-7"
+          } overflow-x-hidden [scrollbar-color:rgb(63_63_70)_transparent]`}
         >
           <div className="min-w-0 w-full">
             {messages.length === 0 ? (
               <div className="w-full max-w-2xl mx-auto">
-                <div className={`relative w-full transition-[height,margin] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "mb-4 h-9" : "mb-8 h-14"}`}>
-                  <div className={`absolute top-0 flex w-max max-w-full items-center gap-2 transition-[left,transform] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "left-0 translate-x-0" : "left-1/2 -translate-x-1/2"}`}>
-                    <div className={`origin-left transition-[transform,margin] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "-mr-5 scale-[0.64]" : "mr-0 scale-100"}`}>
-                      <CoachPIcon size="lg" />
-                    </div>
-                    <h1 className={`whitespace-nowrap font-semibold tracking-tight transition-[font-size] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "text-[15px]" : "text-2xl"}`}>
-                      What are you working on?
-                    </h1>
-                  </div>
+                <div className={`flex w-full items-center justify-center gap-3 transition-[height,margin] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "mb-5 h-20" : "mb-8 h-14"}`}>
+                  <CoachPIcon size="lg" />
+                  <h1 className={`whitespace-nowrap font-semibold tracking-tight transition-[font-size] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "text-2xl sm:text-3xl" : "text-2xl"}`}>
+                    What are you working on?
+                  </h1>
                 </div>
                 <div
                   className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out motion-reduce:transition-none ${
