@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { Keyboard } from "@capacitor/keyboard";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -649,12 +651,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 }
 
 export default function CoachPPage() {
+  const isIosNative = Capacitor.getPlatform() === "ios";
   const search = useSearch();
   const handledDeepLinkRef = useRef("");
   const [, navigate] = useLocation();
   const { openProOffer } = useProUpgrade();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [composerFocused, setComposerFocused] = useState(false);
   const [usage, setUsage] = useState<CoachPUsage | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
@@ -677,6 +681,21 @@ export default function CoachPPage() {
   const pendingAssistantTextRef = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assistantStreamStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isIosNative) return;
+
+    void Keyboard.setAccessoryBarVisible({ isVisible: false });
+    return () => {
+      void Keyboard.setScroll({ isDisabled: false });
+      void Keyboard.setAccessoryBarVisible({ isVisible: true });
+    };
+  }, [isIosNative]);
+
+  useEffect(() => {
+    if (!isIosNative) return;
+    void Keyboard.setScroll({ isDisabled: composerFocused && messages.length === 0 });
+  }, [composerFocused, isIosNative, messages.length]);
 
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
     const element = scrollRef.current;
@@ -1336,17 +1355,17 @@ export default function CoachPPage() {
         <section
           ref={scrollRef}
           className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth ${
-            messages.length === 0 ? "pt-5 sm:pt-14" : "pt-4 sm:pt-7"
+            messages.length === 0 ? (composerFocused ? "pt-3" : "pt-5 sm:pt-14") : "pt-4 sm:pt-7"
           } overflow-x-hidden pb-5 [scrollbar-color:rgb(63_63_70)_transparent]`}
         >
           <div className="min-w-0 w-full">
             {messages.length === 0 ? (
               <div className="w-full max-w-2xl mx-auto">
-                <div className="flex items-center justify-center gap-2 mb-8">
-                  <CoachPIcon size="lg" />
-                  <h1 className="text-2xl font-semibold tracking-tight">What are you working on?</h1>
+                <div className={`flex items-center gap-2 ${composerFocused ? "mb-4 justify-start" : "mb-8 justify-center"}`}>
+                  <CoachPIcon size={composerFocused ? "sm" : "lg"} />
+                  <h1 className={`${composerFocused ? "text-base" : "text-2xl"} font-semibold tracking-tight`}>What are you working on?</h1>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {!composerFocused && !draft.trim() && <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                    {STARTER_PROMPTS.map(({ label, prompt, icon: Icon, workoutBuilder }) => (
                     <button
                       key={label}
@@ -1369,7 +1388,7 @@ export default function CoachPPage() {
                       <ArrowUp className="w-3.5 h-3.5 text-zinc-600 rotate-45 ml-auto shrink-0" />
                     </button>
                   ))}
-                </div>
+                </div>}
               </div>
             ) : (
               <div className="space-y-5 pb-2">
@@ -1453,12 +1472,14 @@ export default function CoachPPage() {
           </div>
         )}
 
-        <div className="sticky bottom-0 z-30 shrink-0 border-t border-white/[0.05] bg-[#080808] pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2">
+        <div className="z-30 shrink-0 bg-[#080808] pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2">
           <div className="relative flex min-h-[48px] items-center gap-2 rounded-[24px] border border-zinc-800 bg-zinc-950 px-2.5 py-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors focus-within:border-orange-400/45">
             <div className="flex min-w-0 flex-1 items-center">
               <Textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
+                onFocus={() => setComposerFocused(true)}
+                onBlur={() => setComposerFocused(false)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
