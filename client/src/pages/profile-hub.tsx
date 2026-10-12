@@ -166,7 +166,7 @@ export default function ProfileHubPage() {
           type="button"
           variant="outline"
           onClick={() => navigate("/career-stats")}
-          className="h-12 rounded-full border border-orange-400/35 bg-zinc-950 px-3 text-sm font-bold text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.16)] hover:border-orange-300/70 hover:bg-zinc-900 hover:shadow-[0_0_24px_rgba(249,115,22,0.28)]"
+          className="h-10 rounded-full border border-orange-400/35 bg-zinc-950 px-4 text-xs font-bold text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.16)] hover:border-orange-300/70 hover:bg-zinc-900 hover:shadow-[0_0_24px_rgba(249,115,22,0.28)]"
           data-testid="button-career-stats-hub"
         >
           <Target className="mr-2 h-4 w-4 text-orange-300" />
@@ -175,7 +175,7 @@ export default function ProfileHubPage() {
         <Button
           asChild
           variant="outline"
-          className="h-12 rounded-full border border-amber-300/50 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.16),transparent_75%),#17140e] px-3 text-sm font-bold text-amber-100 shadow-[0_0_18px_rgba(245,190,65,0.18)] hover:border-amber-200 hover:bg-[#201a0e]"
+          className="h-10 rounded-full border border-amber-300/50 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.16),transparent_75%),#17140e] px-4 text-xs font-bold text-amber-100 shadow-[0_0_18px_rgba(245,190,65,0.18)] hover:border-amber-200 hover:bg-[#201a0e]"
           data-testid="button-open-trophy-room-hub"
         >
           <Link href="/trophy-room" className="flex items-center gap-2">
