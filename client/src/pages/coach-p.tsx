@@ -1354,41 +1354,59 @@ export default function CoachPPage() {
       <main className="mx-auto flex min-h-0 min-w-0 flex-1 w-full max-w-3xl flex-col px-3 sm:px-6">
         <section
           ref={scrollRef}
-          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth ${
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth transition-[padding] duration-300 ease-out motion-reduce:transition-none ${
             messages.length === 0 ? (composerFocused ? "pt-3" : "pt-5 sm:pt-14") : "pt-4 sm:pt-7"
           } overflow-x-hidden pb-5 [scrollbar-color:rgb(63_63_70)_transparent]`}
         >
           <div className="min-w-0 w-full">
             {messages.length === 0 ? (
               <div className="w-full max-w-2xl mx-auto">
-                <div className={`flex items-center gap-2 ${composerFocused ? "mb-4 justify-start" : "mb-8 justify-center"}`}>
-                  <CoachPIcon size={composerFocused ? "sm" : "lg"} />
-                  <h1 className={`${composerFocused ? "text-base" : "text-2xl"} font-semibold tracking-tight`}>What are you working on?</h1>
+                <div className={`relative w-full transition-[height,margin] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "mb-4 h-9" : "mb-8 h-14"}`}>
+                  <div className={`absolute top-0 flex w-max max-w-full items-center gap-2 transition-[left,transform] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "left-0 translate-x-0" : "left-1/2 -translate-x-1/2"}`}>
+                    <div className={`origin-left transition-[transform,margin] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "-mr-5 scale-[0.64]" : "mr-0 scale-100"}`}>
+                      <CoachPIcon size="lg" />
+                    </div>
+                    <h1 className={`whitespace-nowrap font-semibold tracking-tight transition-[font-size] duration-300 ease-out motion-reduce:transition-none ${composerFocused ? "text-[15px]" : "text-2xl"}`}>
+                      What are you working on?
+                    </h1>
+                  </div>
                 </div>
-                {!composerFocused && !draft.trim() && <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                   {STARTER_PROMPTS.map(({ label, prompt, icon: Icon, workoutBuilder }) => (
-                    <button
-                      key={label}
-                      onClick={() => {
-                         if (workoutBuilder) {
-                          setWorkoutBuilderMode(true);
-                            sendMessage(prompt, { workoutBuilder: true, displayContent: label });
-                        } else {
-                            sendMessage(prompt, { displayContent: label });
-                        }
-                      }}
-                       disabled={chatMutation.isPending || (!workoutBuilder && !canSend)}
-                      className={`min-h-[58px] rounded-xl border bg-zinc-950 px-4 py-3 flex items-center gap-3 text-left transition-colors hover:bg-zinc-900 disabled:opacity-50 ${
-                         workoutBuilder ? "border-orange-500/35 hover:border-orange-500/60" : "border-zinc-800 hover:border-zinc-700"
-                      }`}
-                      data-testid={`button-coach-p-starter-${label.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
-                       <Icon className={`w-4 h-4 shrink-0 ${workoutBuilder ? "text-orange-400" : "text-zinc-500"}`} />
-                      <span className="text-sm text-zinc-200">{label}</span>
-                      <ArrowUp className="w-3.5 h-3.5 text-zinc-600 rotate-45 ml-auto shrink-0" />
-                    </button>
-                  ))}
-                </div>}
+                <div
+                  className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out motion-reduce:transition-none ${
+                    !composerFocused && !draft.trim()
+                      ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                      : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"
+                  }`}
+                  aria-hidden={composerFocused || Boolean(draft.trim())}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      {STARTER_PROMPTS.map(({ label, prompt, icon: Icon, workoutBuilder }) => (
+                        <button
+                          key={label}
+                          tabIndex={!composerFocused && !draft.trim() ? 0 : -1}
+                          onClick={() => {
+                            if (workoutBuilder) {
+                              setWorkoutBuilderMode(true);
+                              sendMessage(prompt, { workoutBuilder: true, displayContent: label });
+                            } else {
+                              sendMessage(prompt, { displayContent: label });
+                            }
+                          }}
+                          disabled={chatMutation.isPending || (!workoutBuilder && !canSend)}
+                          className={`min-h-[58px] rounded-xl border bg-zinc-950 px-4 py-3 flex items-center gap-3 text-left transition-[background-color,border-color] duration-200 hover:bg-zinc-900 disabled:opacity-50 ${
+                            workoutBuilder ? "border-orange-500/35 hover:border-orange-500/60" : "border-zinc-800 hover:border-zinc-700"
+                          }`}
+                          data-testid={`button-coach-p-starter-${label.toLowerCase().replace(/\s+/g, "-")}`}
+                        >
+                          <Icon className={`w-4 h-4 shrink-0 ${workoutBuilder ? "text-orange-400" : "text-zinc-500"}`} />
+                          <span className="text-sm text-zinc-200">{label}</span>
+                          <ArrowUp className="w-3.5 h-3.5 text-zinc-600 rotate-45 ml-auto shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="space-y-5 pb-2">
