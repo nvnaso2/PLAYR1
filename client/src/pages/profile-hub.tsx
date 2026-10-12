@@ -161,7 +161,7 @@ export default function ProfileHubPage() {
         </div>
       )}
 
-      <section className="grid w-full max-w-md shrink-0 grid-cols-2 gap-3" aria-label="Profile navigation" data-testid="section-profile-actions">
+      <section className="flex w-full shrink-0 flex-wrap items-center justify-center gap-2" aria-label="Profile navigation" data-testid="section-profile-actions">
         <Button
           type="button"
           variant="outline"
