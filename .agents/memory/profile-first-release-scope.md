@@ -51,8 +51,8 @@ The Profile and Profile Hub Share action shares only the player's card front and
 
 **How to apply:** Use the native share sheet for both card faces. Keep the public interactive card route card-only and pass it only data permitted by current profile visibility settings. Do not publish private cards or claim a canceled/failed share was sent.
 
-On mobile, center the whole Edit Profile/PLAYR1 Pro, player-card, and Career Stats/Trophy Room group vertically in the app content area. Keep the current card and button scale moderate; shift the group as a unit rather than enlarging every control to fill space.
+On mobile, center the whole Edit Profile/PLAYR1 Pro, player-card, and Career Stats/Trophy Room group vertically in the app content area. Keep the current card and button scale moderate; shift the group as a unit rather than enlarging every control to fill space. Treat `/profile-hub` as the canonical Profile page and keep `/profile` as an alias, not a second layout.
 
-**Why:** The user wants the Profile content centered in the available mobile area, not pushed upward by a large bottom gap or made oversized by stretching individual controls.
+**Why:** The user wants the Profile content centered in the available mobile area, not pushed upward by a large bottom gap or made oversized by stretching individual controls. Separate `/profile` and `/profile-hub` layouts caused the screen to change when returning from Trophy Room.
 
-**How to apply:** Size Profile relative to the app shell's remaining content area, not the full device viewport minus an assumed nav height. Center the button/card/button stack as one fixed-size group, and reset the shared app scroller to the top when Profile mounts so navigation history cannot offset it. Avoid transform scaling that causes overlap unless the wrapper reserves the transformed dimensions.
+**How to apply:** Size Profile relative to the app shell's remaining content area, not the full device viewport minus an assumed nav height. Center the button/card/button stack as one fixed-size group, and reset the shared app scroller to the top when Profile mounts so navigation history cannot offset it. Route legacy `/profile` and Trophy Room returns to `/profile-hub`. Avoid transform scaling that causes overlap unless the wrapper reserves the transformed dimensions.

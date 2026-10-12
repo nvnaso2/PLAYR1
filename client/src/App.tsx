@@ -42,7 +42,6 @@ const AppOnboardingPage = lazy(() => import("@/pages/app-onboarding"));
 const TrainingLog = lazy(pageLoaders.trainingLog);
 const Dashboard = lazy(pageLoaders.dashboard);
 const Videos = lazy(pageLoaders.videos);
-const Profile = lazy(pageLoaders.profile);
 const TrophyRoom = lazy(() => import("@/pages/trophy-room"));
 const MySeason = lazy(pageLoaders.mySeason);
 const Development = lazy(pageLoaders.development);
@@ -496,7 +495,7 @@ function Router() {
                 <Route path="/my-season" component={MySeason} />
                 <Route path="/development" component={Development} />
                 <Route path="/profile/edit" component={PlayerProfile} />
-                <Route path="/profile" component={Profile} />
+                <Route path="/profile">{() => <Redirect to="/profile-hub" />}</Route>
                 <Route path="/welcome-workout" component={WelcomeWorkout} />
                 <Route path="/trophy-room" component={TrophyRoom} />
                 <Route path="/subscription" component={SubscriptionPage} />

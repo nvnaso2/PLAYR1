@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { BaseballCard, StatsTab } from "@/pages/career";
@@ -38,6 +38,10 @@ export default function ProfileHubPage() {
   const { user } = useAuth();
   const { openProOffer } = useProUpgrade();
   const cardRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const appScroller = document.querySelector<HTMLElement>("[data-app-scroll-container]");
+    if (appScroller) appScroller.scrollTop = 0;
+  }, []);
   const params = new URLSearchParams(window.location.search);
   const checkoutValue = params.get("checkout");
   const checkoutReturn = checkoutValue === "success" || checkoutValue === "cancelled" ? checkoutValue : null;
@@ -81,8 +85,8 @@ export default function ProfileHubPage() {
     user?.email?.split("@")[0] ||
     "Player";
   return (
-    <main className="mx-auto max-w-6xl space-y-4 px-4 pb-4 pt-4 text-zinc-100 sm:px-6 sm:pt-5">
-      <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
+    <main className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col px-4 py-3 text-zinc-100">
+      <header className="flex shrink-0 items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-black tracking-tight text-zinc-50 sm:text-3xl" data-testid="text-page-title">My Profile</h1>
         </div>
@@ -108,12 +112,13 @@ export default function ProfileHubPage() {
           </Button>
         </div>
       </header>
-      <div className="flex justify-center gap-2" aria-label="Profile editing actions">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
+      <div className="flex shrink-0 justify-center gap-3" aria-label="Profile editing actions">
           <Button
             type="button"
             size="sm"
             onClick={() => navigate("/profile/edit?returnTo=%2Fprofile-hub")}
-            className="h-9 border border-orange-400/80 bg-[#11100f] px-3.5 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18),inset_0_0_0_1px_rgba(249,115,22,0.08)] transition hover:border-orange-300 hover:bg-[#1b1510] hover:text-white hover:shadow-[0_0_18px_rgba(249,115,22,0.3)]"
+            className="h-10 border border-orange-400/80 bg-[#11100f] px-4 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18)] hover:bg-[#1b1510] hover:text-white"
             data-testid="button-edit-profile"
           >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
@@ -123,7 +128,7 @@ export default function ProfileHubPage() {
             type="button"
             size="sm"
             onClick={() => openProOffer()}
-            className="h-9 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-3 text-[11px] font-black text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] transition hover:brightness-110"
+            className="h-10 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-4 text-xs font-black text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] hover:brightness-110"
             data-testid="button-playr1-pro"
           >
             <Crown className="mr-1.5 h-3.5 w-3.5" />
@@ -131,15 +136,10 @@ export default function ProfileHubPage() {
           </Button>
       </div>
 
-      <section className="flex justify-center" aria-label="Basketball player trading card">
-        <div className="flex flex-col items-center">
+      <div className="flex h-[347px] w-[327px] shrink-0 items-center justify-center min-[390px]:h-[361px] min-[390px]:w-[340px]" aria-label="Basketball player trading card">
           {loadingCard ? (
-            <div className="space-y-3">
-              <Skeleton className="h-[340px] w-[240px] rounded-md bg-zinc-800" />
-              <p className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-600">Loading player card</p>
-            </div>
+            <Skeleton className="h-[330px] w-[310px] rounded-md bg-zinc-800" />
           ) : (
-            <>
               <BaseballCard
                 profile={(career || { cardPhotoUrl: null, jerseyNumber: null, positions: [], teamName: null, schoolName: null }) as CareerProfile}
                 careerStats={careerStats as any}
@@ -148,27 +148,25 @@ export default function ProfileHubPage() {
                 userName={displayName}
                 rootRef={cardRef}
               />
-              {!career && (
-                <div className="mt-5 flex min-h-[180px] w-full max-w-md flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-6 text-center">
-                  <Trophy className="h-8 w-8 text-orange-400" />
-                  <p className="mt-3 font-display text-lg font-bold">Your player card is waiting</p>
-                  <p className="mt-1 max-w-xs text-sm text-zinc-500">Add your player details to put your identity on the court.</p>
-                  <Button onClick={() => navigate("/profile/edit?returnTo=%2Fprofile-hub")} className="mt-4 bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400">
-                    Set up player profile
-                  </Button>
-                </div>
-              )}
-            </>
           )}
+      </div>
+      {!loadingCard && !career && (
+        <div className="flex shrink-0 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-6 py-3 text-center">
+          <Trophy className="h-6 w-6 text-orange-400" />
+          <p className="mt-2 font-display font-bold">Your player card is waiting</p>
+          <p className="mt-1 max-w-xs text-sm text-zinc-500">Add your player details to put your identity on the court.</p>
+          <Button onClick={() => navigate("/profile/edit?returnTo=%2Fprofile-hub")} className="mt-3 bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400">
+            Set up player profile
+          </Button>
         </div>
-      </section>
+      )}
 
-      <section className="flex w-full flex-wrap items-center justify-center gap-2" aria-label="Profile navigation" data-testid="section-profile-actions">
+      <section className="grid w-full max-w-md shrink-0 grid-cols-2 gap-3" aria-label="Profile navigation" data-testid="section-profile-actions">
         <Button
           type="button"
           variant="outline"
           onClick={() => navigate("/career-stats")}
-          className="h-10 rounded-full border border-orange-400/60 bg-zinc-950 px-4 text-xs font-bold text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.2),inset_0_0_0_1px_rgba(249,115,22,0.1)] transition hover:border-orange-300 hover:bg-orange-950/30 hover:text-white hover:shadow-[0_0_25px_rgba(249,115,22,0.35)]"
+          className="h-12 rounded-full border border-orange-400/35 bg-zinc-950 px-3 text-sm font-bold text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.16)] hover:border-orange-300/70 hover:bg-zinc-900 hover:shadow-[0_0_24px_rgba(249,115,22,0.28)]"
           data-testid="button-career-stats-hub"
         >
           <Target className="mr-2 h-4 w-4 text-orange-300" />
@@ -177,7 +175,7 @@ export default function ProfileHubPage() {
         <Button
           asChild
           variant="outline"
-          className="h-10 rounded-full border border-amber-300/60 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.16),transparent_75%),#17140e] px-4 text-xs font-black text-amber-100 shadow-[0_0_18px_rgba(245,190,65,0.2),inset_0_0_0_1px_rgba(245,190,65,0.08)] transition hover:border-amber-200 hover:bg-[#201a0e] hover:text-amber-50 hover:shadow-[0_0_24px_rgba(245,190,65,0.32)]"
+          className="h-12 rounded-full border border-amber-300/50 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.16),transparent_75%),#17140e] px-3 text-sm font-bold text-amber-100 shadow-[0_0_18px_rgba(245,190,65,0.18)] hover:border-amber-200 hover:bg-[#201a0e]"
           data-testid="button-open-trophy-room-hub"
         >
           <Link href="/trophy-room" className="flex items-center gap-2">
@@ -186,6 +184,7 @@ export default function ProfileHubPage() {
           </Link>
         </Button>
       </section>
+      </div>
       <section aria-labelledby="profile-development-heading" className="space-y-3" hidden>
         <div className="flex items-end justify-between gap-3">
           <div>
