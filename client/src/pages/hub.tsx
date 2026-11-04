@@ -3,6 +3,7 @@ import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DrillCard } from "@/components/drill-card";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
 import {
@@ -164,6 +165,17 @@ export default function HubPage() {
       return {};
     }
   });
+  const updatePreviewProfile = (patch: Partial<typeof previewProfile>) => {
+    setPreviewProfile((current) => {
+      const updated = { ...current, ...patch };
+      try {
+        sessionStorage.setItem("playr1-onboarding-preview", JSON.stringify(updated));
+      } catch {
+        // Keep the preview editable when browser storage is unavailable.
+      }
+      return updated;
+    });
+  };
   const [trailerCard, setTrailerCard] = useState<TrailerCardPreview>(() => {
     const defaults: TrailerCardPreview = { avatar: "", title: "The PLAYR1 Vision", stats: "0 views · Just now" };
     try {
@@ -735,21 +747,84 @@ export default function HubPage() {
         </div>
         {onboardingPreview && (
           <div className="mt-4" data-testid="onboarding-day-progress">
-            <div className="mb-2 flex items-start justify-end gap-2 text-right">
-              <div className="min-w-0">
-                <p className="text-[9px] font-semibold text-zinc-400">
-                  {previewProfile.trainingFrequency
-                    ? `${previewProfile.trainingFrequency} ${previewProfile.frequencyUnit === "month" ? "per month" : "per week"}`
-                    : `${previewProfile.trainingDays ?? "—"} days/week`}
+            <div className="mb-2 flex flex-col items-end gap-1.5">
+              <div className="flex items-center justify-end gap-1.5 text-right">
+                <p className="text-[9px] font-semibold text-zinc-300">
+                  {previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? 1} {previewProfile.frequencyUnit === "month" ? "per month" : "per week"}
                   {previewProfile.sessionLength ? ` · ${previewProfile.sessionLength} min sessions` : ""}
                 </p>
-                <div className="mt-0.5 flex flex-wrap items-center justify-end gap-x-1.5 text-[10px] text-zinc-300">
-                  <span>{previewProfile.nextSession
-                    ? `Next session · ${new Date(previewProfile.nextSession).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
-                    : "Next session not set"}</span>
-                  <button type="button" onClick={() => setScheduleEditing((editing) => !editing)} aria-label="Edit training rhythm and next session" className="font-bold text-orange-300 transition hover:text-orange-200">Edit</button>
-                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" aria-label="Edit training frequency and session length" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/40 text-zinc-300 transition hover:border-orange-400/60 hover:text-orange-200">
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-[min(330px,calc(100vw-24px))] space-y-3 border-orange-400/25 bg-[#101010] p-3 text-white shadow-2xl">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Your training plan</p>
+                    <div>
+                      <label htmlFor="hub-training-frequency" className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-zinc-400">How often do you train outside of practice?</label>
+                      <div className="grid grid-cols-[0.7fr_1.3fr] gap-2">
+                        <input
+                          id="hub-training-frequency"
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          max={99}
+                          value={previewProfile.trainingFrequency ?? ""}
+                          onChange={(event) => {
+                            const value = event.currentTarget.value;
+                            updatePreviewProfile({ trainingFrequency: value ? Math.min(99, Math.max(1, Number(value))) : undefined });
+                          }}
+                          className="h-10 min-w-0 rounded-lg border border-white/10 bg-black px-3 text-sm text-white outline-none focus:border-orange-400"
+                        />
+                        <Select value={previewProfile.frequencyUnit ?? "week"} onValueChange={(value) => updatePreviewProfile({ frequencyUnit: value as "week" | "month" })}>
+                          <SelectTrigger aria-label="Training frequency unit" className="h-10 rounded-lg border-white/10 bg-black px-3 text-xs text-white focus:ring-orange-400/40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="border-orange-500/30 bg-[#111] text-zinc-100">
+                            <SelectItem value="week" className="focus:bg-orange-500/15 focus:text-white">per week</SelectItem>
+                            <SelectItem value="month" className="focus:bg-orange-500/15 focus:text-white">per month</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="hub-session-length" className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-zinc-400">How long do you usually train for?</label>
+                      <Select value={previewProfile.sessionLength ? String(previewProfile.sessionLength) : ""} onValueChange={(value) => updatePreviewProfile({ sessionLength: Number(value) })}>
+                        <SelectTrigger id="hub-session-length" className="h-10 rounded-lg border-white/10 bg-black px-3 text-xs text-white focus:ring-orange-400/40">
+                          <SelectValue placeholder="Choose session length" />
+                        </SelectTrigger>
+                        <SelectContent className="border-orange-500/30 bg-[#111] text-zinc-100">
+                          {[20, 30, 45, 60, 75, 90].map((minutes) => <SelectItem key={minutes} value={String(minutes)} className="focus:bg-orange-500/15 focus:text-white">{minutes} minutes</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
+              <Popover open={scheduleEditing} onOpenChange={setScheduleEditing}>
+                <PopoverTrigger asChild>
+                  <button type="button" className="inline-flex min-h-8 items-center gap-2 rounded-full border border-orange-200/45 bg-gradient-to-r from-[#ff984f] via-[#f97316] to-[#cf4307] px-3 py-1 text-[9px] font-black text-black shadow-[0_0_7px_rgba(249,115,22,0.4)] transition hover:brightness-110">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    <span>Next session</span>
+                    <span className="font-bold">
+                      {previewProfile.nextSession
+                        ? new Date(previewProfile.nextSession).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+                        : "Choose date & time"}
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[min(300px,calc(100vw-24px))] space-y-2 border-orange-400/25 bg-[#101010] p-3 text-white shadow-2xl">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">When will you train next?</p>
+                  <input
+                    aria-label="Update your next training session"
+                    type="datetime-local"
+                    value={previewProfile.nextSession ?? ""}
+                    onChange={(event) => updatePreviewProfile({ nextSession: event.currentTarget.value })}
+                    className="h-10 w-full rounded-lg border border-white/10 bg-black px-2 text-xs text-white outline-none focus:border-orange-400"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="flex items-center gap-2">
               <div className="grid min-w-0 flex-1 grid-cols-7 gap-1.5" aria-label="Seven scheduled days">
@@ -758,7 +833,7 @@ export default function HubPage() {
                     <span className="block truncate text-[7px] font-semibold uppercase tracking-tight text-zinc-400 sm:text-[9px]">
                       {date.toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}
                     </span>
-                    <span className={`mt-1 block h-1.5 w-full rounded-full ${index === 0 ? "bg-[#b84b0b] shadow-[0_0_4px_rgba(249,115,22,0.9),0_0_13px_rgba(249,115,22,0.48)]" : "bg-white/10"}`} />
+                    <span className={`mt-1 block h-1.5 w-full rounded-full ${index === 0 ? "bg-gradient-to-r from-[#ff984f] via-[#f97316] to-[#cf4307] shadow-[0_0_7px_rgba(249,115,22,0.95),0_0_18px_rgba(249,115,22,0.78)]" : "bg-white/10"}`} />
                     <span className={`mt-1 block text-[7px] font-bold uppercase tracking-tight sm:text-[9px] ${index === 0 ? "text-orange-300" : "text-zinc-600"}`}>{index + 1}</span>
                   </div>
                 ))}
@@ -783,22 +858,6 @@ export default function HubPage() {
                 </PopoverContent>
               </Popover>
             </div>
-            {scheduleEditing && (
-              <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
-                <input
-                  aria-label="Update your next training session"
-                  type="datetime-local"
-                  value={previewProfile.nextSession ?? ""}
-                  onChange={(event) => {
-                    const updated = { ...previewProfile, nextSession: event.target.value };
-                    setPreviewProfile(updated);
-                    sessionStorage.setItem("playr1-onboarding-preview", JSON.stringify(updated));
-                  }}
-                  className="min-h-9 min-w-0 max-w-full rounded-lg border border-white/10 bg-black px-2 text-[10px] text-white outline-none focus:border-orange-400"
-                />
-                <button type="button" onClick={() => setScheduleEditing(false)} className="min-h-9 rounded-lg px-3 text-[9px] font-black uppercase text-orange-300 hover:bg-white/[0.05]">Done</button>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -829,7 +888,7 @@ export default function HubPage() {
                 )}
                 <div className="min-w-0">
                   <p className="truncate text-xs font-bold text-white">{trailerCard.title}</p>
-                  <p className="mt-0.5 truncate text-[10px] text-zinc-500">PLAYR1 · {trailerCard.stats}</p>
+                  <p className="mt-0.5 truncate text-[10px] text-zinc-500">The PLAYR1 Project · {trailerCard.stats}</p>
                 </div>
                 <Popover>
                   <PopoverTrigger asChild>
