@@ -990,20 +990,12 @@ export default function HubPage() {
             </div>
 
                 <section className="space-y-4 pb-5" data-testid="hub-onboarding-baseline">
-                  <div className="relative mt-4 overflow-hidden rounded-2xl border border-orange-300/20 bg-[radial-gradient(ellipse_at_50%_-15%,rgba(249,115,22,0.20),transparent_55%),linear-gradient(145deg,#101116,#050608_64%)] px-3 py-4 shadow-[0_0_35px_rgba(249,115,22,0.08),inset_0_1px_0_rgba(255,255,255,0.07)] sm:px-5 sm:py-5" data-testid="card-onboarding-progress-projection">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-orange-300">{baselineComplete ? "Your baseline is in" : "Your next 12 months"}</p>
-                        <h3 className="mt-1 text-base font-black text-white sm:text-lg">Here's where your shooting could be</h3>
-                        <p className="mt-1 text-[10px] text-zinc-400">This could be you. Progress has ups and downs.</p>
-                      </div>
-                      <span className="shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/[0.07] px-2 py-1 text-[7px] font-bold uppercase tracking-[0.16em] text-cyan-100/80">Potential</span>
-                    </div>
+                  <div className="relative mt-4 aspect-[1.2/1] min-h-[280px] overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(ellipse_at_52%_48%,rgba(91,132,161,0.13),transparent_62%),linear-gradient(145deg,#101216,#050608_70%)] shadow-[0_0_38px_rgba(55,255,150,0.06),inset_0_1px_0_rgba(255,255,255,0.08)] sm:aspect-[2.4/1]" data-testid="card-onboarding-progress-projection">
                     {(() => {
                       const series = [
-                        { key: "threes" as const, label: "3-point", color: "#ff7a24", start: 20, goal: 80, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
-                        { key: "midrange" as const, label: "Mid-range", color: "#42d7f5", start: 30, goal: 70, progress: [0, .13, .11, .23, .20, .34, .32, .47, .45, .64, .62, .81, 1] },
-                        { key: "freeThrows" as const, label: "Free throws", color: "#be8cff", start: 40, goal: 90, progress: [0, .11, .09, .22, .20, .35, .33, .49, .47, .66, .64, .82, 1] },
+                        { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, goal: 80, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
+                        { key: "midrange" as const, label: "MID", color: "#ff5364", start: 30, goal: 70, progress: [0, .13, .11, .23, .20, .34, .32, .47, .45, .64, .62, .81, 1] },
+                        { key: "freeThrows" as const, label: "FT", color: "#70f06a", start: 40, goal: 90, progress: [0, .11, .09, .22, .20, .35, .33, .49, .47, .66, .64, .82, 1] },
                       ].map((item) => {
                         const actualStart = baselineComplete
                           ? Math.max(0, Math.min(100, Math.round((Number(baselineResults[item.key]) / selectedBaseline[item.key]) * 100)))
@@ -1016,71 +1008,69 @@ export default function HubPage() {
                         });
                         return { ...item, values };
                       });
-                      const xAt = (month: number) => 58 + month * 49;
-                      const yAt = (percent: number) => 250 - percent * 1.9;
+                      const xAt = (month: number) => 62 + month * 46;
+                      const yAt = (percent: number) => 330 - percent * 2.4;
                       return (
                         <>
-                          <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
-                            {series.map((line) => (
-                              <div key={line.key} className="relative min-w-0 overflow-hidden rounded-xl border px-2.5 py-2" style={{ borderColor: `${line.color}45`, background: `linear-gradient(145deg, ${line.color}18, rgba(255,255,255,0.018) 72%)`, boxShadow: `inset 0 1px 0 ${line.color}22` }}>
-                                <span className="block truncate text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-400 sm:text-[9px]">{line.label}</span>
-                                <span className="mt-0.5 block text-xl font-black leading-none sm:text-2xl" style={{ color: line.color, textShadow: `0 0 18px ${line.color}88` }}>{line.values[12]}%</span>
-                                <span className="mt-1 block text-[7px] font-semibold uppercase tracking-wider text-zinc-500">could be you</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="mt-3 overflow-hidden rounded-xl border border-white/[0.06] bg-black/45 px-1.5 pt-2 sm:px-3">
-                            <svg id="onboarding-projection-chart" viewBox="0 0 680 300" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Illustrative month-by-month shooting projections for three-point, mid-range, and free-throw percentages" className="h-[220px] w-full sm:h-[270px]">
+                          <svg id="onboarding-projection-chart" viewBox="0 0 680 400" preserveAspectRatio="none" role="img" aria-label="Illustrative shooting growth chart with monthly three-point, mid-range, and free-throw percentages" className="absolute inset-0 h-full w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
-                                  <feGaussianBlur stdDeviation="4" result="blur" />
+                                  <feGaussianBlur stdDeviation="5" result="blur" />
                                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
                                 </filter>
+                                <linearGradient id="shot-chart-wash" x1="0" x2="1" y1="0" y2="1">
+                                  <stop offset="0%" stopColor="#70f06a" stopOpacity="0.06" />
+                                  <stop offset="48%" stopColor="#ffd84d" stopOpacity="0.025" />
+                                  <stop offset="100%" stopColor="#ff5364" stopOpacity="0.05" />
+                                </linearGradient>
                                 {series.map((line) => (
                                   <linearGradient key={`${line.key}-fill`} id={`shot-fill-${line.key}`} x1="0" x2="0" y1="0" y2="1">
-                                    <stop offset="0%" stopColor={line.color} stopOpacity="0.22" />
+                                    <stop offset="0%" stopColor={line.color} stopOpacity="0.23" />
                                     <stop offset="100%" stopColor={line.color} stopOpacity="0" />
                                   </linearGradient>
                                 ))}
                               </defs>
-                              <rect x="48" y="42" width="612" height="210" rx="9" fill="url(#shot-fill-threes)" opacity="0.035" />
+                              <rect width="680" height="400" fill="url(#shot-chart-wash)" />
                               {[20, 40, 60, 80, 100].map((tick) => {
                                 const y = yAt(tick);
                                 return <g key={tick}>
-                                  <line x1="52" x2="660" y1={y} y2={y} stroke="rgba(199,210,224,0.12)" strokeDasharray={tick === 20 ? undefined : "3 7"} />
-                                  <text x="43" y={y + 3} textAnchor="end" fill="#8a929e" fontSize="9">{tick}%</text>
+                                  <line x1="54" x2="626" y1={y} y2={y} stroke="rgba(210,224,235,0.15)" strokeDasharray={tick === 20 ? undefined : "3 8"} />
+                                  <text x="43" y={y + 4} textAnchor="end" fill="#a0aab4" fontSize="14">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
                                 <g key={month}>
-                                  <line x1={xAt(month)} x2={xAt(month)} y1="57" y2="252" stroke="rgba(147,197,253,0.08)" strokeDasharray="2 8" />
-                                  <text x={xAt(month)} y="278" textAnchor="middle" fill="#808895" fontSize="9">{month === 0 ? "NOW" : `M${month}`}</text>
+                                  <line x1={xAt(month)} x2={xAt(month)} y1="78" y2="332" stroke="rgba(147,197,253,0.10)" strokeDasharray="2 9" />
+                                  <text x={xAt(month)} y="365" textAnchor="middle" fill="#929ba5" fontSize="12">{month === 0 ? "NOW" : `M${month}`}</text>
                                 </g>
                               ))}
                               {series.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
-                                const fillPath = `${linePath} L${xAt(12)},250 L${xAt(0)},250 Z`;
+                                const fillPath = `${linePath} L${xAt(12)},330 L${xAt(0)},330 Z`;
                                 return <g key={line.key}>
                                   <path d={fillPath} fill={`url(#shot-fill-${line.key})`} />
-                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.22" filter="url(#shot-line-glow)" />
-                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" opacity="0.24" filter="url(#shot-line-glow)" />
+                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
                                   {line.values.map((value, index) => (
-                                    <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 4 : 2.2} fill={index === 12 ? line.color : "#101116"} stroke={line.color} strokeWidth={index === 12 ? 1.5 : 1.2} />
+                                    <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 5 : 2.6} fill={index === 12 ? line.color : "#101216"} stroke={line.color} strokeWidth={index === 12 ? 2 : 1.4} />
                                   ))}
+                                  <text x={xAt(12) + 9} y={yAt(line.values[12]) + 5} fill={line.color} fontSize="22" fontWeight="800" style={{ paintOrder: "stroke", stroke: "#090a0c", strokeWidth: 4 }}>{line.values[12]}%</text>
                                 </g>;
                               })}
-                            </svg>
-                            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 border-t border-white/[0.06] py-2">
-                              {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5 text-[8px] font-semibold text-zinc-300">
-                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 8px ${line.color}` }} />{line.label}
+                          </svg>
+                          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col p-4 sm:p-5">
+                            <h3 className="max-w-[270px] text-lg font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:max-w-none sm:text-xl">Here's where your shooting could be</h3>
+                            <div className="mt-2 flex items-center gap-3 text-[9px] font-black tracking-wide drop-shadow-[0_1px_5px_rgba(0,0,0,0.95)] sm:text-[10px]">
+                              {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5" style={{ color: line.color }}>
+                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
                               </span>)}
                             </div>
+                            <span className="mt-auto self-end rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[7px] font-bold uppercase tracking-[0.16em] text-zinc-400">Illustrative</span>
                           </div>
                         </>
                       );
                     })()}
-                    <p className="mt-2 text-[9px] leading-4 text-zinc-500">{baselineComplete ? "Your logged results mark the starting point." : "Log today's baseline to place your starting point on the chart."} Projection is illustrative, not a promise.</p>
                   </div>
 
                   <div className="mt-5">
