@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { DrillCard } from "@/components/drill-card";
-import { nativeFetch, statsUrl } from "@/lib/queryClient";
+import { apiRequest, getObjectUrl, nativeFetch, queryClient, statsUrl } from "@/lib/queryClient";
 import {
   HUB_STAT_DEFINITIONS,
   HUB_STAT_ACCENTS,
@@ -43,6 +43,13 @@ import type { Drill } from "@shared/schema";
 import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations";
 import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
+import {
+  PLAYER_SETUP_GOALS,
+  PLAYER_SETUP_SITUATIONS,
+  PLAYER_SETUP_SKILLS,
+  PLAYER_SETUP_RANK_FIELDS,
+  makeUniqueRankings,
+} from "@/lib/player-setup-answers";
 
 type WeeklyStatPoint = { date: string; minutes: number; sessions: number };
 type WeeklyTrendPoint = {
@@ -155,6 +162,17 @@ export default function HubPage() {
   const [baselineComplete, setBaselineComplete] = useState(false);
   const [trailerPlaying, setTrailerPlaying] = useState(false);
   const [scheduleEditing, setScheduleEditing] = useState(false);
+  const [previewDay, setPreviewDay] = useState(1);
+  const [dayTwoProfileOpen, setDayTwoProfileOpen] = useState(false);
+  const [dayTwoSaving, setDayTwoSaving] = useState(false);
+  const [dayTwoError, setDayTwoError] = useState("");
+  const [dayTwoAnswers, setDayTwoAnswers] = useState({
+    currentSituation: "",
+    primaryGoal: "",
+    positions: [] as string[],
+    skillRankings: makeUniqueRankings(),
+    experienceYears: "",
+  });
   const [baselineResults, setBaselineResults] = useState<Record<PreviewShotKey, string>>({
     threes: "", midrange: "", freeThrows: "",
   });
@@ -331,7 +349,36 @@ export default function HubPage() {
     recommendationDay,
   ), [drillLibrary, user?.id, careerData?.positions, setupData, recommendationDay]);
 
+  const saveDayTwoProfile = async () => {
+    setDayTwoSaving(true);
+    setDayTwoError("");
+    const answers = {
+      ...setupData?.answers,
+      currentSituation: dayTwoAnswers.currentSituation,
+      primaryGoal: dayTwoAnswers.primaryGoal,
+      positions: dayTwoAnswers.positions,
+      skillRankings: dayTwoAnswers.skillRankings,
+      skillRoles: Object.values(dayTwoAnswers.skillRankings),
+      experienceYears: dayTwoAnswers.experienceYears,
+    };
+    try {
+      if (onboardingPreview) {
+        sessionStorage.setItem("playr1-onboarding-day2-profile", JSON.stringify(answers));
+      } else {
+        await apiRequest("PUT", "/api/player-setup", { answers });
+        await queryClient.invalidateQueries({ queryKey: ["/api/player-setup"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/career"] });
+      }
+      setDayTwoProfileOpen(false);
+    } catch {
+      setDayTwoError("We couldn't save your profile yet. Please try again.");
+    } finally {
+      setDayTwoSaving(false);
+    }
+  };
+
   const firstName = user?.firstName;
+  const profileAvatarUrl = getObjectUrl(user?.profileImageUrl);
   const greetText = greeting(firstName);
   const streak = overview?.streak ?? 0;
   const totalSessions = overview?.totalSessions ?? 0;
@@ -716,12 +763,21 @@ export default function HubPage() {
             </div>
           </div>
         )}
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-zinc-400 text-sm">{formatDate()}</p>
-            <h1 className="text-2xl font-bold text-white mt-0.5">
-              {onboardingPreview && previewProfile.playerName ? `Welcome, ${previewProfile.playerName}` : greetText} <span aria-hidden="true">🏀</span>
-            </h1>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="h-12 w-12 shrink-0 rounded-full border border-white/70 bg-white/5 p-[2px] shadow-[0_0_8px_rgba(255,255,255,0.45),0_0_18px_rgba(255,255,255,0.18)]">
+              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-zinc-900">
+                {profileAvatarUrl
+                  ? <img src={profileAvatarUrl} alt="" className="h-full w-full object-cover" />
+                  : <span className="text-sm font-black text-zinc-200">{(onboardingPreview ? previewProfile.playerName : firstName)?.slice(0, 1)?.toUpperCase() || <UserRound className="h-5 w-5 text-zinc-400" />}</span>}
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className="text-zinc-400 text-sm">{formatDate()}</p>
+              <h1 className="mt-0.5 truncate text-2xl font-bold text-white">
+                {onboardingPreview && previewProfile.playerName ? `Welcome, ${previewProfile.playerName}` : greetText} <span aria-hidden="true">🏀</span>
+              </h1>
+            </div>
           </div>
           {!onboardingPreview && !showProfileSetup && streak >= 0 && (() => {
               const sa = streak >= 30
@@ -814,9 +870,8 @@ export default function HubPage() {
                     <CalendarDays className="h-3.5 w-3.5" />
                     <span>Next session</span>
                     <span className="font-bold">
-                      {previewProfile.nextSession
-                        ? new Date(previewProfile.nextSession).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-                        : "Choose date & time"}
+                      {onboardingSchedule[Math.min(previewDay - 1, onboardingSchedule.length - 1)]
+                        .toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </span>
                   </button>
                 </PopoverTrigger>
@@ -876,13 +931,17 @@ export default function HubPage() {
             <div className="flex items-center gap-2">
               <div className="grid min-w-0 flex-1 grid-cols-7 gap-1.5" aria-label="Seven scheduled days">
                 {onboardingSchedule.map((date, index) => (
-                  <div key={index} className="min-w-0 text-center" aria-label={`Day ${index + 1}: ${date.toLocaleDateString()}`}>
+                  <button key={index} type="button" disabled={index > 1} onClick={() => setPreviewDay(index + 1)} aria-pressed={previewDay === index + 1} className="min-w-0 text-center disabled:cursor-default" aria-label={`Day ${index + 1}: ${date.toLocaleDateString()}`}>
                     <span className="block truncate text-[7px] font-semibold uppercase tracking-tight text-zinc-400 sm:text-[9px]">
                       {date.toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}
                     </span>
-                    <span className={`mt-1 block h-1.5 w-full rounded-full ${index === 0 ? "bg-gradient-to-r from-[#ff984f] via-[#f97316] to-[#cf4307] shadow-[0_0_7px_rgba(249,115,22,0.95),0_0_18px_rgba(249,115,22,0.78)]" : "bg-white/10"}`} />
-                    <span className={`mt-1 block text-[7px] font-bold uppercase tracking-tight sm:text-[9px] ${index === 0 ? "text-orange-300" : "text-zinc-600"}`}>{index + 1}</span>
-                  </div>
+                    <span className={`mt-1 block h-1.5 w-full rounded-full ${
+                      index + 1 === previewDay
+                        ? "bg-gradient-to-r from-[#ff984f] via-[#f97316] to-[#cf4307] shadow-[0_0_7px_rgba(249,115,22,0.95),0_0_18px_rgba(249,115,22,0.78)]"
+                        : index + 1 < previewDay ? "bg-orange-500" : "bg-white/10"
+                    }`} />
+                    <span className={`mt-1 block text-[7px] font-bold uppercase tracking-tight sm:text-[9px] ${index + 1 <= previewDay ? "text-orange-300" : "text-zinc-600"}`}>{index + 1}</span>
+                  </button>
                 ))}
               </div>
               <Popover>
@@ -896,8 +955,8 @@ export default function HubPage() {
                   <p className="mt-1 text-[10px] text-zinc-500">Planned from your training rhythm and next session.</p>
                   <div className="mt-3 space-y-1.5">
                     {onboardingSchedule.map((date, index) => (
-                      <div key={index} className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${index === 0 ? "bg-orange-500/10" : "bg-white/[0.03]"}`}>
-                        <span className={`text-[10px] font-bold ${index === 0 ? "text-orange-200" : "text-zinc-400"}`}>Day {index + 1}</span>
+                      <div key={index} className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${index + 1 === previewDay ? "bg-orange-500/10" : "bg-white/[0.03]"}`}>
+                        <span className={`text-[10px] font-bold ${index + 1 === previewDay ? "text-orange-200" : "text-zinc-400"}`}>Day {index + 1}</span>
                         <span className="text-[10px] text-zinc-300">{date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span>
                       </div>
                     ))}
@@ -912,7 +971,7 @@ export default function HubPage() {
       <div className="px-4 space-y-4 mt-4">
         {onboardingPreview ? (
           <>
-            <div className="space-y-4" data-testid="card-day-one-mission">
+            <div className={previewDay === 1 ? "space-y-4" : "hidden"} data-testid="card-day-one-mission">
 
             <div className="px-1 pt-1">
               <h2 className="font-heading text-xl font-black uppercase leading-tight text-white sm:text-2xl">Welcome to The PLAYR1 Project.</h2>
@@ -1079,6 +1138,70 @@ export default function HubPage() {
                       );
                     })()}
                   </div>
+
+            {previewDay === 2 && (
+              <section className="space-y-5 pb-4" data-testid="card-day-two-mission">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-300">Day 2</p>
+                    <h2 className="mt-1 font-heading text-xl font-black uppercase text-white sm:text-2xl">Build your player profile</h2>
+                  </div>
+                  <button type="button" onClick={() => {
+                    const saved = onboardingPreview ? (() => {
+                      try { return JSON.parse(sessionStorage.getItem("playr1-onboarding-day2-profile") || "{}"); } catch { return {}; }
+                    })() : {};
+                    const source = { ...setupData?.answers, ...saved };
+                    setDayTwoAnswers({
+                      currentSituation: source.currentSituation || "",
+                      primaryGoal: source.primaryGoal || "",
+                      positions: Array.isArray(source.positions) ? source.positions : [],
+                      skillRankings: makeUniqueRankings(source.skillRankings),
+                      experienceYears: source.experienceYears === undefined ? "" : String(source.experienceYears),
+                    });
+                    setDayTwoError("");
+                    setDayTwoProfileOpen(true);
+                  }} className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border border-white/20 bg-white/[0.06] px-3 text-[9px] font-black uppercase tracking-wide text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-lg transition hover:border-orange-300/50 hover:bg-orange-500/10">
+                    <Pencil className="h-3.5 w-3.5 text-orange-300" /> Complete profile
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900/80 via-black to-orange-950/20 p-4 sm:p-5">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-400/25 bg-orange-500/10 text-orange-300 shadow-[0_0_20px_rgba(249,115,22,0.12)]"><Dumbbell className="h-5 w-5" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Today’s workout</p>
+                      <h3 className="mt-1 text-base font-black text-white">Handle &amp; Footwork Diagnostic</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-zinc-400">Get a quick read on your control, change of direction, and game-speed footwork.</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => navigate("/coach-p?welcomeWorkout=1")} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff984f] via-[#f97316] to-[#cf4307] px-4 text-[10px] font-black uppercase tracking-[0.14em] text-black shadow-[0_0_22px_rgba(249,115,22,0.22)] transition hover:brightness-110" data-testid="button-start-day-two-workout">
+                    Start Day 2 Workout <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {dayTwoProfileOpen && (
+              <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/80 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setDayTwoProfileOpen(false)}>
+                <section role="dialog" aria-modal="true" aria-labelledby="day-two-profile-title" className="max-h-[90dvh] w-full max-w-xl space-y-4 overflow-y-auto rounded-t-3xl border border-orange-400/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div><p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Player profile</p><h3 id="day-two-profile-title" className="mt-1 font-heading text-lg font-black uppercase text-white">Tell us more about your game</h3></div>
+                    <button type="button" onClick={() => setDayTwoProfileOpen(false)} aria-label="Close profile questions" className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-white"><X className="h-4 w-4" /></button>
+                  </div>
+                  <label className="block space-y-1.5"><span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">What best describes your basketball situation?</span>
+                    <Select value={dayTwoAnswers.currentSituation} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, currentSituation: value }))}><SelectTrigger className="h-11 border-white/10 bg-black text-white"><SelectValue placeholder="Select your situation" /></SelectTrigger><SelectContent className="border-orange-500/30 bg-[#111] text-white">{PLAYER_SETUP_SITUATIONS.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select>
+                  </label>
+                  <label className="block space-y-1.5"><span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">What is your primary goal?</span>
+                    <Select value={dayTwoAnswers.primaryGoal} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, primaryGoal: value }))}><SelectTrigger className="h-11 border-white/10 bg-black text-white"><SelectValue placeholder="Select your goal" /></SelectTrigger><SelectContent className="border-orange-500/30 bg-[#111] text-white">{PLAYER_SETUP_GOALS.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select>
+                  </label>
+                  <fieldset><legend className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Which positions do you play?</legend><div className="grid grid-cols-5 gap-2">{["PG", "SG", "SF", "PF", "C"].map((position) => <button key={position} type="button" aria-pressed={dayTwoAnswers.positions.includes(position)} onClick={() => setDayTwoAnswers((current) => ({ ...current, positions: current.positions.includes(position) ? current.positions.filter((item) => item !== position) : [...current.positions, position] }))} className={`h-10 rounded-lg border text-xs font-black ${dayTwoAnswers.positions.includes(position) ? "border-orange-400 bg-orange-500/15 text-orange-200" : "border-white/10 bg-black text-zinc-400"}`}>{position}</button>)}</div></fieldset>
+                  <div className="space-y-2"><p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Rank your skills</p>{PLAYER_SETUP_RANK_FIELDS.map((field) => <label key={field.key} className="grid grid-cols-[7rem_1fr] items-center gap-2"><span className="text-[10px] text-zinc-400">{field.label}</span><Select value={dayTwoAnswers.skillRankings[field.key]} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, skillRankings: { ...current.skillRankings, [field.key]: value } }))}><SelectTrigger className="h-10 border-white/10 bg-black text-xs text-white"><SelectValue placeholder="Choose a skill" /></SelectTrigger><SelectContent className="border-orange-500/30 bg-[#111] text-white">{PLAYER_SETUP_SKILLS.map((skill) => <SelectItem key={skill} value={skill} disabled={Object.entries(dayTwoAnswers.skillRankings).some(([key, value]) => key !== field.key && value === skill)}>{skill}</SelectItem>)}</SelectContent></Select></label>)}</div>
+                  <label className="block space-y-1.5"><span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">How many years have you played?</span><Select value={dayTwoAnswers.experienceYears} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, experienceYears: value }))}><SelectTrigger className="h-11 border-white/10 bg-black text-white"><SelectValue placeholder="Choose years played" /></SelectTrigger><SelectContent className="border-orange-500/30 bg-[#111] text-white">{["0", "1 to 3", "4 to 6", "7 to 10", "10+"].map((value) => <SelectItem key={value} value={value}>{value === "0" ? "Less than 1 year" : `${value} years`}</SelectItem>)}</SelectContent></Select></label>
+                  {dayTwoError && <p role="alert" className="text-xs text-red-300">{dayTwoError}</p>}
+                  <button type="button" onClick={saveDayTwoProfile} disabled={dayTwoSaving || !dayTwoAnswers.currentSituation || !dayTwoAnswers.primaryGoal || !dayTwoAnswers.positions.length || !dayTwoAnswers.experienceYears || new Set(Object.values(dayTwoAnswers.skillRankings)).size !== 4} className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50">{dayTwoSaving ? "Saving..." : "Save Profile"}</button>
+                </section>
+              </div>
+            )}
 
                   {baselinePickerOpen && (
                     <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/80 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setBaselinePickerOpen(false)}>
