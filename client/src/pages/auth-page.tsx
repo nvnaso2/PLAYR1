@@ -211,6 +211,7 @@ function RegisterForm({
       toast({ title: "Registration failed", description: error.message.replace(/^\d+:\s*/, ""), variant: "destructive" });
     },
   });
+  const previewFieldClass = "auth-pill-input h-[58px] px-5 text-[15px] text-[#f5f2eb] placeholder:text-[#88837e] focus-visible:ring-0 focus-visible:ring-offset-0";
 
   return (
     <Card className="w-full max-w-md rounded-none border-0 bg-transparent text-[#f5f2eb] shadow-none">
@@ -237,9 +238,9 @@ function RegisterForm({
                 name="firstName"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">First Name</FormLabel>
+                    <FormLabel className={previewMode ? "sr-only" : "text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]"}>First Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="First" data-testid="input-register-firstname" className="h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-3 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0" {...field} />
+                      <Input placeholder={previewMode ? "First name" : "First"} aria-label="First name" data-testid="input-register-firstname" className={previewMode ? previewFieldClass : "h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-3 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0"} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -250,9 +251,9 @@ function RegisterForm({
                 name="lastName"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">Last Name</FormLabel>
+                    <FormLabel className={previewMode ? "sr-only" : "text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]"}>Last Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Last" data-testid="input-register-lastname" className="h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-3 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0" {...field} />
+                      <Input placeholder={previewMode ? "Last name" : "Last"} aria-label="Last name" data-testid="input-register-lastname" className={previewMode ? previewFieldClass : "h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-3 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0"} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -263,10 +264,10 @@ function RegisterForm({
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d7d3cb]">Email</FormLabel>
+                  <FormItem className="space-y-2">
+                  <FormLabel className={previewMode ? "sr-only" : "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d7d3cb]"}>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="you@example.com" data-testid="input-register-email" className="h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-4 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0" {...field} />
+                    <Input type="email" placeholder={previewMode ? "Email" : "you@example.com"} aria-label="Email" data-testid="input-register-email" className={previewMode ? previewFieldClass : "h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-4 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0"} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -276,20 +277,21 @@ function RegisterForm({
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d7d3cb]">Password</FormLabel>
+                  <FormItem className="space-y-2">
+                  <FormLabel className={previewMode ? "sr-only" : "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d7d3cb]"}>Password</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Input
                         type={showPassword ? "text" : "password"}
-                        placeholder="Min. 8 characters"
+                        placeholder={previewMode ? "Password (8+ characters)" : "Min. 8 characters"}
                         data-testid="input-register-password"
-                        className="h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-4 pr-12 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0"
+                        aria-label="Password"
+                        className={previewMode ? `${previewFieldClass} pr-14` : "h-11 rounded-sm border-[#45433f] bg-[#201f1d] px-4 pr-12 text-[15px] text-[#f5f2eb] placeholder:text-[#96928a] focus-visible:border-[#f07836] focus-visible:ring-[#f07836]/35 focus-visible:ring-offset-0"}
                         {...field}
                       />
                       <button
                         type="button"
-                        className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-sm text-[#a6a39c] transition-colors hover:text-[#f5f2eb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f07836] focus-visible:ring-offset-2 focus-visible:ring-offset-[#201f1d]"
+                        className={`absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center text-[#a6a39c] transition-colors hover:text-[#f5f2eb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f07836] ${previewMode ? "rounded-full" : "rounded-sm focus-visible:ring-offset-2 focus-visible:ring-offset-[#201f1d]"}`}
                         onClick={() => setShowPassword(!showPassword)}
                         aria-label={showPassword ? "Hide password" : "Show password"}
                         aria-pressed={showPassword}
@@ -316,15 +318,15 @@ function RegisterForm({
                 </FormItem>
               )}
             />}
-            <Button type="submit" className="mt-1 h-12 w-full rounded-sm border-[#f07836] bg-[#f07836] text-[12px] font-bold uppercase tracking-[0.17em] text-[#17120f] transition-colors hover:bg-[#ff8b4b] hover:text-[#17120f] focus-visible:ring-2 focus-visible:ring-[#ffd0b5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171716]" disabled={registerMutation.isPending} data-testid="button-register-submit">
+            <Button type="submit" className={previewMode ? "h-[58px] w-full rounded-full border border-orange-300 bg-orange-500 text-[13px] font-bold tracking-[0.04em] text-black shadow-[0_8px_28px_rgba(249,115,22,0.22)] transition-colors hover:bg-orange-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[#ffd0b5] focus-visible:ring-offset-2 focus-visible:ring-offset-black" : "mt-1 h-12 w-full rounded-sm border-[#f07836] bg-[#f07836] text-[12px] font-bold uppercase tracking-[0.17em] text-[#17120f] transition-colors hover:bg-[#ff8b4b] hover:text-[#17120f] focus-visible:ring-2 focus-visible:ring-[#ffd0b5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171716]"} disabled={registerMutation.isPending} data-testid="button-register-submit">
               {registerMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {previewMode ? "Create Account" : "Create your player profile"}
             </Button>
           </form>
         </Form>
-        <div className="mt-6 border-t border-[#393835] pt-5 text-sm text-[#a6a39c]">
+        <div className={previewMode ? "mt-5 flex items-center justify-center gap-2 text-[13px] text-[#d9d3cd]" : "mt-6 border-t border-[#393835] pt-5 text-sm text-[#a6a39c]"}>
           Already on PLAYR1?{" "}
-          <button onClick={onSwitch} className="rounded-sm font-semibold text-[#f5f2eb] underline decoration-[#f07836] decoration-2 underline-offset-4 transition-colors hover:text-[#f07836] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f07836] focus-visible:ring-offset-4 focus-visible:ring-offset-[#171716]" data-testid="button-switch-login">
+          <button onClick={onSwitch} className={previewMode ? "rounded-sm font-medium text-[#d9d3cd] transition-colors hover:text-[#ff9a5e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9a5e] focus-visible:ring-offset-4 focus-visible:ring-offset-black" : "rounded-sm font-semibold text-[#f5f2eb] underline decoration-[#f07836] decoration-2 underline-offset-4 transition-colors hover:text-[#f07836] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f07836] focus-visible:ring-offset-4 focus-visible:ring-offset-[#171716]"} data-testid="button-switch-login">
             Sign in
           </button>
         </div>

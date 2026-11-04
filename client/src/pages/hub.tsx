@@ -132,9 +132,10 @@ function localDateKey(date: Date) {
 
 export default function HubPage() {
   const { user } = useAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const search = useSearch();
-  const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding";
+  const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding"
+    || (location.split("?")[0] === "/admin/onboarding-preview" && new URLSearchParams(search).get("page") === "hub");
   const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
   const [baselineLogging, setBaselineLogging] = useState(false);
   const [baselineComplete, setBaselineComplete] = useState(false);

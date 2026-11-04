@@ -11,7 +11,7 @@ The current admin preview should focus on the first-session experience inside th
 
 **Why:** the user wants an immersive path that reuses the familiar account-entry aesthetic, asks schedule questions after account credentials, and then keeps the first-session experience inside the Hub with an motivating progress visualization.
 
-**How to apply:** preserve the exact baseline counts above; do not change live onboarding while iterating on the preview. Reuse the existing AuthPage and actual Hub shell, route preview sign-in and signup through the schedule questions before Hub, and keep the page selector as the sole preview control. Preview submissions stay local and never call auth APIs.
+**How to apply:** preserve the exact baseline counts above; do not change live onboarding while iterating on the preview. Reuse the existing AuthPage and actual Hub shell, keep account creation and profile questions visually consistent with the sign-in screen, keep every preview page under the onboarding-preview route, and use the page selector as the sole preview control. Preview submissions stay local and never call auth APIs.
 
 ## Current live flow and lead-magnet boundary
 

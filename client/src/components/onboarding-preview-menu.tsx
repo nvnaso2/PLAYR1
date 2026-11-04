@@ -14,7 +14,7 @@ export function OnboardingPreviewMenu({ page }: { page: PreviewPage }) {
   const [, navigate] = useLocation();
 
   function changePage(value: PreviewPage) {
-    navigate(value === "hub" ? "/hub?preview=onboarding" : `/admin/onboarding-preview?page=${value}`);
+    navigate(`/admin/onboarding-preview?page=${value}`);
   }
 
   return (
