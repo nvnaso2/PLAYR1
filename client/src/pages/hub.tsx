@@ -50,6 +50,24 @@ type WeeklyTrendPoint = {
   midRangeAttempted: number;
 };
 type CategoryStatPoint = { category: string; minutes: number; sessions: number };
+type PreviewShotKey = "threes" | "midrange" | "freeThrows";
+
+const onboardingBaselines: Array<{
+  id: "full" | "standard" | "quick";
+  name: string;
+  threes: number;
+  midrange: number;
+  freeThrows: number;
+}> = [
+  { id: "full", name: "Full session", threes: 100, midrange: 40, freeThrows: 25 },
+  { id: "standard", name: "Balanced", threes: 50, midrange: 40, freeThrows: 25 },
+  { id: "quick", name: "Quick session", threes: 50, midrange: 20, freeThrows: 15 },
+];
+const previewShotTypes: Array<{ key: PreviewShotKey; label: string }> = [
+  { key: "threes", label: "3-pointers" },
+  { key: "midrange", label: "Mid-range" },
+  { key: "freeThrows", label: "Free throws" },
+];
 
 const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
   totalDrills: "#38bdf8",
@@ -116,6 +134,24 @@ export default function HubPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding";
+  const [previewDay, setPreviewDay] = useState(1);
+  const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
+  const [baselineLogging, setBaselineLogging] = useState(false);
+  const [baselineComplete, setBaselineComplete] = useState(false);
+  const [baselineResults, setBaselineResults] = useState<Record<PreviewShotKey, string>>({
+    threes: "", midrange: "", freeThrows: "",
+  });
+  const [previewProfile] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("playr1-onboarding-preview") || "{}") as {
+        playerName?: string; trainingDays?: number; sessionLength?: number; nextSession?: string;
+      };
+    } catch {
+      return {};
+    }
+  });
+  const selectedBaseline = onboardingBaselines.find((option) => option.id === baselineId)!;
+  const baselineTotal = selectedBaseline.threes + selectedBaseline.midrange + selectedBaseline.freeThrows;
   const [testHubView, setTestHubView] = useState<"onboarding" | "everyday" | null>(null);
   const [recommendationDay, setRecommendationDay] = useState(() => localDateKey(new Date()));
   const [trailerDismissed, setTrailerDismissed] = useState(() =>
@@ -638,7 +674,7 @@ export default function HubPage() {
           <div>
             <p className="text-zinc-400 text-sm">{formatDate()}</p>
             <h1 className="text-2xl font-bold text-white mt-0.5">
-              {greetText} <span aria-hidden="true">🏀</span>
+              {onboardingPreview && previewProfile.playerName ? `Welcome, ${previewProfile.playerName}` : greetText} <span aria-hidden="true">🏀</span>
             </h1>
           </div>
           {!showProfileSetup && streak >= 0 && (() => {
@@ -672,6 +708,149 @@ export default function HubPage() {
       </div>
 
       <div className="px-4 space-y-4 mt-4">
+        {onboardingPreview ? (
+          <>
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-3 sm:p-4" aria-label="Seven day onboarding preview">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Your first week</p>
+                  <h2 className="mt-1 text-sm font-bold text-white">One step at a time</h2>
+                </div>
+                {previewProfile.sessionLength && <span className="rounded-full border border-orange-500/25 bg-orange-500/10 px-2.5 py-1 text-[10px] font-semibold text-orange-200">{previewProfile.sessionLength} min session</span>}
+              </div>
+              <nav className="grid grid-cols-7 gap-1.5" aria-label="Days in onboarding preview">
+                {Array.from({ length: 7 }, (_, index) => index + 1).map((number) => (
+                  <button key={number} type="button" onClick={() => setPreviewDay(number)} aria-current={previewDay === number ? "step" : undefined}
+                    className={`rounded-lg border py-2 text-center transition ${previewDay === number ? "border-orange-500 bg-orange-500 text-black" : "border-zinc-800 bg-black text-zinc-500 hover:text-zinc-200"}`}>
+                    <span className="block text-[8px] font-bold uppercase tracking-wider">Day</span>
+                    <span className="block text-sm font-black">{number}</span>
+                  </button>
+                ))}
+              </nav>
+            </section>
+
+            {previewDay === 1 ? (
+              <>
+                <section className="overflow-hidden rounded-2xl border border-orange-500/25 bg-gradient-to-br from-[#20140d] via-[#111] to-[#0b0b0b] p-4 sm:p-5" data-testid="hub-onboarding-baseline">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Day 1 · First session</p>
+                      <h2 className="mt-1 font-heading text-2xl font-black uppercase leading-tight text-white">Build your shooting baseline</h2>
+                      <p className="mt-2 max-w-xl text-xs leading-5 text-zinc-400">One workout. Pick a session size, record your makes, and see your starting point.</p>
+                    </div>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-500/10 text-orange-300"><Target className="h-5 w-5" /></span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {onboardingBaselines.map((option) => {
+                      const total = option.threes + option.midrange + option.freeThrows;
+                      return (
+                        <button key={option.id} type="button" aria-pressed={baselineId === option.id}
+                          onClick={() => { setBaselineId(option.id); setBaselineResults({ threes: "", midrange: "", freeThrows: "" }); setBaselineComplete(false); setBaselineLogging(false); }}
+                          className={`min-h-[76px] rounded-xl border p-2.5 text-left transition ${baselineId === option.id ? "border-orange-400 bg-orange-500/10 shadow-[0_0_20px_rgba(249,115,22,0.1)]" : "border-zinc-800 bg-black/40 hover:border-zinc-600"}`}>
+                          <span className="block text-[10px] font-bold uppercase tracking-wide text-zinc-200">{option.name}</span>
+                          <span className="mt-1 block text-lg font-black text-white">{total}<span className="ml-1 text-[9px] font-semibold uppercase text-zinc-500">shots</span></span>
+                          <span className="mt-1 block text-[9px] leading-4 text-zinc-500">{option.threes} · {option.midrange} · {option.freeThrows}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/45 p-3.5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-white">Your shooting snapshot</p>
+                        <p className="mt-0.5 text-[10px] text-zinc-500">3-pointers · mid-range · free throws</p>
+                      </div>
+                      {baselineComplete && <span className="rounded-full bg-orange-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-orange-300">First result</span>}
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {previewShotTypes.map(({ key, label }) => {
+                        const max = selectedBaseline[key];
+                        const made = Number(baselineResults[key] || 0);
+                        const percent = baselineComplete ? Math.round((made / max) * 100) : 0;
+                        return (
+                          <div key={key} className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5">
+                            <div className="flex h-[72px] items-end justify-center rounded-md bg-[linear-gradient(to_top,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[length:100%_25%]">
+                              <div className={`w-9 rounded-t-md bg-gradient-to-t from-orange-700 to-orange-300 transition-all duration-700 ${baselineComplete ? "opacity-100" : "h-1 opacity-25"}`} style={baselineComplete ? { height: `${Math.max(percent, 5)}%` } : undefined} />
+                            </div>
+                            <p className="mt-2 truncate text-[9px] font-semibold text-zinc-400">{label}</p>
+                            <p className="mt-0.5 text-xs font-black text-white">{baselineComplete ? `${percent}%` : "—"}</p>
+                            {baselineComplete && <p className="text-[9px] text-zinc-600">{made}/{max} makes</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {!baselineComplete && <p className="mt-2 text-center text-[9px] text-zinc-600">Your graph fills in when you log the workout.</p>}
+                  </div>
+
+                  {baselineLogging && !baselineComplete && (
+                    <div className="mt-4 rounded-xl border border-orange-500/20 bg-black/35 p-3.5">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold text-white">Log your makes</p>
+                          <p className="mt-0.5 text-[10px] text-zinc-500">{baselineTotal} attempts · one session</p>
+                        </div>
+                        <button type="button" onClick={() => setBaselineLogging(false)} aria-label="Close baseline logger" className="rounded-md p-1.5 text-zinc-500 hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {previewShotTypes.map(({ key, label }) => (
+                          <label key={key} className="min-w-0 rounded-lg border border-zinc-800 bg-zinc-950 p-2.5">
+                            <span className="block truncate text-[9px] font-semibold text-zinc-400">{label}</span>
+                            <span className="mt-1 flex items-center gap-1">
+                              <input type="number" min={0} max={selectedBaseline[key]} step={1} inputMode="numeric" value={baselineResults[key]} aria-label={`${label} makes`}
+                                onChange={(event) => setBaselineResults((current) => ({ ...current, [key]: event.target.value }))}
+                                className="h-9 min-w-0 w-full rounded-md border border-zinc-700 bg-black px-2 text-center text-sm font-bold text-white outline-none focus:border-orange-400" />
+                              <span className="shrink-0 text-[9px] text-zinc-600">/{selectedBaseline[key]}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      <button type="button"
+                        disabled={previewShotTypes.some(({ key }) => baselineResults[key] === "" || !Number.isInteger(Number(baselineResults[key])) || Number(baselineResults[key]) < 0 || Number(baselineResults[key]) > selectedBaseline[key])}
+                        onClick={() => { setBaselineComplete(true); setBaselineLogging(false); }}
+                        className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-orange-500 px-4 text-xs font-black uppercase tracking-wide text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+                        data-testid="button-log-onboarding-baseline"
+                      >
+                        Log this workout
+                      </button>
+                    </div>
+                  )}
+
+                  {!baselineComplete && !baselineLogging && (
+                    <button type="button" onClick={() => setBaselineLogging(true)} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 text-xs font-black uppercase tracking-wide text-black transition hover:bg-orange-400" data-testid="button-start-onboarding-baseline">
+                      Start {selectedBaseline.name.toLowerCase()} <ChevronRight className="h-4 w-4" />
+                    </button>
+                  )}
+                  {baselineComplete && (
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2.5">
+                      <p className="text-xs font-semibold text-emerald-200">Baseline logged in this preview · {baselineTotal} attempts</p>
+                      <button type="button" onClick={() => { setBaselineComplete(false); setBaselineLogging(true); }} className="shrink-0 text-[10px] font-bold text-zinc-400 underline underline-offset-4 hover:text-white">Edit</button>
+                    </div>
+                  )}
+                </section>
+
+                <section className="overflow-hidden rounded-2xl border border-zinc-800 bg-black" data-testid="card-day-one-trailer">
+                  <div className="border-b border-white/[0.06] p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Your PLAYR1 story starts now</p>
+                    <h2 className="mt-1 text-lg font-extrabold text-white">Watch the trailer</h2>
+                    <p className="mt-1 text-xs text-zinc-500">See what you can build from here.</p>
+                  </div>
+                  <video className="aspect-video w-full bg-black object-cover" controls preload="metadata" playsInline src={introTrailer}>
+                    Your browser does not support embedded video.
+                  </video>
+                </section>
+              </>
+            ) : (
+              <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Day {previewDay}</p>
+                <h2 className="mt-2 text-xl font-extrabold text-white">This day’s experience is coming next.</h2>
+                <p className="mt-2 max-w-lg text-sm leading-6 text-zinc-500">The journey reveals more Hub content over the week. Day 1 includes your shooting baseline and the PLAYR1 trailer.</p>
+              </section>
+            )}
+          </>
+        ) : (
+          <>
         {showProfileSetup && (
           <>
             {!trailerDismissed && (
@@ -880,7 +1059,9 @@ export default function HubPage() {
         </section>
         )}
 
+          </>
+        )}
       </div>
-    </div>
+      </div>
   );
 }

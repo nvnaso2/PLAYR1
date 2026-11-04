@@ -11,7 +11,7 @@ The admin preview can demonstrate all seven days, but Days 2–7 need user-appro
 
 **Why:** the user wants an immersive path that reuses the familiar account-entry aesthetic, asks schedule questions after account credentials, and then keeps Day 1 inside the Hub and focused on two experiences.
 
-**How to apply:** preserve this order and the exact baseline counts above; do not change live onboarding or invent Days 2–7 content while iterating on the preview. Reuse the existing AuthPage visuals and fields in the preview instead of creating a parallel sign-in/signup design, and ensure preview submits never call auth APIs.
+**How to apply:** preserve this order and the exact baseline counts above; do not change live onboarding or invent Days 2–7 content while iterating on the preview. Reuse the existing AuthPage and the actual Hub shell in preview, replacing its normal Day 1 content with an interactive baseline and result graph. Preview submissions stay local and never call auth APIs.
 
 ## Current live flow and lead-magnet boundary
 
