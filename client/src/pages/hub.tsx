@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DrillCard } from "@/components/drill-card";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
 import {
@@ -164,6 +165,16 @@ export default function HubPage() {
   });
   const selectedBaseline = onboardingBaselines.find((option) => option.id === baselineId)!;
   const baselineTotal = selectedBaseline.threes + selectedBaseline.midrange + selectedBaseline.freeThrows;
+  const frequency = Math.max(1, Number(previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? 1));
+  const sessionIntervalDays = (previewProfile.frequencyUnit === "month" ? 30 : 7) / frequency;
+  const firstTrainingDate = previewProfile.nextSession && !Number.isNaN(new Date(previewProfile.nextSession).getTime())
+    ? new Date(previewProfile.nextSession)
+    : new Date();
+  const onboardingSchedule = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(firstTrainingDate);
+    date.setDate(date.getDate() + Math.round(index * sessionIntervalDays));
+    return date;
+  });
   const [testHubView, setTestHubView] = useState<"onboarding" | "everyday" | null>(null);
   const [recommendationDay, setRecommendationDay] = useState(() => localDateKey(new Date()));
   const [trailerDismissed, setTrailerDismissed] = useState(() =>
@@ -703,14 +714,41 @@ export default function HubPage() {
             })()}
         </div>
         {onboardingPreview && (
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-orange-500/20 bg-[linear-gradient(100deg,rgba(249,115,22,0.10),rgba(10,10,10,0.88)_55%)] px-3 py-2.5" data-testid="onboarding-day-progress">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Onboarding · Day 1 of 7</p>
-              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300">The baseline</p>
+          <div className="mt-4 rounded-xl border border-orange-500/20 bg-[linear-gradient(100deg,rgba(249,115,22,0.10),rgba(10,10,10,0.88)_55%)] px-3 py-2.5" data-testid="onboarding-day-progress">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Onboarding · Day 1 of 7</p>
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300">The baseline</p>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" aria-label="Open your seven-session calendar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/40 text-zinc-300 transition hover:border-orange-400/50 hover:text-orange-200">
+                    <CalendarDays className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[min(340px,calc(100vw-24px))] border-orange-400/20 bg-[#101010] p-3 text-white shadow-2xl">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Your 7-session calendar</p>
+                  <p className="mt-1 text-[10px] text-zinc-500">Planned from your training rhythm and next session.</p>
+                  <div className="mt-3 space-y-1.5">
+                    {onboardingSchedule.map((date, index) => (
+                      <div key={index} className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${index === 0 ? "bg-orange-500/10" : "bg-white/[0.03]"}`}>
+                        <span className={`text-[10px] font-bold ${index === 0 ? "text-orange-200" : "text-zinc-400"}`}>Day {index + 1}</span>
+                        <span className="text-[10px] text-zinc-300">{date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
-            <div className="flex items-center gap-1" aria-label="Day 1 of 7">
-              {Array.from({ length: 7 }, (_, index) => (
-                <span key={index} className={`h-1.5 w-4 rounded-full ${index === 0 ? "bg-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.7)]" : "bg-white/10"}`} />
+            <div className="mt-3 grid grid-cols-7 gap-1.5" aria-label="Seven onboarding days">
+              {onboardingSchedule.map((date, index) => (
+                <div key={index} className="min-w-0 text-center" aria-label={`Day ${index + 1}: ${date.toLocaleDateString()}`}>
+                  <span className="block truncate text-[7px] font-semibold uppercase tracking-tight text-zinc-400 sm:text-[9px]">
+                    {date.toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}
+                  </span>
+                  <span className={`mt-1 block h-1.5 w-full rounded-full ${index === 0 ? "bg-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.65)]" : "bg-white/10"}`} />
+                  <span className={`mt-1 block text-[7px] font-bold uppercase tracking-tight sm:text-[9px] ${index === 0 ? "text-orange-200" : "text-zinc-600"}`}>Day {index + 1}</span>
+                </div>
               ))}
             </div>
           </div>
@@ -721,30 +759,6 @@ export default function HubPage() {
         {onboardingPreview ? (
           <>
             <div className="relative isolate overflow-hidden rounded-[26px] border border-orange-500/25 bg-[radial-gradient(ellipse_at_86%_0%,rgba(249,115,22,0.12),transparent_38%),linear-gradient(145deg,#11100e,#070707_58%,#050505)] p-3 shadow-[0_22px_65px_rgba(0,0,0,0.4)] sm:rounded-[30px] sm:p-5" data-testid="card-day-one-mission">
-            <section className="relative isolate overflow-hidden rounded-2xl border border-orange-500/25 bg-[radial-gradient(ellipse_at_88%_10%,rgba(249,115,22,0.22),transparent_34%),linear-gradient(120deg,#17110d,#090909_58%,#050505)] px-4 py-5 shadow-[0_14px_40px_rgba(0,0,0,0.3)] sm:px-6 sm:py-6" data-testid="card-day-one-welcome">
-              <svg aria-hidden="true" className="pointer-events-none absolute -right-7 -top-10 h-44 w-44 text-orange-300/[0.08] sm:h-56 sm:w-56" viewBox="0 0 200 200" fill="none">
-                <circle cx="100" cy="100" r="74" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M26 100h148M100 26v148M48 48c30 30 74 74 104 104M152 48C122 78 78 122 48 152" stroke="currentColor" strokeWidth="1.5" />
-              </svg>
-              <div className="relative flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-orange-400/25 bg-orange-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.9)]" /> Day 1 · First session
-                  </span>
-                  <h2 className="mt-3 font-heading text-2xl font-black uppercase leading-[0.98] text-white sm:text-4xl">Your journey<br className="hidden sm:block" /> starts with a shot.</h2>
-                  <p className="mt-2 max-w-lg text-xs leading-5 text-zinc-300 sm:text-sm">Set your starting point, then watch every rep build toward something bigger.</p>
-                </div>
-                <div className="mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-300/25 bg-orange-500/15 text-orange-300 shadow-[0_0_32px_rgba(249,115,22,0.17)] sm:h-14 sm:w-14">
-                  <Target className="h-6 w-6 sm:h-7 sm:w-7" />
-                </div>
-              </div>
-              <div className="relative mt-5 grid grid-cols-2 gap-2 border-t border-white/10 pt-3 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-400 sm:flex sm:gap-5">
-                <span className="text-orange-200">01 <span className="ml-1 text-zinc-300">Baseline</span></span>
-                <span>02 <span className="ml-1 text-zinc-300">Your progress</span></span>
-                <span className="col-span-2 sm:ml-auto sm:col-span-1">03 <span className="ml-1 text-zinc-300">The PLAYR1 story</span></span>
-              </div>
-            </section>
-
             {previewProfile.sessionLength && (
               <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-zinc-950/80 px-3.5 py-3" aria-label="Your training plan">
                 <div className="flex min-w-0 items-center gap-3">
@@ -790,26 +804,30 @@ export default function HubPage() {
               </section>
             )}
 
+            <div className="px-1 pt-1">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-300">Day 1 mission</p>
+              <h2 className="mt-1 font-heading text-xl font-black uppercase leading-tight text-white sm:text-2xl">Lock in your shooting baseline</h2>
+            </div>
+
             <section className="relative isolate overflow-hidden rounded-2xl border border-orange-500/25 bg-[radial-gradient(ellipse_at_50%_0%,rgba(249,115,22,0.14),transparent_54%),#050505] p-2 shadow-[0_14px_40px_rgba(0,0,0,0.28)]" data-testid="card-day-one-trailer">
-              <button type="button" onClick={() => setTrailerPlaying(true)} className="group relative flex aspect-video w-full flex-col justify-end overflow-hidden rounded-xl bg-[radial-gradient(ellipse_at_78%_22%,rgba(249,115,22,0.27),transparent_36%),linear-gradient(145deg,#1c120d,#090909_48%,#050505)] p-5 text-left transition sm:p-8" data-testid="button-play-onboarding-trailer">
-                <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-40 transition duration-500 group-hover:scale-105 group-hover:opacity-70">
-                  <div className="absolute -right-12 -top-20 h-64 w-64 rounded-full border border-orange-300/20" />
-                  <div className="absolute -right-2 -top-10 h-44 w-44 rounded-full border border-orange-300/15" />
-                  <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/35 to-transparent" />
-                </div>
-                <span className="relative z-10 inline-flex w-fit items-center gap-2 rounded-full border border-orange-300/25 bg-black/40 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.24em] text-orange-200 backdrop-blur">Day 1 film <span className="h-1 w-1 rounded-full bg-orange-300" /> PLAYR1 original</span>
-                <span className="relative z-10 mt-3 max-w-xl font-heading text-2xl font-black uppercase leading-[0.95] text-white sm:text-4xl">Your story starts<br />with the next rep.</span>
-                <span className="relative z-10 mt-4 inline-flex w-fit items-center gap-2 rounded-full border border-orange-400/40 bg-orange-500 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-black shadow-[0_0_28px_rgba(249,115,22,0.2)] transition group-hover:bg-orange-400"><Play className="h-3.5 w-3.5 fill-current" /> Watch the PLAYR1 vision · 45s</span>
+              <button type="button" onClick={() => setTrailerPlaying(true)} className="group relative block aspect-video w-full overflow-hidden rounded-lg bg-black text-left" data-testid="button-play-onboarding-trailer" aria-label="Play the PLAYR1 trailer">
+                <img src="/images/playr1-trailer-thumbnail.jpg" alt="PLAYR1 trailer thumbnail" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]" />
+                <span className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
+                <span className="absolute left-1/2 top-1/2 flex h-12 w-[68px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl bg-[#ff0033] shadow-[0_2px_14px_rgba(0,0,0,0.45)] transition group-hover:scale-110 group-hover:bg-[#e6002e]">
+                  <Play className="ml-1 h-6 w-6 fill-white text-white" />
+                </span>
+                <span className="absolute bottom-2 right-2 rounded bg-black/85 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white">0:05</span>
               </button>
+              <div className="flex items-start gap-3 px-2 pb-2 pt-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-black text-black">P1</span>
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-bold text-white">The PLAYR1 Vision</p>
+                  <p className="mt-0.5 text-[10px] text-zinc-500">PLAYR1 · Official trailer</p>
+                </div>
+              </div>
             </section>
 
                 <section className="space-y-4 pb-5" data-testid="hub-onboarding-baseline">
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">Your first challenge</p>
-                    <h3 className="mt-1 font-heading text-xl font-black uppercase leading-tight text-white sm:text-2xl">Build your shooting baseline</h3>
-                    <p className="mt-1 max-w-xl text-xs leading-5 text-zinc-400">Choose a session that fits today. Log your makes to reveal your real starting point.</p>
-                  </div>
-
                   <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-800 bg-[radial-gradient(ellipse_at_8%_0%,rgba(249,115,22,0.10),transparent_40%),#050505] px-3 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] sm:px-5 sm:py-5" data-testid="card-onboarding-progress-projection">
                     <button type="button" onClick={() => setProjectionExpanded((expanded) => !expanded)} aria-expanded={projectionExpanded} aria-controls="onboarding-projection-chart" className="flex w-full items-center justify-between gap-3 text-left">
                       <div>
