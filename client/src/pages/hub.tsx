@@ -150,6 +150,7 @@ export default function HubPage() {
   const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding"
     || (location.split("?")[0] === "/admin/onboarding-preview" && new URLSearchParams(search).get("page") === "hub");
   const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
+  const [baselinePickerOpen, setBaselinePickerOpen] = useState(false);
   const [baselineLogging, setBaselineLogging] = useState(false);
   const [baselineComplete, setBaselineComplete] = useState(false);
   const [trailerPlaying, setTrailerPlaying] = useState(false);
@@ -1059,44 +1060,68 @@ export default function HubPage() {
                                 </g>;
                               })}
                           </svg>
-                          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col p-4 sm:p-5">
-                            <h3 className="max-w-[270px] text-lg font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:max-w-none sm:text-xl">Here's where your shooting could be</h3>
-                            <div className="mt-2 flex items-center gap-3 text-[9px] font-black tracking-wide drop-shadow-[0_1px_5px_rgba(0,0,0,0.95)] sm:text-[10px]">
-                              {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5" style={{ color: line.color }}>
-                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
-                              </span>)}
+                          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-3 sm:p-5">
+                            <div className="min-w-0">
+                              <h3 className="max-w-[190px] text-sm font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:max-w-none sm:text-xl">Here's where your shooting could be</h3>
+                              <div className="mt-2 flex items-center gap-3 text-[9px] font-black tracking-wide drop-shadow-[0_1px_5px_rgba(0,0,0,0.95)] sm:text-[10px]">
+                                {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5" style={{ color: line.color }}>
+                                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
+                                </span>)}
+                              </div>
                             </div>
-                            <span className="mt-auto self-end rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[7px] font-bold uppercase tracking-[0.16em] text-zinc-400">Illustrative</span>
+                            <button type="button" onClick={() => setBaselinePickerOpen(true)} className="pointer-events-auto inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-orange-200/40 bg-gradient-to-r from-[#ff984f] via-[#f97316] to-[#cf4307] px-3 text-[8px] font-black uppercase tracking-wide text-black shadow-[0_0_18px_rgba(249,115,22,0.28)] transition hover:brightness-110 sm:px-4 sm:text-[10px]" data-testid="button-open-baseline-picker">
+                              <Play className="h-3 w-3 fill-current" /> Log Your Baseline
+                            </button>
                           </div>
                         </>
                       );
                     })()}
                   </div>
 
-                  <div className="mt-5">
-                    <div className="mb-2 flex items-end justify-between gap-3">
-                      <div>
-                        <p className="text-[9px] font-bold uppercase tracking-[0.19em] text-zinc-500">Choose your challenge</p>
-                        <p className="mt-1 text-xs font-semibold text-white">One session. Your pace.</p>
-                      </div>
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">3 shot types</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Choose baseline workout size">
-                    {onboardingBaselines.map((option) => {
-                      const total = option.threes + option.midrange + option.freeThrows;
-                      const active = baselineId === option.id;
-                      return (
-                        <button key={option.id} type="button" aria-pressed={baselineId === option.id}
-                          onClick={() => { setBaselineId(option.id); setBaselineResults({ threes: "", midrange: "", freeThrows: "" }); setBaselineComplete(false); setBaselineLogging(false); }}
-                          className={`min-h-[96px] min-w-0 rounded-xl border px-2 py-2.5 text-left transition-all duration-200 ${active ? "border-orange-400/60 bg-[linear-gradient(145deg,rgba(249,115,22,0.19),rgba(12,12,12,0.94)_72%)] text-white shadow-[0_0_24px_rgba(249,115,22,0.09)]" : "border-white/[0.08] bg-zinc-950/80 text-zinc-400 hover:border-white/20 hover:bg-zinc-900"}`}>
-                          <span className="block truncate text-[8px] font-bold uppercase tracking-[0.13em] sm:text-[9px]">{option.name}</span>
-                          <span className="mt-1.5 block text-base font-black leading-none sm:text-lg">{total}<span className="ml-1 text-[8px] font-semibold uppercase text-zinc-500">shots</span></span>
-                          <span className="mt-2 block truncate text-[8px] leading-3 text-zinc-500">{option.threes} 3PT · {option.midrange} mid · {option.freeThrows} FT</span>
+                  {baselinePickerOpen && (
+                    <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/80 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setBaselinePickerOpen(false)}>
+                      <section role="dialog" aria-modal="true" aria-labelledby="baseline-picker-title" className="max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-orange-400/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
+                        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700 sm:hidden" />
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <div>
+                            <h3 id="baseline-picker-title" className="font-heading text-lg font-black uppercase text-white sm:text-xl">Choose your baseline</h3>
+                            <p className="mt-1 text-[10px] text-zinc-400">Pick one workout to start.</p>
+                          </div>
+                          <button type="button" onClick={() => setBaselinePickerOpen(false)} aria-label="Close baseline choices" className="rounded-full border border-white/10 p-2 text-zinc-400 transition hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-3" role="group" aria-label="Choose baseline workout size">
+                          {onboardingBaselines.map((option) => {
+                            const total = option.threes + option.midrange + option.freeThrows;
+                            const active = baselineId === option.id;
+                            return (
+                              <button key={option.id} type="button" aria-pressed={active}
+                                onClick={() => setBaselineId(option.id)}
+                                className={`rounded-2xl border p-3 text-left transition-all ${active ? "border-orange-400/60 bg-[linear-gradient(145deg,rgba(249,115,22,0.18),rgba(12,12,12,0.96)_75%)] shadow-[0_0_24px_rgba(249,115,22,0.12)]" : "border-white/[0.09] bg-zinc-950/80 hover:border-white/20 hover:bg-zinc-900"}`}>
+                                <span className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-white">{option.name}</span>
+                                  {active && <CheckCircle2 className="h-4 w-4 text-orange-300" />}
+                                </span>
+                                <span className="mt-2 block text-2xl font-black leading-none text-white">{total}<span className="ml-1 text-[9px] font-semibold uppercase text-zinc-500">shots</span></span>
+                                <span className="mt-3 grid grid-cols-3 gap-1 border-t border-white/[0.08] pt-2 text-center">
+                                  <span><span className="block text-sm font-bold text-orange-300">{option.threes}</span><span className="text-[7px] uppercase text-zinc-500">3PT</span></span>
+                                  <span><span className="block text-sm font-bold text-orange-300">{option.midrange}</span><span className="text-[7px] uppercase text-zinc-500">Mid</span></span>
+                                  <span><span className="block text-sm font-bold text-orange-300">{option.freeThrows}</span><span className="text-[7px] uppercase text-zinc-500">FT</span></span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button type="button" onClick={() => {
+                          setBaselineResults({ threes: "0", midrange: "0", freeThrows: "0" });
+                          setBaselineComplete(false);
+                          setBaselinePickerOpen(false);
+                          setBaselineLogging(true);
+                        }} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400" data-testid="button-start-onboarding-baseline">
+                          <Play className="h-4 w-4 fill-current" /> Start This Workout
                         </button>
-                      );
-                    })}
+                      </section>
                     </div>
-                  </div>
+                  )}
 
                   {baselineLogging && !baselineComplete && (
                     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/80 px-0 pt-10 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setBaselineLogging(false)}>
@@ -1104,7 +1129,7 @@ export default function HubPage() {
                         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700 sm:hidden" />
                         <div className="mb-5 flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">Baseline session</p>
+                            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">Baseline workout</p>
                             <h3 id="baseline-log-title" className="mt-1 font-heading text-xl font-black uppercase text-white">Log your makes</h3>
                             <p className="mt-1 text-[11px] text-zinc-400">{baselineTotal} attempts · {selectedBaseline.name}</p>
                           </div>
@@ -1135,24 +1160,12 @@ export default function HubPage() {
                           className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
                           data-testid="button-log-onboarding-baseline"
                         >
-                          <CheckCircle2 className="h-4 w-4" /> Save baseline & reveal your trajectory
+                          <CheckCircle2 className="h-4 w-4" /> Finish Baseline Workout
                         </button>
                       </section>
                     </div>
                   )}
 
-                  {!baselineComplete && !baselineLogging && (
-                    <button type="button" onClick={() => {
-                      setBaselineResults((current) => ({
-                        threes: current.threes || "0",
-                        midrange: current.midrange || "0",
-                        freeThrows: current.freeThrows || "0",
-                      }));
-                      setBaselineLogging(true);
-                    }} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400" data-testid="button-start-onboarding-baseline">
-                      Start Baseline Session <ChevronRight className="h-4 w-4" />
-                    </button>
-                  )}
                   {baselineComplete && (
                     <div className="mt-4 space-y-2.5">
                       <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] px-3 py-3">
