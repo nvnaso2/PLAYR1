@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
 import { DrillCard } from "@/components/drill-card";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
 import {
@@ -137,6 +138,11 @@ function localDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function toLocalDateTime(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export default function HubPage() {
   const { user } = useAuth();
   const [location, navigate] = useLocation();
@@ -147,7 +153,6 @@ export default function HubPage() {
   const [baselineLogging, setBaselineLogging] = useState(false);
   const [baselineComplete, setBaselineComplete] = useState(false);
   const [trailerPlaying, setTrailerPlaying] = useState(false);
-  const [projectionExpanded, setProjectionExpanded] = useState(false);
   const [scheduleEditing, setScheduleEditing] = useState(false);
   const [baselineResults, setBaselineResults] = useState<Record<PreviewShotKey, string>>({
     threes: "", midrange: "", freeThrows: "",
@@ -814,15 +819,56 @@ export default function HubPage() {
                     </span>
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-[min(300px,calc(100vw-24px))] space-y-2 border-orange-400/25 bg-[#101010] p-3 text-white shadow-2xl">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">When will you train next?</p>
-                  <input
-                    aria-label="Update your next training session"
-                    type="datetime-local"
-                    value={previewProfile.nextSession ?? ""}
-                    onChange={(event) => updatePreviewProfile({ nextSession: event.currentTarget.value })}
-                    className="h-10 w-full rounded-lg border border-white/10 bg-black px-2 text-xs text-white outline-none focus:border-orange-400"
+                <PopoverContent align="end" side="bottom" sideOffset={8} className="w-[min(21rem,calc(100vw-24px))] border border-orange-500/25 bg-[#0c0c0c] p-3 text-zinc-100 shadow-[0_16px_50px_rgba(0,0,0,0.7)]">
+                  <div className="mb-1 flex items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-[0.18em] text-orange-300">
+                    <CalendarDays className="h-3.5 w-3.5" /> Pick your next session
+                  </div>
+                  <Calendar
+                    mode="single"
+                    selected={previewProfile.nextSession && !Number.isNaN(new Date(previewProfile.nextSession).getTime()) ? new Date(previewProfile.nextSession) : undefined}
+                    onSelect={(date) => {
+                      if (!date) return;
+                      const current = previewProfile.nextSession && !Number.isNaN(new Date(previewProfile.nextSession).getTime())
+                        ? new Date(previewProfile.nextSession)
+                        : new Date();
+                      const scheduledDate = new Date(date);
+                      scheduledDate.setHours(current.getHours(), current.getMinutes(), 0, 0);
+                      updatePreviewProfile({ nextSession: toLocalDateTime(scheduledDate) });
+                    }}
+                    disabled={{ before: new Date(new Date().setHours(0, 0, 0, 0)) }}
+                    initialFocus
+                    className="mx-auto"
+                    classNames={{
+                      caption_label: "text-sm font-semibold text-white",
+                      head_cell: "text-zinc-500 rounded-md w-9 font-medium text-[0.7rem]",
+                      day: "h-9 w-9 rounded-full p-0 font-normal text-zinc-300 hover:bg-orange-500/15 hover:text-white",
+                      day_selected: "bg-orange-500 text-black hover:bg-orange-400 hover:text-black focus:bg-orange-500 focus:text-black",
+                      day_today: "border border-orange-400/60 text-orange-300",
+                      day_disabled: "text-zinc-700 opacity-40",
+                      nav_button: "h-8 w-8 border border-white/10 bg-white/[0.03] p-0 text-zinc-300 hover:bg-white/10 hover:opacity-100",
+                    }}
+                    data-testid="calendar-next-session"
                   />
+                  <div className="flex items-center justify-between gap-3 border-t border-white/10 px-1 pt-3">
+                    <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                      <Clock3 className="h-3.5 w-3.5 text-orange-400" /> Time
+                    </span>
+                    <input
+                      type="time"
+                      value={previewProfile.nextSession?.slice(11, 16) || "17:00"}
+                      onChange={(event) => {
+                        const next = previewProfile.nextSession && !Number.isNaN(new Date(previewProfile.nextSession).getTime())
+                          ? new Date(previewProfile.nextSession)
+                          : new Date();
+                        const [hours, minutes] = event.currentTarget.value.split(":").map(Number);
+                        next.setHours(hours, minutes, 0, 0);
+                        updatePreviewProfile({ nextSession: toLocalDateTime(next) });
+                      }}
+                      aria-label="Next session time"
+                      className="h-9 rounded-full border border-orange-500/25 bg-black px-3 text-sm text-white outline-none focus:border-orange-400"
+                      data-testid="input-next-session-time"
+                    />
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>
@@ -944,65 +990,97 @@ export default function HubPage() {
             </div>
 
                 <section className="space-y-4 pb-5" data-testid="hub-onboarding-baseline">
-                  <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-800 bg-[radial-gradient(ellipse_at_8%_0%,rgba(249,115,22,0.10),transparent_40%),#050505] px-3 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] sm:px-5 sm:py-5" data-testid="card-onboarding-progress-projection">
-                    <button type="button" onClick={() => setProjectionExpanded((expanded) => !expanded)} aria-expanded={projectionExpanded} aria-controls="onboarding-projection-chart" className="flex w-full items-center justify-between gap-3 text-left">
+                  <div className="relative mt-4 overflow-hidden rounded-2xl border border-orange-300/20 bg-[radial-gradient(ellipse_at_50%_-15%,rgba(249,115,22,0.20),transparent_55%),linear-gradient(145deg,#101116,#050608_64%)] px-3 py-4 shadow-[0_0_35px_rgba(249,115,22,0.08),inset_0_1px_0_rgba(255,255,255,0.07)] sm:px-5 sm:py-5" data-testid="card-onboarding-progress-projection">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">{baselineComplete ? "Your baseline is in" : "12-month trajectory"}</p>
-                        <h3 className="mt-1 text-sm font-bold text-white sm:text-base">{baselineComplete ? "Your climb starts here" : "What consistency could look like"}</h3>
-                        <p className="mt-1 text-[9px] text-zinc-500">{baselineComplete ? "Your logged results start each line" : "Tap to expand · illustrative projection"}</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-orange-300">{baselineComplete ? "Your baseline is in" : "Your next 12 months"}</p>
+                        <h3 className="mt-1 text-base font-black text-white sm:text-lg">Here's where your shooting could be</h3>
+                        <p className="mt-1 text-[10px] text-zinc-400">This could be you. Progress has ups and downs.</p>
                       </div>
-                      <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${projectionExpanded ? "rotate-180" : ""}`} />
-                    </button>
+                      <span className="shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/[0.07] px-2 py-1 text-[7px] font-bold uppercase tracking-[0.16em] text-cyan-100/80">Potential</span>
+                    </div>
                     {(() => {
                       const series = [
-                        { key: "threes" as const, label: "3-pointers", color: "#ff7a24", start: 20, goal: 68 },
-                        { key: "midrange" as const, label: "Mid-range", color: "#35c4e8", start: 28, goal: 75 },
-                        { key: "freeThrows" as const, label: "Free throws", color: "#b28cff", start: 38, goal: 82 },
+                        { key: "threes" as const, label: "3-point", color: "#ff7a24", start: 20, goal: 80, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
+                        { key: "midrange" as const, label: "Mid-range", color: "#42d7f5", start: 30, goal: 70, progress: [0, .13, .11, .23, .20, .34, .32, .47, .45, .64, .62, .81, 1] },
+                        { key: "freeThrows" as const, label: "Free throws", color: "#be8cff", start: 40, goal: 90, progress: [0, .11, .09, .22, .20, .35, .33, .49, .47, .66, .64, .82, 1] },
                       ].map((item) => {
-                        const start = baselineComplete
-                          ? Math.round((Number(baselineResults[item.key]) / selectedBaseline[item.key]) * 100)
+                        const actualStart = baselineComplete
+                          ? Math.max(0, Math.min(100, Math.round((Number(baselineResults[item.key]) / selectedBaseline[item.key]) * 100)))
                           : item.start;
-                        const volumeMultiplier = baselineId === "full" ? 1.18 : baselineId === "quick" ? 0.82 : 1;
-                        const goal = Math.min(98, Math.max(start + 8, Math.round(start + (item.goal - start) * volumeMultiplier)));
-                        const values = Array.from({ length: 13 }, (_, month) =>
-                          Math.round(start + (goal - start) * Math.pow(month / 12, 0.82))
-                        );
+                        const volumeMultiplier = baselineId === "full" ? 1.08 : baselineId === "quick" ? 0.92 : 1;
+                        const goal = Math.max(actualStart, item.goal);
+                        const values = item.progress.map((progress) => {
+                          const adjustedProgress = Math.max(0, Math.min(1, progress + (volumeMultiplier - 1) * progress * (1 - progress)));
+                          return Math.round(actualStart + (goal - actualStart) * adjustedProgress);
+                        });
                         return { ...item, values };
                       });
-                      const xAt = (month: number) => 58 + month * (490 / 12);
-                      const yAt = (percent: number) => 218 - percent * 1.78;
+                      const xAt = (month: number) => 58 + month * 49;
+                      const yAt = (percent: number) => 250 - percent * 1.9;
                       return (
                         <>
-                          <svg id="onboarding-projection-chart" viewBox="0 0 580 270" preserveAspectRatio="none" role="img" aria-label="Illustrative one-year projection of three-point, mid-range, and free-throw shooting improving over time" className={`mt-2 w-full transition-all duration-300 ${projectionExpanded ? "h-[205px] sm:h-[250px]" : "h-[96px]"}`}>
-                            {[0, 20, 40, 60, 80, 100].map((tick) => {
-                              const y = yAt(tick);
-                              return <g key={tick}>
-                                <line x1="58" x2="548" y1={y} y2={y} stroke="rgba(255,255,255,0.09)" strokeDasharray={tick === 0 ? undefined : "3 6"} />
-                                {projectionExpanded && <text x="48" y={y + 3} textAnchor="end" fill="#71717a" fontSize="9">{tick}%</text>}
-                              </g>;
-                            })}
-                            {projectionExpanded && [0, 3, 6, 9, 12].map((month) => (
-                              <text key={month} x={xAt(month)} y="245" textAnchor="middle" fill="#71717a" fontSize="9">{month === 0 ? "Start" : `${month} mo`}</text>
+                          <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
+                            {series.map((line) => (
+                              <div key={line.key} className="relative min-w-0 overflow-hidden rounded-xl border px-2.5 py-2" style={{ borderColor: `${line.color}45`, background: `linear-gradient(145deg, ${line.color}18, rgba(255,255,255,0.018) 72%)`, boxShadow: `inset 0 1px 0 ${line.color}22` }}>
+                                <span className="block truncate text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-400 sm:text-[9px]">{line.label}</span>
+                                <span className="mt-0.5 block text-xl font-black leading-none sm:text-2xl" style={{ color: line.color, textShadow: `0 0 18px ${line.color}88` }}>{line.values[12]}%</span>
+                                <span className="mt-1 block text-[7px] font-semibold uppercase tracking-wider text-zinc-500">could be you</span>
+                              </div>
                             ))}
-                            {series.map((line) => {
-                              const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`).join(" ");
-                              return <g key={line.label}>
-                                <polyline points={points} fill="none" stroke={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
-                                <circle className={baselineComplete ? "animate-[pulse_1.2s_ease-in-out_2]" : ""} cx={xAt(0)} cy={yAt(line.values[0])} r="4" fill="#050505" stroke={line.color} strokeWidth="2" />
-                                <circle cx={xAt(12)} cy={yAt(line.values[12])} r="5" fill={line.color} stroke="#050505" strokeWidth="2" />
-                                {projectionExpanded && <text x={xAt(12) - 4} y={yAt(line.values[12]) - 10} textAnchor="end" fill={line.color} fontSize="10" fontWeight="700">{line.values[12]}%</text>}
-                              </g>;
-                            })}
-                          </svg>
-                          {projectionExpanded && <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2 border-t border-white/[0.07] pt-3">
-                            {series.map((line) => <span key={line.label} className="inline-flex items-center gap-1.5 text-[9px] font-medium text-zinc-300">
-                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color }} />{line.label}
-                            </span>)}
-                          </div>}
+                          </div>
+                          <div className="mt-3 overflow-hidden rounded-xl border border-white/[0.06] bg-black/45 px-1.5 pt-2 sm:px-3">
+                            <svg id="onboarding-projection-chart" viewBox="0 0 680 300" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Illustrative month-by-month shooting projections for three-point, mid-range, and free-throw percentages" className="h-[220px] w-full sm:h-[270px]">
+                              <defs>
+                                <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
+                                  <feGaussianBlur stdDeviation="4" result="blur" />
+                                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                                {series.map((line) => (
+                                  <linearGradient key={`${line.key}-fill`} id={`shot-fill-${line.key}`} x1="0" x2="0" y1="0" y2="1">
+                                    <stop offset="0%" stopColor={line.color} stopOpacity="0.22" />
+                                    <stop offset="100%" stopColor={line.color} stopOpacity="0" />
+                                  </linearGradient>
+                                ))}
+                              </defs>
+                              <rect x="48" y="42" width="612" height="210" rx="9" fill="url(#shot-fill-threes)" opacity="0.035" />
+                              {[20, 40, 60, 80, 100].map((tick) => {
+                                const y = yAt(tick);
+                                return <g key={tick}>
+                                  <line x1="52" x2="660" y1={y} y2={y} stroke="rgba(199,210,224,0.12)" strokeDasharray={tick === 20 ? undefined : "3 7"} />
+                                  <text x="43" y={y + 3} textAnchor="end" fill="#8a929e" fontSize="9">{tick}%</text>
+                                </g>;
+                              })}
+                              {[0, 3, 6, 9, 12].map((month) => (
+                                <g key={month}>
+                                  <line x1={xAt(month)} x2={xAt(month)} y1="57" y2="252" stroke="rgba(147,197,253,0.08)" strokeDasharray="2 8" />
+                                  <text x={xAt(month)} y="278" textAnchor="middle" fill="#808895" fontSize="9">{month === 0 ? "NOW" : `M${month}`}</text>
+                                </g>
+                              ))}
+                              {series.map((line) => {
+                                const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
+                                const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
+                                const fillPath = `${linePath} L${xAt(12)},250 L${xAt(0)},250 Z`;
+                                return <g key={line.key}>
+                                  <path d={fillPath} fill={`url(#shot-fill-${line.key})`} />
+                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.22" filter="url(#shot-line-glow)" />
+                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+                                  {line.values.map((value, index) => (
+                                    <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 4 : 2.2} fill={index === 12 ? line.color : "#101116"} stroke={line.color} strokeWidth={index === 12 ? 1.5 : 1.2} />
+                                  ))}
+                                </g>;
+                              })}
+                            </svg>
+                            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 border-t border-white/[0.06] py-2">
+                              {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5 text-[8px] font-semibold text-zinc-300">
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 8px ${line.color}` }} />{line.label}
+                              </span>)}
+                            </div>
+                          </div>
                         </>
                       );
                     })()}
-                    <p className="mt-2 text-[9px] leading-4 text-zinc-500">{baselineComplete ? "Your starting dots reflect today's logged makes." : "Log your makes today to reveal your starting point on this graph."} Future progress is illustrative, not a promise.</p>
+                    <p className="mt-2 text-[9px] leading-4 text-zinc-500">{baselineComplete ? "Your logged results mark the starting point." : "Log today's baseline to place your starting point on the chart."} Projection is illustrative, not a promise.</p>
                   </div>
 
                   <div className="mt-5">
@@ -1063,7 +1141,7 @@ export default function HubPage() {
                         </div>
                         <button type="button"
                           disabled={previewShotTypes.some(({ key }) => !Number.isInteger(Number(baselineResults[key])) || Number(baselineResults[key]) < 0 || Number(baselineResults[key]) > selectedBaseline[key])}
-                          onClick={() => { setBaselineComplete(true); setBaselineLogging(false); setProjectionExpanded(true); }}
+                          onClick={() => { setBaselineComplete(true); setBaselineLogging(false); }}
                           className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
                           data-testid="button-log-onboarding-baseline"
                         >
