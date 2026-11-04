@@ -70,7 +70,7 @@ export default function OnboardingPreviewPage() {
         <AuthPage
           previewMode
           initialMode={authMode}
-          onPreviewLogin={() => navigate("/hub?preview=onboarding")}
+          onPreviewLogin={() => { setAuthMode("login"); setScreen("profile"); }}
           onPreviewRegister={() => { setAuthMode("register"); setScreen("profile"); }}
         />
       </div>

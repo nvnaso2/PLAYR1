@@ -9,9 +9,9 @@ The seven-day onboarding is embedded in a personalized Hub that gradually reveal
 
 The current admin preview should focus on the first-session experience inside the existing Hub shell; do not add a seven-day selector or placeholder days unless requested again. Keep this prototype separate from the current live onboarding until the user explicitly asks to migrate the player-facing flow. The public lead-magnet quiz remains a separate experience.
 
-**Why:** the user wants an immersive path that reuses the familiar account-entry aesthetic, asks schedule questions after account credentials, and then keeps Day 1 inside the Hub and focused on two experiences.
+**Why:** the user wants an immersive path that reuses the familiar account-entry aesthetic, asks schedule questions after account credentials, and then keeps the first-session experience inside the Hub.
 
-**How to apply:** preserve this order and the exact baseline counts above; do not change live onboarding while iterating on the preview. Reuse the existing AuthPage and actual Hub shell, keep the schedule questions between signup and Hub, and make the first-session baseline the Hub’s central interactive graph/logger. Preview submissions stay local and never call auth APIs.
+**How to apply:** preserve the exact baseline counts above; do not change live onboarding while iterating on the preview. Reuse the existing AuthPage and actual Hub shell, route preview sign-in and signup through the schedule questions before Hub, and make the first-session baseline the Hub’s integrated graph/logger. Preview submissions stay local and never call auth APIs.
 
 ## Current live flow and lead-magnet boundary
 

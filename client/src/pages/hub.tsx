@@ -711,7 +711,7 @@ export default function HubPage() {
         {onboardingPreview ? (
           <>
             {previewProfile.sessionLength && (
-              <section className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2.5" aria-label="Your training plan">
+              <section className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-1 pb-3" aria-label="Your training plan">
                 <p className="text-xs font-semibold text-zinc-200">
                   Your plan <span className="mx-1.5 text-zinc-600">·</span>
                   {previewProfile.trainingDays} days/week <span className="mx-1.5 text-zinc-600">·</span>
@@ -725,7 +725,7 @@ export default function HubPage() {
               </section>
             )}
 
-                <section className="overflow-hidden rounded-2xl border border-orange-500/25 bg-gradient-to-br from-[#20140d] via-[#111] to-[#0b0b0b] p-4 sm:p-5" data-testid="hub-onboarding-baseline">
+                <section className="space-y-4 pb-5" data-testid="hub-onboarding-baseline">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Day 1 · First session</p>
@@ -735,8 +735,8 @@ export default function HubPage() {
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-500/10 text-orange-300"><Target className="h-5 w-5" /></span>
                   </div>
 
-                  <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/45 p-3.5 sm:p-5">
-                    <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mt-4">
+                    <div className="mb-2 flex items-center justify-between gap-3">
                       <div>
                         <p className="text-xs font-bold text-white">Your shooting snapshot</p>
                         <p className="mt-0.5 text-[10px] text-zinc-500">3-pointers · mid-range · free throws</p>
@@ -777,23 +777,23 @@ export default function HubPage() {
                     {!baselineComplete && <p className="mt-1 text-center text-[10px] text-zinc-600">One graph. Three parts of your shooting game.</p>}
                   </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="mt-4 flex gap-1 rounded-lg bg-zinc-900 p-1" role="group" aria-label="Choose baseline workout size">
                     {onboardingBaselines.map((option) => {
                       const total = option.threes + option.midrange + option.freeThrows;
                       return (
                         <button key={option.id} type="button" aria-pressed={baselineId === option.id}
                           onClick={() => { setBaselineId(option.id); setBaselineResults({ threes: "", midrange: "", freeThrows: "" }); setBaselineComplete(false); setBaselineLogging(false); }}
-                          className={`min-h-[76px] rounded-xl border p-2.5 text-left transition ${baselineId === option.id ? "border-orange-400 bg-orange-500/10 shadow-[0_0_20px_rgba(249,115,22,0.1)]" : "border-zinc-800 bg-black/40 hover:border-zinc-600"}`}>
-                          <span className="block text-[10px] font-bold uppercase tracking-wide text-zinc-200">{option.name}</span>
-                          <span className="mt-1 block text-lg font-black text-white">{total}<span className="ml-1 text-[9px] font-semibold uppercase text-zinc-500">shots</span></span>
-                          <span className="mt-1 block text-[9px] leading-4 text-zinc-500">{option.threes} · {option.midrange} · {option.freeThrows}</span>
+                          className={`min-h-[62px] min-w-0 flex-1 rounded-md px-1.5 py-2 text-center transition ${baselineId === option.id ? "bg-orange-500/15 text-white" : "text-zinc-500 hover:text-zinc-200"}`}>
+                          <span className="block truncate text-[9px] font-bold uppercase tracking-wide">{option.name}</span>
+                          <span className="mt-1 block text-sm font-black">{total} <span className="text-[8px] font-medium uppercase text-zinc-500">shots</span></span>
+                          <span className="mt-0.5 block truncate text-[8px] leading-3 text-zinc-500">{option.threes} · {option.midrange} · {option.freeThrows}</span>
                         </button>
                       );
                     })}
                   </div>
 
                   {baselineLogging && !baselineComplete && (
-                    <div className="mt-4 rounded-xl border border-orange-500/20 bg-black/35 p-3.5">
+                    <div className="mt-4 border-t border-zinc-800 pt-4">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
                           <p className="text-xs font-bold text-white">Log your makes</p>
@@ -803,7 +803,7 @@ export default function HubPage() {
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         {previewShotTypes.map(({ key, label }) => (
-                          <label key={key} className="min-w-0 rounded-lg border border-zinc-800 bg-zinc-950 p-2.5">
+                          <label key={key} className="min-w-0 border-b border-zinc-800 py-2">
                             <span className="block truncate text-[9px] font-semibold text-zinc-400">{label}</span>
                             <span className="mt-1 flex items-center gap-1">
                               <input type="number" min={0} max={selectedBaseline[key]} step={1} inputMode="numeric" value={baselineResults[key]} aria-label={`${label} makes`}
@@ -838,7 +838,7 @@ export default function HubPage() {
                   )}
                 </section>
 
-                <section className="relative isolate overflow-hidden rounded-2xl border border-zinc-800 bg-black" data-testid="card-day-one-trailer">
+                <section className="relative isolate mt-6 overflow-hidden border-y border-zinc-800 py-4" data-testid="card-day-one-trailer">
                   {!trailerPlaying ? (
                     <button type="button" onClick={() => setTrailerPlaying(true)} className="group relative flex aspect-video w-full flex-col justify-end overflow-hidden bg-[radial-gradient(ellipse_at_50%_20%,rgba(249,115,22,0.16),transparent_48%),linear-gradient(160deg,#17120f,#050505_60%)] p-5 text-left sm:p-8" data-testid="button-play-onboarding-trailer">
                       <div className="pointer-events-none absolute inset-x-0 top-0 h-5 border-b border-white/10 bg-black/80" />
