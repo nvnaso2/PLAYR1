@@ -15,8 +15,10 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
+  Pencil,
   Flame,
   ChevronRight,
+  ChevronDown,
   ChevronLeft,
   ArrowUp,
   Target,
@@ -142,10 +144,15 @@ export default function HubPage() {
   const [baselineLogging, setBaselineLogging] = useState(false);
   const [baselineComplete, setBaselineComplete] = useState(false);
   const [trailerPlaying, setTrailerPlaying] = useState(false);
+  const [projectionExpanded, setProjectionExpanded] = useState(false);
+  const [scheduleEditing, setScheduleEditing] = useState(false);
   const [baselineResults, setBaselineResults] = useState<Record<PreviewShotKey, string>>({
     threes: "", midrange: "", freeThrows: "",
   });
-  const [previewProfile] = useState(() => {
+  const [previewProfile, setPreviewProfile] = useState<{
+    playerName?: string; trainingFrequency?: number; frequencyUnit?: "week" | "month";
+    trainingDays?: number; sessionLength?: number; nextSession?: string;
+  }>(() => {
     try {
       return JSON.parse(sessionStorage.getItem("playr1-onboarding-preview") || "{}") as {
         playerName?: string; trainingFrequency?: number; frequencyUnit?: "week" | "month";
@@ -667,7 +674,7 @@ export default function HubPage() {
               {onboardingPreview && previewProfile.playerName ? `Welcome, ${previewProfile.playerName}` : greetText} <span aria-hidden="true">🏀</span>
             </h1>
           </div>
-          {!showProfileSetup && streak >= 0 && (() => {
+          {!onboardingPreview && !showProfileSetup && streak >= 0 && (() => {
               const sa = streak >= 30
                 ? { bg: "bg-red-500/20", border: "border-red-400/50", color: "text-red-200", flames: 3, pulse: true, scale: "scale-125", glow: "shadow-[0_0_24px_rgba(248,113,113,0.55)]" }
                 : streak >= 14
@@ -695,11 +702,25 @@ export default function HubPage() {
               );
             })()}
         </div>
+        {onboardingPreview && (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-orange-500/20 bg-[linear-gradient(100deg,rgba(249,115,22,0.10),rgba(10,10,10,0.88)_55%)] px-3 py-2.5" data-testid="onboarding-day-progress">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Onboarding · Day 1 of 7</p>
+              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300">The baseline</p>
+            </div>
+            <div className="flex items-center gap-1" aria-label="Day 1 of 7">
+              {Array.from({ length: 7 }, (_, index) => (
+                <span key={index} className={`h-1.5 w-4 rounded-full ${index === 0 ? "bg-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.7)]" : "bg-white/10"}`} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="px-4 space-y-4 mt-4">
         {onboardingPreview ? (
           <>
+            <div className="relative isolate overflow-hidden rounded-[26px] border border-orange-500/25 bg-[radial-gradient(ellipse_at_86%_0%,rgba(249,115,22,0.12),transparent_38%),linear-gradient(145deg,#11100e,#070707_58%,#050505)] p-3 shadow-[0_22px_65px_rgba(0,0,0,0.4)] sm:rounded-[30px] sm:p-5" data-testid="card-day-one-mission">
             <section className="relative isolate overflow-hidden rounded-2xl border border-orange-500/25 bg-[radial-gradient(ellipse_at_88%_10%,rgba(249,115,22,0.22),transparent_34%),linear-gradient(120deg,#17110d,#090909_58%,#050505)] px-4 py-5 shadow-[0_14px_40px_rgba(0,0,0,0.3)] sm:px-6 sm:py-6" data-testid="card-day-one-welcome">
               <svg aria-hidden="true" className="pointer-events-none absolute -right-7 -top-10 h-44 w-44 text-orange-300/[0.08] sm:h-56 sm:w-56" viewBox="0 0 200 200" fill="none">
                 <circle cx="100" cy="100" r="74" stroke="currentColor" strokeWidth="1.5" />
@@ -738,12 +759,49 @@ export default function HubPage() {
                   </div>
                 </div>
                 {previewProfile.nextSession && (
-                  <p className="ml-12 text-[10px] text-orange-200/80 sm:ml-0">
-                    Next up · {new Date(previewProfile.nextSession).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                  </p>
+                  <div className="ml-12 flex w-full items-center justify-between gap-2 sm:ml-0 sm:w-auto">
+                    <p className="text-[10px] text-orange-200/80">
+                      Scheduled for · {new Date(previewProfile.nextSession).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </p>
+                    <button type="button" onClick={() => setScheduleEditing((editing) => !editing)} aria-label="Edit next training session" className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-bold text-zinc-400 transition hover:bg-white/5 hover:text-white">
+                      <Pencil className="h-3 w-3" /> Edit
+                    </button>
+                  </div>
                 )}
               </section>
             )}
+            {scheduleEditing && (
+              <section className="rounded-xl border border-orange-400/20 bg-zinc-950 p-3" aria-label="Edit scheduled training session">
+                <label htmlFor="preview-session-datetime" className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-400">Update your next session</label>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input
+                    id="preview-session-datetime"
+                    type="datetime-local"
+                    value={previewProfile.nextSession ?? ""}
+                    onChange={(event) => {
+                      const updated = { ...previewProfile, nextSession: event.target.value };
+                      setPreviewProfile(updated);
+                      sessionStorage.setItem("playr1-onboarding-preview", JSON.stringify(updated));
+                    }}
+                    className="min-h-10 min-w-0 flex-1 rounded-lg border border-white/10 bg-black px-3 text-xs text-white outline-none focus:border-orange-400"
+                  />
+                  <button type="button" onClick={() => setScheduleEditing(false)} className="min-h-10 rounded-lg bg-orange-500 px-4 text-[10px] font-black uppercase tracking-wider text-black">Done</button>
+                </div>
+              </section>
+            )}
+
+            <section className="relative isolate overflow-hidden rounded-2xl border border-orange-500/25 bg-[radial-gradient(ellipse_at_50%_0%,rgba(249,115,22,0.14),transparent_54%),#050505] p-2 shadow-[0_14px_40px_rgba(0,0,0,0.28)]" data-testid="card-day-one-trailer">
+              <button type="button" onClick={() => setTrailerPlaying(true)} className="group relative flex aspect-video w-full flex-col justify-end overflow-hidden rounded-xl bg-[radial-gradient(ellipse_at_78%_22%,rgba(249,115,22,0.27),transparent_36%),linear-gradient(145deg,#1c120d,#090909_48%,#050505)] p-5 text-left transition sm:p-8" data-testid="button-play-onboarding-trailer">
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-40 transition duration-500 group-hover:scale-105 group-hover:opacity-70">
+                  <div className="absolute -right-12 -top-20 h-64 w-64 rounded-full border border-orange-300/20" />
+                  <div className="absolute -right-2 -top-10 h-44 w-44 rounded-full border border-orange-300/15" />
+                  <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/35 to-transparent" />
+                </div>
+                <span className="relative z-10 inline-flex w-fit items-center gap-2 rounded-full border border-orange-300/25 bg-black/40 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.24em] text-orange-200 backdrop-blur">Day 1 film <span className="h-1 w-1 rounded-full bg-orange-300" /> PLAYR1 original</span>
+                <span className="relative z-10 mt-3 max-w-xl font-heading text-2xl font-black uppercase leading-[0.95] text-white sm:text-4xl">Your story starts<br />with the next rep.</span>
+                <span className="relative z-10 mt-4 inline-flex w-fit items-center gap-2 rounded-full border border-orange-400/40 bg-orange-500 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-black shadow-[0_0_28px_rgba(249,115,22,0.2)] transition group-hover:bg-orange-400"><Play className="h-3.5 w-3.5 fill-current" /> Watch the PLAYR1 vision · 45s</span>
+              </button>
+            </section>
 
                 <section className="space-y-4 pb-5" data-testid="hub-onboarding-baseline">
                   <div>
@@ -753,14 +811,14 @@ export default function HubPage() {
                   </div>
 
                   <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-800 bg-[radial-gradient(ellipse_at_8%_0%,rgba(249,115,22,0.10),transparent_40%),#050505] px-3 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] sm:px-5 sm:py-5" data-testid="card-onboarding-progress-projection">
-                    <div className="flex items-start justify-between gap-3">
+                    <button type="button" onClick={() => setProjectionExpanded((expanded) => !expanded)} aria-expanded={projectionExpanded} aria-controls="onboarding-projection-chart" className="flex w-full items-center justify-between gap-3 text-left">
                       <div>
-                        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">{baselineComplete ? "Your baseline is in" : "Your year of progress"}</p>
-                        <h3 className="mt-1 text-lg font-bold text-white sm:text-xl">{baselineComplete ? "This is where your climb begins" : "Picture what consistent work can do"}</h3>
-                        <p className="mt-1 text-[10px] text-zinc-500">{baselineComplete ? "Your logged results start each line" : "Illustrative shooting percentage projection"}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">{baselineComplete ? "Your baseline is in" : "12-month trajectory"}</p>
+                        <h3 className="mt-1 text-sm font-bold text-white sm:text-base">{baselineComplete ? "Your climb starts here" : "What consistency could look like"}</h3>
+                        <p className="mt-1 text-[9px] text-zinc-500">{baselineComplete ? "Your logged results start each line" : "Tap to expand · illustrative projection"}</p>
                       </div>
-                      <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-zinc-400">12 months</span>
-                    </div>
+                      <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${projectionExpanded ? "rotate-180" : ""}`} />
+                    </button>
                     {(() => {
                       const series = [
                         { key: "threes" as const, label: "3-pointers", color: "#ff7a24", start: 20, goal: 68 },
@@ -770,7 +828,8 @@ export default function HubPage() {
                         const start = baselineComplete
                           ? Math.round((Number(baselineResults[item.key]) / selectedBaseline[item.key]) * 100)
                           : item.start;
-                        const goal = Math.max(item.goal, Math.min(98, start + 12));
+                        const volumeMultiplier = baselineId === "full" ? 1.18 : baselineId === "quick" ? 0.82 : 1;
+                        const goal = Math.min(98, Math.max(start + 8, Math.round(start + (item.goal - start) * volumeMultiplier)));
                         const values = Array.from({ length: 13 }, (_, month) =>
                           Math.round(start + (goal - start) * Math.pow(month / 12, 0.82))
                         );
@@ -780,36 +839,36 @@ export default function HubPage() {
                       const yAt = (percent: number) => 218 - percent * 1.78;
                       return (
                         <>
-                          <svg viewBox="0 0 580 270" role="img" aria-label="Illustrative one-year projection of three-point, mid-range, and free-throw shooting improving over time" className="mt-3 h-[205px] w-full sm:h-[260px]">
+                          <svg id="onboarding-projection-chart" viewBox="0 0 580 270" preserveAspectRatio="none" role="img" aria-label="Illustrative one-year projection of three-point, mid-range, and free-throw shooting improving over time" className={`mt-2 w-full transition-all duration-300 ${projectionExpanded ? "h-[205px] sm:h-[250px]" : "h-[96px]"}`}>
                             {[0, 20, 40, 60, 80, 100].map((tick) => {
                               const y = yAt(tick);
                               return <g key={tick}>
                                 <line x1="58" x2="548" y1={y} y2={y} stroke="rgba(255,255,255,0.09)" strokeDasharray={tick === 0 ? undefined : "3 6"} />
-                                <text x="48" y={y + 3} textAnchor="end" fill="#71717a" fontSize="9">{tick}%</text>
+                                {projectionExpanded && <text x="48" y={y + 3} textAnchor="end" fill="#71717a" fontSize="9">{tick}%</text>}
                               </g>;
                             })}
-                            {[0, 3, 6, 9, 12].map((month) => (
+                            {projectionExpanded && [0, 3, 6, 9, 12].map((month) => (
                               <text key={month} x={xAt(month)} y="245" textAnchor="middle" fill="#71717a" fontSize="9">{month === 0 ? "Start" : `${month} mo`}</text>
                             ))}
                             {series.map((line) => {
                               const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`).join(" ");
                               return <g key={line.label}>
                                 <polyline points={points} fill="none" stroke={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
-                                <circle cx={xAt(0)} cy={yAt(line.values[0])} r="4" fill="#050505" stroke={line.color} strokeWidth="2" />
+                                <circle className={baselineComplete ? "animate-[pulse_1.2s_ease-in-out_2]" : ""} cx={xAt(0)} cy={yAt(line.values[0])} r="4" fill="#050505" stroke={line.color} strokeWidth="2" />
                                 <circle cx={xAt(12)} cy={yAt(line.values[12])} r="5" fill={line.color} stroke="#050505" strokeWidth="2" />
-                                <text x={xAt(12) - 4} y={yAt(line.values[12]) - 10} textAnchor="end" fill={line.color} fontSize="10" fontWeight="700">{line.values[12]}%</text>
+                                {projectionExpanded && <text x={xAt(12) - 4} y={yAt(line.values[12]) - 10} textAnchor="end" fill={line.color} fontSize="10" fontWeight="700">{line.values[12]}%</text>}
                               </g>;
                             })}
                           </svg>
-                          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2 border-t border-white/[0.07] pt-3">
+                          {projectionExpanded && <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2 border-t border-white/[0.07] pt-3">
                             {series.map((line) => <span key={line.label} className="inline-flex items-center gap-1.5 text-[9px] font-medium text-zinc-300">
                               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color }} />{line.label}
                             </span>)}
-                          </div>
+                          </div>}
                         </>
                       );
                     })()}
-                    <p className="mt-3 text-[9px] leading-4 text-zinc-600">The future path is an illustration, not a promise. Your starting points come from your logged shots.</p>
+                    <p className="mt-2 text-[9px] leading-4 text-zinc-500">{baselineComplete ? "Your starting dots reflect today's logged makes." : "Log your makes today to reveal your starting point on this graph."} Future progress is illustrative, not a promise.</p>
                   </div>
 
                   <div className="mt-5">
@@ -838,74 +897,86 @@ export default function HubPage() {
                   </div>
 
                   {baselineLogging && !baselineComplete && (
-                    <div className="mt-4 rounded-2xl border border-orange-500/20 bg-[linear-gradient(145deg,rgba(249,115,22,0.08),rgba(8,8,8,0.92)_48%)] p-3.5 sm:p-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-bold text-white">Log your makes</p>
-                          <p className="mt-0.5 text-[10px] text-zinc-400">{baselineTotal} attempts · one session</p>
+                    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/80 px-0 pt-10 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setBaselineLogging(false)}>
+                      <section role="dialog" aria-modal="true" aria-labelledby="baseline-log-title" className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-orange-400/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
+                        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700 sm:hidden" />
+                        <div className="mb-5 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">Day 1 · Baseline session</p>
+                            <h3 id="baseline-log-title" className="mt-1 font-heading text-xl font-black uppercase text-white">Log your makes</h3>
+                            <p className="mt-1 text-[11px] text-zinc-400">{baselineTotal} attempts · {selectedBaseline.name}</p>
+                          </div>
+                          <button type="button" onClick={() => setBaselineLogging(false)} aria-label="Close baseline logger" className="rounded-full border border-white/10 p-2 text-zinc-400 transition hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
                         </div>
-                        <button type="button" onClick={() => setBaselineLogging(false)} aria-label="Close baseline logger" className="rounded-md p-1.5 text-zinc-500 hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        {previewShotTypes.map(({ key, label, color }) => (
-                          <label key={key} className="min-w-0 rounded-xl border border-white/[0.07] bg-black/50 p-3">
-                            <span className="flex items-center gap-2 truncate text-[9px] font-bold uppercase tracking-wider text-zinc-300">
-                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />{label}
-                            </span>
-                            <span className="mt-2 flex items-center gap-2">
-                              <input type="number" min={0} max={selectedBaseline[key]} step={1} inputMode="numeric" value={baselineResults[key]} aria-label={`${label} makes`}
-                                onChange={(event) => setBaselineResults((current) => ({ ...current, [key]: event.target.value }))}
-                                className="h-10 min-w-0 w-full rounded-lg border border-white/10 bg-zinc-950 px-3 text-sm font-bold text-white outline-none transition focus:border-orange-400" />
-                              <span className="shrink-0 text-[10px] font-bold text-zinc-500">/ {selectedBaseline[key]}</span>
-                            </span>
-                            <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]">
-                              <div className="h-full rounded-full transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, Number(baselineResults[key] || 0) / selectedBaseline[key] * 100))}%`, backgroundColor: color }} />
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                      <button type="button"
-                        disabled={previewShotTypes.some(({ key }) => baselineResults[key] === "" || !Number.isInteger(Number(baselineResults[key])) || Number(baselineResults[key]) < 0 || Number(baselineResults[key]) > selectedBaseline[key])}
-                        onClick={() => { setBaselineComplete(true); setBaselineLogging(false); }}
-                        className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
-                        data-testid="button-log-onboarding-baseline"
-                      >
-                        <CheckCircle2 className="h-4 w-4" /> Log my starting point
-                      </button>
+                        <div className="space-y-2.5">
+                          {previewShotTypes.map(({ key, label, color }) => {
+                            const makes = Number(baselineResults[key] || 0);
+                            const attempts = selectedBaseline[key];
+                            return (
+                              <div key={key} className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-black/45 p-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-300"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />{label}</p>
+                                  <p className="mt-1 text-[9px] text-zinc-500">{attempts} attempts</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button type="button" aria-label={`Remove one ${label} make`} disabled={makes <= 0} onClick={() => setBaselineResults((current) => ({ ...current, [key]: String(Math.max(0, Number(current[key] || 0) - 1)) }))} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-lg text-zinc-300 transition hover:border-orange-300/40 disabled:opacity-30">−</button>
+                                  <span className="min-w-[58px] text-center text-lg font-black tabular-nums text-white">{makes}<span className="ml-1 text-xs font-semibold text-zinc-500">/ {attempts}</span></span>
+                                  <button type="button" aria-label={`Add one ${label} make`} disabled={makes >= attempts} onClick={() => setBaselineResults((current) => ({ ...current, [key]: String(Math.min(attempts, Number(current[key] || 0) + 1)) }))} className="flex h-9 w-9 items-center justify-center rounded-full border border-orange-400/40 bg-orange-500/10 text-lg text-orange-200 transition hover:bg-orange-500/20 disabled:opacity-30">+</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <button type="button"
+                          disabled={previewShotTypes.some(({ key }) => !Number.isInteger(Number(baselineResults[key])) || Number(baselineResults[key]) < 0 || Number(baselineResults[key]) > selectedBaseline[key])}
+                          onClick={() => { setBaselineComplete(true); setBaselineLogging(false); setProjectionExpanded(true); }}
+                          className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+                          data-testid="button-log-onboarding-baseline"
+                        >
+                          <CheckCircle2 className="h-4 w-4" /> Save baseline & reveal your trajectory
+                        </button>
+                      </section>
                     </div>
                   )}
 
                   {!baselineComplete && !baselineLogging && (
-                    <button type="button" onClick={() => setBaselineLogging(true)} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400" data-testid="button-start-onboarding-baseline">
-                      Start {selectedBaseline.name.toLowerCase()} <ChevronRight className="h-4 w-4" />
+                    <button type="button" onClick={() => {
+                      setBaselineResults((current) => ({
+                        threes: current.threes || "0",
+                        midrange: current.midrange || "0",
+                        freeThrows: current.freeThrows || "0",
+                      }));
+                      setBaselineLogging(true);
+                    }} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400" data-testid="button-start-onboarding-baseline">
+                      Start Baseline Session <ChevronRight className="h-4 w-4" />
                     </button>
                   )}
                   {baselineComplete && (
-                    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2.5">
-                      <p className="text-xs font-semibold text-emerald-200">Baseline logged in this preview · {baselineTotal} attempts</p>
-                      <button type="button" onClick={() => { setBaselineComplete(false); setBaselineLogging(true); }} className="shrink-0 text-[10px] font-bold text-zinc-400 underline underline-offset-4 hover:text-white">Edit</button>
+                    <div className="mt-4 space-y-2.5">
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] px-3 py-3">
+                        <p className="flex items-center gap-2 text-xs font-semibold text-emerald-200"><CheckCircle2 className="h-4 w-4 shrink-0" /> Day 1 complete · {baselineTotal} attempts</p>
+                        <button type="button" onClick={() => { setBaselineComplete(false); setBaselineLogging(true); }} className="shrink-0 text-[10px] font-bold text-zinc-400 underline underline-offset-4 hover:text-white">Edit results</button>
+                      </div>
+                      <div className="rounded-xl border border-orange-400/15 bg-[linear-gradient(100deg,rgba(249,115,22,0.09),rgba(10,10,10,0.92))] px-3 py-3">
+                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Next up · Day 2</p>
+                        <p className="mt-1 text-xs font-bold text-white">The Handle &amp; Footwork Diagnostic</p>
+                        <p className="mt-1 text-[10px] text-zinc-500">Unlocks tomorrow. Keep your next session on the calendar.</p>
+                      </div>
                     </div>
                   )}
                 </section>
+            </div>
 
-                <section className="relative isolate mt-6 overflow-hidden rounded-2xl border border-orange-500/25 bg-[radial-gradient(ellipse_at_50%_0%,rgba(249,115,22,0.14),transparent_54%),#050505] p-2 shadow-[0_14px_40px_rgba(0,0,0,0.28)]" data-testid="card-day-one-trailer">
-                  {!trailerPlaying ? (
-                    <button type="button" onClick={() => setTrailerPlaying(true)} className="group relative flex aspect-video w-full flex-col justify-end overflow-hidden rounded-xl bg-[radial-gradient(ellipse_at_78%_22%,rgba(249,115,22,0.27),transparent_36%),linear-gradient(145deg,#1c120d,#090909_48%,#050505)] p-5 text-left transition sm:p-8" data-testid="button-play-onboarding-trailer">
-                      <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-40 transition duration-500 group-hover:scale-105 group-hover:opacity-70">
-                        <div className="absolute -right-12 -top-20 h-64 w-64 rounded-full border border-orange-300/20" />
-                        <div className="absolute -right-2 -top-10 h-44 w-44 rounded-full border border-orange-300/15" />
-                        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/35 to-transparent" />
-                      </div>
-                      <span className="relative z-10 inline-flex w-fit items-center gap-2 rounded-full border border-orange-300/25 bg-black/40 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.24em] text-orange-200 backdrop-blur">Day 1 film <span className="h-1 w-1 rounded-full bg-orange-300" /> PLAYR1 original</span>
-                      <span className="relative z-10 mt-3 max-w-xl font-heading text-2xl font-black uppercase leading-[0.95] text-white sm:text-4xl">Your story starts<br />with the next rep.</span>
-                      <span className="relative z-10 mt-4 inline-flex w-fit items-center gap-2 rounded-full border border-orange-400/40 bg-orange-500 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-black shadow-[0_0_28px_rgba(249,115,22,0.2)] transition group-hover:bg-orange-400"><Play className="h-3.5 w-3.5 fill-current" /> Watch the trailer</span>
-                    </button>
-                  ) : (
-                    <video autoPlay className="aspect-video w-full rounded-xl bg-black object-cover" controls preload="metadata" playsInline src={introTrailer} onEnded={() => setTrailerPlaying(false)}>
-                      Your browser does not support embedded video.
-                    </video>
-                  )}
-                </section>
+                {trailerPlaying && (
+                  <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="PLAYR1 trailer">
+                    <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-orange-400/25 bg-black shadow-[0_0_60px_rgba(249,115,22,0.16)]">
+                      <button type="button" onClick={() => setTrailerPlaying(false)} aria-label="Close trailer" className="absolute right-3 top-3 z-10 rounded-full border border-white/20 bg-black/70 p-2 text-white transition hover:bg-orange-500 hover:text-black"><X className="h-4 w-4" /></button>
+                      <video autoPlay className="aspect-video w-full bg-black object-contain" controls preload="metadata" playsInline src={introTrailer} onEnded={() => setTrailerPlaying(false)}>
+                        Your browser does not support embedded video.
+                      </video>
+                    </div>
+                  </div>
+                )}
           </>
         ) : (
           <>
