@@ -85,6 +85,7 @@ const previewShotTypes: Array<{ key: PreviewShotKey; label: string; color: strin
   { key: "freeThrows", label: "Free throws", color: "#70f06a" },
 ];
 const dayTwoWorkoutId = "playr1-onboarding-day2-find-your-shooting-range";
+const dayTwoIntroVideoSrc = "";
 
 const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
   totalDrills: "#38bdf8",
@@ -151,6 +152,31 @@ function toLocalDateTime(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function MiniCourtRange({ index }: { index: number }) {
+  const drillSpots = [
+    [[150, 128], [150, 106], [150, 84], [150, 62], [150, 40]],
+    [[116, 90], [184, 90], [116, 116], [184, 116]],
+    [[72, 70], [106, 48], [150, 40], [194, 48], [228, 70]],
+    [[34, 122], [75, 72], [150, 48], [225, 72], [266, 122]],
+    [[150, 118]],
+    [[230, 106], [211, 90], [190, 75], [169, 60], [150, 48]],
+  ][index] ?? [];
+  return (
+    <svg viewBox="0 0 300 150" role="img" aria-label="Basketball court drill diagram" className="h-full w-full">
+      <rect x="3" y="3" width="294" height="144" fill="#fff" stroke="#111" strokeWidth="4" />
+      <path d="M70 147V95Q150 12 230 95V147M112 147V91H188V147M128 91V75H172V91M133 147V133a17 17 0 0 1 34 0v14M125 133a25 25 0 0 0 50 0M135 110a15 15 0 0 0 30 0" fill="none" stroke="#171717" strokeWidth="2.5" />
+      <path d="M70 95Q150 12 230 95" fill="none" stroke="#999" strokeWidth="1.5" strokeDasharray="4 4" />
+      {drillSpots.map(([x, y], spotIndex) => (
+        <g key={`${x}-${y}`}>
+          <circle cx={x} cy={y} r="10" fill="#fff" stroke="#c2410c" strokeWidth="2.5" />
+          <text x={x} y={y + 3.5} textAnchor="middle" fontSize="9" fontWeight="900" fill="#111">{index === 0 ? spotIndex + 1 : index === 1 ? 10 : index === 2 ? 8 : index === 3 ? 5 : index === 4 ? 10 : 1}</text>
+        </g>
+      ))}
+      {index === 0 && <path d="M150 126V36" stroke="#c2410c" strokeWidth="2" strokeDasharray="3 5" />}
+    </svg>
+  );
+}
+
 export default function HubPage() {
   const { user } = useAuth();
   const [location, navigate] = useLocation();
@@ -171,6 +197,7 @@ export default function HubPage() {
   }, [location, search]);
   const [dayTwoProfileOpen, setDayTwoProfileOpen] = useState(false);
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
+  const [dayTwoVideoOpen, setDayTwoVideoOpen] = useState(false);
   const [dayTwoSaving, setDayTwoSaving] = useState(false);
   const [dayTwoError, setDayTwoError] = useState("");
   const [dayTwoAnswers, setDayTwoAnswers] = useState({
@@ -1307,58 +1334,125 @@ export default function HubPage() {
                     <Pencil className="h-3.5 w-3.5 text-orange-300" /> Complete profile
                   </button>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group flex min-h-28 items-center gap-4 rounded-2xl border border-orange-400/25 bg-[radial-gradient(ellipse_at_top_right,rgba(249,115,22,0.16),transparent_65%),linear-gradient(145deg,#17120f,#090909_60%,#111)] p-4 text-left shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition hover:border-orange-300/50" data-testid="button-preview-day-two-workout">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-orange-400/30 bg-orange-500/10 text-orange-300"><Dumbbell className="h-5 w-5" /></span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Workout · 125 shots + bonus</span>
-                      <span className="mt-1 block text-sm font-black text-white">Find Your Shooting Range</span>
-                      <span className="mt-1 block text-[10px] text-zinc-400">Preview all 6 drills and log your session.</span>
-                    </span>
-                    <ChevronRight className="h-5 w-5 shrink-0 text-orange-300 transition-transform group-hover:translate-x-1" />
-                  </button>
-                  <div className="relative flex min-h-28 items-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(135deg,#151515,#080808)] p-4" data-testid="day-two-video-placeholder">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-zinc-300"><Play className="ml-0.5 h-5 w-5 fill-current" /></span>
-                    <span className="min-w-0">
-                      <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-zinc-500">Day 2 video</span>
-                      <span className="mt-1 block text-sm font-bold text-white">Coming soon</span>
-                      <span className="mt-1 block text-[10px] text-zinc-500">Your intro to finding your shooting range.</span>
-                    </span>
+                <article className="overflow-hidden rounded-[1.35rem] border border-zinc-300 bg-[#f6f6f4] text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.35)]" data-testid="day-two-range-workout-card">
+                  <div className="relative overflow-hidden px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
+                    <div className="pointer-events-none absolute inset-0 opacity-50" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
+                    <div className="relative flex items-start justify-between gap-3 border-b-[3px] border-black pb-2">
+                      <div className="min-w-0">
+                        <p className="font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#2</span></p>
+                        <h3 className="mt-2 font-heading text-base font-black uppercase leading-tight sm:text-lg">Find Your Shooting Range</h3>
+                        <p className="mt-1 text-[10px] font-semibold text-zinc-600 sm:text-xs">125 shots · 40 bonus layups · 5 cone sets</p>
+                      </div>
+                      <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm"><Dumbbell className="h-5 w-5" /></span>
+                    </div>
+                    <div className="relative mt-3 overflow-hidden rounded-xl border border-zinc-200 bg-white p-2 shadow-[0_3px_12px_rgba(0,0,0,.08)] sm:p-3">
+                      <svg viewBox="0 0 600 220" role="img" aria-label="Basketball court showing the shooting range extending from the basket toward the perimeter" className="h-auto w-full">
+                        <rect x="6" y="6" width="588" height="208" fill="#fbfbfa" stroke="#111" strokeWidth="5" />
+                        <path d="M160 214V136Q300 15 440 136V214M214 214V151H386V214M245 151V130H355V151M278 214V197a22 22 0 0 1 44 0v17M270 197a30 30 0 0 0 60 0M281 166a19 19 0 0 0 38 0" fill="none" stroke="#171717" strokeWidth="3" />
+                        <path d="M160 136Q300 15 440 136" fill="none" stroke="#a8a8a8" strokeWidth="2" strokeDasharray="6 6" />
+                        <path d="M245 151Q300 183 355 151" fill="none" stroke="#555" strokeWidth="2" strokeDasharray="5 5" />
+                        <path d="M300 194V43" stroke="#c2410c" strokeWidth="2.5" strokeDasharray="4 6" />
+                        {[
+                          { y: 187, n: "1", r: 12 },
+                          { y: 158, n: "2", r: 13 },
+                          { y: 127, n: "3", r: 14 },
+                          { y: 94, n: "4", r: 15 },
+                          { y: 60, n: "5", r: 16 },
+                        ].map((spot) => (
+                          <g key={spot.n} className="origin-center animate-pulse">
+                            <circle cx="300" cy={spot.y} r={spot.r + 6} fill="#f97316" fillOpacity=".12" />
+                            <circle cx="300" cy={spot.y} r={spot.r} fill="white" stroke="#c2410c" strokeWidth="3" />
+                            <text x="300" y={spot.y + 4} textAnchor="middle" fontSize="12" fontWeight="900" fill="#111">{spot.n}</text>
+                          </g>
+                        ))}
+                        <text x="300" y="32" textAnchor="middle" fontSize="11" fontWeight="800" letterSpacing="2" fill="#555">RANGE EXTENDS</text>
+                        <text x="32" y="202" fontSize="10" fontWeight="800" fill="#555">START</text>
+                        <text x="476" y="30" fontSize="10" fontWeight="800" fill="#555">GAME RANGE</text>
+                      </svg>
+                      <div className="mt-1 flex items-center justify-between px-1 text-[8px] font-black uppercase tracking-[0.14em] text-zinc-500 sm:text-[9px]">
+                        <span>Start close</span><span>Build your range</span><span>Step back</span>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setDayTwoVideoOpen(true)} className="group relative mt-3 block aspect-video w-full overflow-hidden rounded-xl border border-zinc-300 bg-[#171717] text-left shadow-md" data-testid="button-play-day-two-video" aria-label="Play the Day 2 shooting range introduction video">
+                      <div className="absolute inset-0 bg-[linear-gradient(125deg,#202020,#080808_56%,#292929)]" />
+                      <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "repeating-linear-gradient(135deg,transparent 0 28px,rgba(255,255,255,.12) 29px,transparent 31px)" }} />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="flex h-12 w-16 items-center justify-center rounded-xl bg-[#e62117] text-white shadow-lg transition-transform group-hover:scale-110"><Play className="ml-1 h-6 w-6 fill-current" /></span>
+                        <span className="mt-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/90">Day 2 · Find Your Range</span>
+                        <span className="mt-1 text-[8px] font-medium text-white/55">Tap to watch your introduction</span>
+                      </div>
+                      <span className="absolute bottom-2 right-2 rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-bold text-white">{dayTwoIntroVideoSrc ? "PLAY VIDEO" : "VIDEO COMING SOON"}</span>
+                    </button>
+                    <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="relative mt-3 inline-flex min-h-12 w-full items-center justify-between rounded-xl bg-black px-4 text-left text-white shadow-[0_5px_0_#d4d4d4] transition hover:bg-zinc-800 active:translate-y-0.5 active:shadow-none" data-testid="button-preview-day-two-workout">
+                      <span><span className="block text-xs font-black uppercase tracking-[0.12em]">Preview the workout</span><span className="mt-0.5 block text-[9px] text-zinc-300">6 drills · 125 shots plus bonus work</span></span>
+                      <ChevronRight className="h-5 w-5 text-orange-400" />
+                    </button>
                   </div>
-                </div>
+                </article>
               </section>
             )}
 
             {dayTwoWorkoutOpen && (
               <div className="fixed inset-0 z-[86] flex items-end justify-center bg-black/85 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setDayTwoWorkoutOpen(false)}>
-                <section role="dialog" aria-modal="true" aria-labelledby="day-two-workout-title" className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-t-3xl border border-orange-400/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_0_60px_rgba(249,115,22,0.12)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
+                <section role="dialog" aria-modal="true" aria-labelledby="day-two-workout-title" className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-zinc-300 bg-[#f6f6f4] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-zinc-950 shadow-2xl sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">PLAYR1 workout · 125 shots + bonus</p>
-                      <h3 id="day-two-workout-title" className="mt-1 font-heading text-xl font-black uppercase text-white">Find Your Shooting Range</h3>
-                      <p className="mt-1 text-xs text-zinc-400">40 bonus layups and 5 cone sets included.</p>
+                      <p className="font-heading text-sm font-black uppercase tracking-[0.16em] text-orange-700">Workout #2 · 125 shots + bonus</p>
+                      <h3 id="day-two-workout-title" className="mt-1 font-heading text-2xl font-black uppercase text-black">Find Your Shooting Range</h3>
+                      <p className="mt-1 text-xs font-medium text-zinc-600">40 bonus layups and 5 cone sets included.</p>
                     </div>
-                    <button type="button" onClick={() => setDayTwoWorkoutOpen(false)} aria-label="Close workout preview" className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-white"><X className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => setDayTwoWorkoutOpen(false)} aria-label="Close workout preview" className="rounded-full border border-zinc-300 bg-white p-2 text-zinc-500 hover:text-black"><X className="h-4 w-4" /></button>
                   </div>
-                  <div className="mt-5 space-y-2">
-                    {dayTwoWorkoutQuery.isLoading && <p className="py-6 text-center text-sm text-zinc-400">Loading workout…</p>}
-                    {dayTwoWorkoutQuery.isError && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-200">Could not load this workout. Please try again.</p>}
+                  <button type="button" onClick={() => setDayTwoVideoOpen(true)} className="group relative mt-4 block aspect-video w-full overflow-hidden rounded-xl border border-zinc-300 bg-zinc-900 text-left" aria-label="Watch the Day 2 video">
+                    <div className="absolute inset-0 bg-[linear-gradient(125deg,#262626,#080808_56%,#333)]" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <span className="flex h-12 w-16 items-center justify-center rounded-xl bg-[#e62117] text-white transition-transform group-hover:scale-110"><Play className="ml-1 h-6 w-6 fill-current" /></span>
+                      <span className="mt-2 text-[9px] font-black uppercase tracking-[0.16em] text-white">Day 2 · Find Your Range</span>
+                      {!dayTwoIntroVideoSrc && <span className="mt-1 text-[9px] text-white/60">Video placeholder — add your intro when ready</span>}
+                    </div>
+                  </button>
+                  <div className="mt-4 space-y-2">
+                    {dayTwoWorkoutQuery.isLoading && <p className="py-6 text-center text-sm text-zinc-500">Loading workout…</p>}
+                    {dayTwoWorkoutQuery.isError && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">Could not load this workout. Please try again.</p>}
                     {dayTwoWorkoutQuery.data?.drills.map((entry, index) => (
-                      <div key={entry.drillId} className="rounded-xl border border-white/[0.08] bg-black/30 p-3">
+                      <div key={entry.drillId} className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-[0_3px_12px_rgba(0,0,0,.07)] sm:grid-cols-[8.5rem_1fr] sm:items-center sm:p-4">
+                        <div className="relative flex aspect-[1.4/1] items-center justify-center overflow-hidden rounded-lg border-2 border-black bg-[#fafafa]">
+                          <MiniCourtRange index={index} />
+                        </div>
                         <div className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-[10px] font-black text-orange-300">{String(index + 1).padStart(2, "0")}</span>
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-[10px] font-black text-orange-800">{String(index + 1).padStart(2, "0")}</span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-white">{entry.drill.title}</p>
-                            <p className="mt-0.5 text-[10px] text-zinc-500">{entry.defaultReps ?? "—"} reps · {entry.defaultDuration ?? "—"} min</p>
+                            <p className="font-heading text-base font-black uppercase text-black">{entry.drill.title}</p>
+                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-800">{entry.defaultReps ?? "—"} reps · {entry.defaultDuration ?? "—"} min</p>
+                            <p className="mt-2 text-xs leading-relaxed text-zinc-700">{entry.drill.description}</p>
                           </div>
                         </div>
-                        <p className="mt-2 pl-11 text-xs leading-relaxed text-zinc-400">{entry.drill.description}</p>
                       </div>
                     ))}
                   </div>
-                  <button type="button" disabled={!dayTwoWorkoutQuery.data} onClick={() => navigate(`/log?workoutId=${encodeURIComponent(dayTwoWorkoutId)}`)} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#ff984f] via-[#f97316] to-[#cf4307] px-4 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[0_0_24px_rgba(249,115,22,0.2)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" data-testid="button-log-day-two-workout">
+                  <button type="button" disabled={!dayTwoWorkoutQuery.data} onClick={() => navigate(`/log?workoutId=${encodeURIComponent(dayTwoWorkoutId)}`)} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-black px-4 text-xs font-black uppercase tracking-[0.12em] text-white shadow-[0_5px_0_#c4c4c4] transition hover:bg-zinc-800 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50" data-testid="button-log-day-two-workout">
                     <Play className="h-4 w-4 fill-current" /> Log Workout
                   </button>
+                </section>
+              </div>
+            )}
+
+            {dayTwoVideoOpen && (
+              <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm" onClick={() => setDayTwoVideoOpen(false)}>
+                <section role="dialog" aria-modal="true" aria-labelledby="day-two-video-title" className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/15 bg-[#111] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                  <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                    <h3 id="day-two-video-title" className="font-heading text-sm font-black uppercase text-white">Day 2 · Find Your Range</h3>
+                    <button type="button" onClick={() => setDayTwoVideoOpen(false)} aria-label="Close Day 2 video" className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-white"><X className="h-4 w-4" /></button>
+                  </div>
+                  {dayTwoIntroVideoSrc ? (
+                    <video src={dayTwoIntroVideoSrc} controls autoPlay playsInline className="aspect-video w-full bg-black" />
+                  ) : (
+                    <div className="flex aspect-video flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,#333,#080808_70%)] px-6 text-center">
+                      <PlayCircle className="h-14 w-14 text-white/70" />
+                      <p className="mt-4 font-heading text-lg font-black uppercase text-white">Your Day 2 video goes here</p>
+                      <p className="mt-2 max-w-sm text-sm leading-relaxed text-zinc-400">This player is ready for your introduction video. Add the video when it’s finished and it will play here.</p>
+                    </div>
+                  )}
                 </section>
               </div>
             )}
