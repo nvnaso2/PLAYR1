@@ -35,6 +35,7 @@ import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
 import type { Drill } from "@shared/schema";
 import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations";
 import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
+import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
 
 type WeeklyStatPoint = { date: string; minutes: number; sessions: number };
 type WeeklyTrendPoint = {
@@ -615,22 +616,7 @@ export default function HubPage() {
     <div className="min-h-full bg-background pb-6">
       {/* Greeting Header */}
       <div className="px-5 pt-6 pb-2">
-        {onboardingPreview && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-400/25 bg-orange-400/[0.06] px-3 py-2.5" data-testid="hub-onboarding-preview-banner">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-300">Onboarding Hub preview</p>
-              <p className="mt-0.5 text-xs text-zinc-300">This preview does not change your saved profile or normal Hub view.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate("/hub")}
-              className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:bg-white/[0.08]"
-              data-testid="button-hub-exit-onboarding-preview"
-            >
-              My normal Hub
-            </button>
-          </div>
-        )}
+        {onboardingPreview && <OnboardingPreviewMenu page="hub" />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
@@ -735,46 +721,55 @@ export default function HubPage() {
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-500/10 text-orange-300"><Target className="h-5 w-5" /></span>
                   </div>
 
-                  <div className="mt-4">
-                    <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-800 bg-[radial-gradient(ellipse_at_8%_0%,rgba(249,115,22,0.10),transparent_40%),#050505] px-3 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] sm:px-5 sm:py-5" data-testid="card-onboarding-progress-projection">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-bold text-white">Your shooting snapshot</p>
-                        <p className="mt-0.5 text-[10px] text-zinc-500">3-pointers · mid-range · free throws</p>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">Your year of progress</p>
+                        <h3 className="mt-1 text-lg font-bold text-white sm:text-xl">Picture what consistent work can do</h3>
+                        <p className="mt-1 text-[10px] text-zinc-500">Illustrative shooting percentage projection</p>
                       </div>
-                      {baselineComplete && <span className="rounded-full bg-orange-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-orange-300">First result</span>}
+                      <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-zinc-400">12 months</span>
                     </div>
-                    <div className="relative">
-                      <svg viewBox="0 0 600 300" role="img" aria-label={baselineComplete ? "Combined shooting baseline graph" : "Combined shooting baseline graph, awaiting results"} className="h-[220px] w-full sm:h-[300px]">
-                        {[0, 25, 50, 75, 100].map((tick) => {
-                          const y = 236 - tick * 1.9;
-                          return (
-                            <g key={tick}>
-                              <line x1="62" x2="575" y1={y} y2={y} stroke="rgba(255,255,255,0.1)" strokeDasharray={tick === 0 ? "0" : "4 7"} />
-                              <text x="48" y={y + 4} textAnchor="end" fill="#71717a" fontSize="11">{tick}%</text>
-                            </g>
-                          );
-                        })}
-                        {previewShotTypes.map(({ key, label }, index) => {
-                          const max = selectedBaseline[key];
-                          const made = Number(baselineResults[key] || 0);
-                          const percent = baselineComplete ? Math.round((made / max) * 100) : 0;
-                          const x = 135 + index * 165;
-                          const height = percent * 1.9;
-                          const color = ["#f97316", "#fbbf24", "#fafafa"][index];
-                          return (
-                            <g key={key}>
-                              <rect x={x} y="46" width="76" height="190" rx="9" fill="rgba(255,255,255,0.035)" />
-                              <rect x={x} y={236 - height} width="76" height={baselineComplete ? Math.max(height, 3) : 3} rx="8" fill={color} opacity={baselineComplete ? 0.92 : 0.2} className="transition-all duration-700" />
-                              <text x={x + 38} y="260" textAnchor="middle" fill="#d4d4d8" fontSize="12" fontWeight="600">{label}</text>
-                              <text x={x + 38} y={baselineComplete ? Math.max(35, 226 - height) : 222} textAnchor="middle" fill={baselineComplete ? color : "#71717a"} fontSize="13" fontWeight="700">{baselineComplete ? `${percent}%` : "—"}</text>
-                              {baselineComplete && <text x={x + 38} y="278" textAnchor="middle" fill="#71717a" fontSize="10">{made}/{max} makes</text>}
-                            </g>
-                          );
-                        })}
-                        <line x1="62" x2="575" y1="236" y2="236" stroke="rgba(255,255,255,0.25)" />
-                      </svg>
-                    </div>
-                    {!baselineComplete && <p className="mt-1 text-center text-[10px] text-zinc-600">One graph. Three parts of your shooting game.</p>}
+                    {(() => {
+                      const series = [
+                        { label: "3-pointers", color: "#ff7a24", values: [20, 23, 27, 31, 35, 39, 44, 48, 52, 56, 60, 64, 68] },
+                        { label: "Mid-range", color: "#35c4e8", values: [28, 31, 35, 39, 43, 47, 51, 55, 59, 63, 67, 71, 75] },
+                        { label: "Free throws", color: "#b28cff", values: [38, 42, 46, 50, 54, 58, 62, 66, 70, 73, 76, 79, 82] },
+                      ];
+                      const xAt = (month: number) => 58 + month * (490 / 12);
+                      const yAt = (percent: number) => 218 - percent * 1.78;
+                      return (
+                        <>
+                          <svg viewBox="0 0 580 270" role="img" aria-label="Illustrative one-year projection of three-point, mid-range, and free-throw shooting improving over time" className="mt-3 h-[205px] w-full sm:h-[260px]">
+                            {[0, 20, 40, 60, 80, 100].map((tick) => {
+                              const y = yAt(tick);
+                              return <g key={tick}>
+                                <line x1="58" x2="548" y1={y} y2={y} stroke="rgba(255,255,255,0.09)" strokeDasharray={tick === 0 ? undefined : "3 6"} />
+                                <text x="48" y={y + 3} textAnchor="end" fill="#71717a" fontSize="9">{tick}%</text>
+                              </g>;
+                            })}
+                            {[0, 3, 6, 9, 12].map((month) => (
+                              <text key={month} x={xAt(month)} y="245" textAnchor="middle" fill="#71717a" fontSize="9">{month === 0 ? "Start" : `${month} mo`}</text>
+                            ))}
+                            {series.map((line) => {
+                              const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`).join(" ");
+                              return <g key={line.label}>
+                                <polyline points={points} fill="none" stroke={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
+                                <circle cx={xAt(0)} cy={yAt(line.values[0])} r="4" fill="#050505" stroke={line.color} strokeWidth="2" />
+                                <circle cx={xAt(12)} cy={yAt(line.values[12])} r="5" fill={line.color} stroke="#050505" strokeWidth="2" />
+                                <text x={xAt(12) - 4} y={yAt(line.values[12]) - 10} textAnchor="end" fill={line.color} fontSize="10" fontWeight="700">{line.values[12]}%</text>
+                              </g>;
+                            })}
+                          </svg>
+                          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2 border-t border-white/[0.07] pt-3">
+                            {series.map((line) => <span key={line.label} className="inline-flex items-center gap-1.5 text-[9px] font-medium text-zinc-300">
+                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color }} />{line.label}
+                            </span>)}
+                          </div>
+                        </>
+                      );
+                    })()}
+                    <p className="mt-3 text-[9px] leading-4 text-zinc-600">Example only—not a promise. Your real chart will reflect the shots you log over time.</p>
                   </div>
 
                   <div className="mt-4 flex gap-1 rounded-lg bg-zinc-900 p-1" role="group" aria-label="Choose baseline workout size">

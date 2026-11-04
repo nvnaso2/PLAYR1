@@ -5,13 +5,13 @@ description: User's proposed schedule-aware onboarding, Day 1 baseline options, 
 
 The intended new player onboarding starts with the familiar sign-in screen. Players choosing to create an account enter email and password first, then complete a separate profile step with their name, training days per week, next planned training session, and expected session length. Completing that step takes them into the Hub.
 
-The seven-day onboarding is embedded in a personalized Hub that gradually reveals content. Day 1 should contain only a one-session shooting baseline followed by its visual result and the PLAYR1 trailer. The baseline has three volumes: 100 threes + 40 mid-range pull-ups + 25 free throws (165 attempts); 50 + 40 + 25 (115); or 50 + 20 + 15 (85).
+The seven-day onboarding is embedded in a personalized Hub that gradually reveals content. Day 1 should contain only a one-session shooting baseline followed by its visual result and the PLAYR1 trailer. The baseline has three volumes: 100 threes + 40 mid-range pull-ups + 25 free throws (165 attempts); 50 + 40 + 25 (115); or 50 + 20 + 15 (85). The Hub preview should show a black-based, colorful illustrative one-year line chart for the three shot types, clearly distinguished from a promise of actual results.
 
-The current admin preview should focus on the first-session experience inside the existing Hub shell; do not add a seven-day selector or placeholder days unless requested again. Keep this prototype separate from the current live onboarding until the user explicitly asks to migrate the player-facing flow. The public lead-magnet quiz remains a separate experience.
+The current admin preview should focus on the first-session experience inside the existing Hub shell; do not add a seven-day selector or placeholder days unless requested again. Keep the preview immersive by hiding app navigation and using only a compact page selector to move between sign-in, account creation, profile, and the Day 1 Hub. Keep this prototype separate from the current live onboarding until the user explicitly asks to migrate the player-facing flow. The public lead-magnet quiz remains a separate experience.
 
-**Why:** the user wants an immersive path that reuses the familiar account-entry aesthetic, asks schedule questions after account credentials, and then keeps the first-session experience inside the Hub.
+**Why:** the user wants an immersive path that reuses the familiar account-entry aesthetic, asks schedule questions after account credentials, and then keeps the first-session experience inside the Hub with an motivating progress visualization.
 
-**How to apply:** preserve the exact baseline counts above; do not change live onboarding while iterating on the preview. Reuse the existing AuthPage and actual Hub shell, route preview sign-in and signup through the schedule questions before Hub, and make the first-session baseline the Hub’s integrated graph/logger. Preview submissions stay local and never call auth APIs.
+**How to apply:** preserve the exact baseline counts above; do not change live onboarding while iterating on the preview. Reuse the existing AuthPage and actual Hub shell, route preview sign-in and signup through the schedule questions before Hub, and keep the page selector as the sole preview control. Preview submissions stay local and never call auth APIs.
 
 ## Current live flow and lead-magnet boundary
 

@@ -338,11 +338,13 @@ export default function AuthPage({
   initialMode,
   onPreviewLogin,
   onPreviewRegister,
+  onPreviewModeChange,
 }: {
   previewMode?: boolean;
   initialMode?: "login" | "register";
   onPreviewLogin?: () => void;
   onPreviewRegister?: () => void;
+  onPreviewModeChange?: (mode: "login" | "register") => void;
 }) {
   const [mode, setMode] = useState<"login" | "register">(() =>
     initialMode ?? (new URLSearchParams(window.location.search).get("mode") === "register" ? "register" : "login")
@@ -364,13 +366,23 @@ export default function AuthPage({
         <section aria-label={mode === "login" ? "Sign in" : "Create account"}>
           {mode === "login" ? (
             <LoginForm
-              onSwitch={() => previewMode ? setMode("register") : navigate("/app-setup")}
+              onSwitch={() => {
+                if (previewMode) {
+                  setMode("register");
+                  onPreviewModeChange?.("register");
+                } else {
+                  navigate("/app-setup");
+                }
+              }}
               previewMode={previewMode}
               onPreviewLogin={onPreviewLogin}
             />
           ) : (
             <RegisterForm
-              onSwitch={() => setMode("login")}
+              onSwitch={() => {
+                setMode("login");
+                if (previewMode) onPreviewModeChange?.("login");
+              }}
               previewMode={previewMode}
               onPreviewRegister={onPreviewRegister}
             />

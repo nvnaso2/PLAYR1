@@ -232,14 +232,18 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
     "--sidebar-width-icon": "3rem",
   } as React.CSSProperties;
   const isCoachChat = location.split("?")[0] === "/coach-p";
+  const isOnboardingPreviewRoute = location.split("?")[0] === "/admin/onboarding-preview";
+  const isOnboardingHubPreview = location.split("?")[0] === "/hub"
+    && new URLSearchParams(location.split("?")[1] || "").get("preview") === "onboarding";
+  const hideAppChrome = isCoachChat || isOnboardingPreviewRoute || isOnboardingHubPreview;
 
   return (
     <SidebarProvider style={sidebarStyle}>
       <div className="flex h-screen w-full overflow-hidden" style={{ height: "var(--playr1-viewport-height, 100dvh)" }}>
-        {!isCoachChat && <AppSidebar />}
+        {!hideAppChrome && <AppSidebar />}
         <SidebarInset className="flex flex-col min-h-0 flex-1 overflow-hidden">
           {/* Coach P is an immersive chat surface; keep the shell chrome out of its viewport. */}
-          {!isCoachChat && <header
+          {!hideAppChrome && <header
             className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-zinc-800/60 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60"
             style={isNative ? {
               height: "calc(3.5rem + env(safe-area-inset-top, 0px))",
@@ -272,7 +276,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           </main>
 
           {/* Bottom tab bar */}
-          {!isCoachChat && <BottomTabBar />}
+          {!hideAppChrome && <BottomTabBar />}
         </SidebarInset>
       </div>
     </SidebarProvider>
