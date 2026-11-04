@@ -57,6 +57,7 @@ type WeeklyTrendPoint = {
 };
 type CategoryStatPoint = { category: string; minutes: number; sessions: number };
 type PreviewShotKey = "threes" | "midrange" | "freeThrows";
+type TrailerCardPreview = { avatar: string; title: string; stats: string };
 
 const onboardingBaselines: Array<{
   id: "full" | "standard" | "quick";
@@ -163,6 +164,25 @@ export default function HubPage() {
       return {};
     }
   });
+  const [trailerCard, setTrailerCard] = useState<TrailerCardPreview>(() => {
+    const defaults: TrailerCardPreview = { avatar: "", title: "The PLAYR1 Vision", stats: "0 views · Just now" };
+    try {
+      return { ...defaults, ...JSON.parse(sessionStorage.getItem("playr1-onboarding-trailer-card") || "{}") } as TrailerCardPreview;
+    } catch {
+      return defaults;
+    }
+  });
+  const updateTrailerCard = (patch: Partial<TrailerCardPreview>) => {
+    setTrailerCard((current) => {
+      const updated = { ...current, ...patch };
+      try {
+        sessionStorage.setItem("playr1-onboarding-trailer-card", JSON.stringify(updated));
+      } catch {
+        // Keep the editor usable if browser storage is unavailable.
+      }
+      return updated;
+    });
+  };
   const selectedBaseline = onboardingBaselines.find((option) => option.id === baselineId)!;
   const baselineTotal = selectedBaseline.threes + selectedBaseline.midrange + selectedBaseline.freeThrows;
   const frequency = Math.max(1, Number(previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? 1));
@@ -714,20 +734,43 @@ export default function HubPage() {
             })()}
         </div>
         {onboardingPreview && (
-          <div className="mt-4 rounded-xl border border-orange-500/20 bg-[linear-gradient(100deg,rgba(249,115,22,0.10),rgba(10,10,10,0.88)_55%)] px-3 py-2.5" data-testid="onboarding-day-progress">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Onboarding · Day 1 of 7</p>
-                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300">The baseline</p>
+          <div className="mt-4" data-testid="onboarding-day-progress">
+            <div className="mb-2 flex items-start justify-end gap-2 text-right">
+              <div className="min-w-0">
+                <p className="text-[9px] font-semibold text-zinc-400">
+                  {previewProfile.trainingFrequency
+                    ? `${previewProfile.trainingFrequency} ${previewProfile.frequencyUnit === "month" ? "per month" : "per week"}`
+                    : `${previewProfile.trainingDays ?? "—"} days/week`}
+                  {previewProfile.sessionLength ? ` · ${previewProfile.sessionLength} min sessions` : ""}
+                </p>
+                <div className="mt-0.5 flex flex-wrap items-center justify-end gap-x-1.5 text-[10px] text-zinc-300">
+                  <span>{previewProfile.nextSession
+                    ? `Next session · ${new Date(previewProfile.nextSession).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                    : "Next session not set"}</span>
+                  <button type="button" onClick={() => setScheduleEditing((editing) => !editing)} aria-label="Edit training rhythm and next session" className="font-bold text-orange-300 transition hover:text-orange-200">Edit</button>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="grid min-w-0 flex-1 grid-cols-7 gap-1.5" aria-label="Seven scheduled days">
+                {onboardingSchedule.map((date, index) => (
+                  <div key={index} className="min-w-0 text-center" aria-label={`Day ${index + 1}: ${date.toLocaleDateString()}`}>
+                    <span className="block truncate text-[7px] font-semibold uppercase tracking-tight text-zinc-400 sm:text-[9px]">
+                      {date.toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}
+                    </span>
+                    <span className={`mt-1 block h-1.5 w-full rounded-full ${index === 0 ? "bg-[#b84b0b] shadow-[0_0_4px_rgba(249,115,22,0.9),0_0_13px_rgba(249,115,22,0.48)]" : "bg-white/10"}`} />
+                    <span className={`mt-1 block text-[7px] font-bold uppercase tracking-tight sm:text-[9px] ${index === 0 ? "text-orange-300" : "text-zinc-600"}`}>{index + 1}</span>
+                  </div>
+                ))}
               </div>
               <Popover>
                 <PopoverTrigger asChild>
-                  <button type="button" aria-label="Open your seven-session calendar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/40 text-zinc-300 transition hover:border-orange-400/50 hover:text-orange-200">
+                  <button type="button" aria-label="Open your training calendar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/[0.05] hover:text-orange-300">
                     <CalendarDays className="h-4 w-4" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-[min(340px,calc(100vw-24px))] border-orange-400/20 bg-[#101010] p-3 text-white shadow-2xl">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Your 7-session calendar</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Your training calendar</p>
                   <p className="mt-1 text-[10px] text-zinc-500">Planned from your training rhythm and next session.</p>
                   <div className="mt-3 space-y-1.5">
                     {onboardingSchedule.map((date, index) => (
@@ -740,17 +783,22 @@ export default function HubPage() {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="mt-3 grid grid-cols-7 gap-1.5" aria-label="Seven onboarding days">
-              {onboardingSchedule.map((date, index) => (
-                <div key={index} className="min-w-0 text-center" aria-label={`Day ${index + 1}: ${date.toLocaleDateString()}`}>
-                  <span className="block truncate text-[7px] font-semibold uppercase tracking-tight text-zinc-400 sm:text-[9px]">
-                    {date.toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}
-                  </span>
-                  <span className={`mt-1 block h-1.5 w-full rounded-full ${index === 0 ? "bg-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.65)]" : "bg-white/10"}`} />
-                  <span className={`mt-1 block text-[7px] font-bold uppercase tracking-tight sm:text-[9px] ${index === 0 ? "text-orange-200" : "text-zinc-600"}`}>Day {index + 1}</span>
-                </div>
-              ))}
-            </div>
+            {scheduleEditing && (
+              <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                <input
+                  aria-label="Update your next training session"
+                  type="datetime-local"
+                  value={previewProfile.nextSession ?? ""}
+                  onChange={(event) => {
+                    const updated = { ...previewProfile, nextSession: event.target.value };
+                    setPreviewProfile(updated);
+                    sessionStorage.setItem("playr1-onboarding-preview", JSON.stringify(updated));
+                  }}
+                  className="min-h-9 min-w-0 max-w-full rounded-lg border border-white/10 bg-black px-2 text-[10px] text-white outline-none focus:border-orange-400"
+                />
+                <button type="button" onClick={() => setScheduleEditing(false)} className="min-h-9 rounded-lg px-3 text-[9px] font-black uppercase text-orange-300 hover:bg-white/[0.05]">Done</button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -758,58 +806,13 @@ export default function HubPage() {
       <div className="px-4 space-y-4 mt-4">
         {onboardingPreview ? (
           <>
-            <div className="relative isolate overflow-hidden rounded-[26px] border border-orange-500/25 bg-[radial-gradient(ellipse_at_86%_0%,rgba(249,115,22,0.12),transparent_38%),linear-gradient(145deg,#11100e,#070707_58%,#050505)] p-3 shadow-[0_22px_65px_rgba(0,0,0,0.4)] sm:rounded-[30px] sm:p-5" data-testid="card-day-one-mission">
-            {previewProfile.sessionLength && (
-              <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-zinc-950/80 px-3.5 py-3" aria-label="Your training plan">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-500/10 text-orange-300"><CalendarDays className="h-4 w-4" /></span>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-zinc-500">Your training rhythm</p>
-                    <p className="mt-0.5 truncate text-[11px] font-semibold text-zinc-200">
-                      {previewProfile.trainingFrequency
-                        ? `${previewProfile.trainingFrequency} ${previewProfile.frequencyUnit === "month" ? "per month" : "per week"}`
-                        : `${previewProfile.trainingDays ?? "—"} days/week`} <span className="mx-1 text-zinc-600">·</span>{previewProfile.sessionLength} min sessions
-                    </p>
-                  </div>
-                </div>
-                {previewProfile.nextSession && (
-                  <div className="ml-12 flex w-full items-center justify-between gap-2 sm:ml-0 sm:w-auto">
-                    <p className="text-[10px] text-orange-200/80">
-                      Scheduled for · {new Date(previewProfile.nextSession).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                    </p>
-                    <button type="button" onClick={() => setScheduleEditing((editing) => !editing)} aria-label="Edit next training session" className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-bold text-zinc-400 transition hover:bg-white/5 hover:text-white">
-                      <Pencil className="h-3 w-3" /> Edit
-                    </button>
-                  </div>
-                )}
-              </section>
-            )}
-            {scheduleEditing && (
-              <section className="rounded-xl border border-orange-400/20 bg-zinc-950 p-3" aria-label="Edit scheduled training session">
-                <label htmlFor="preview-session-datetime" className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-400">Update your next session</label>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input
-                    id="preview-session-datetime"
-                    type="datetime-local"
-                    value={previewProfile.nextSession ?? ""}
-                    onChange={(event) => {
-                      const updated = { ...previewProfile, nextSession: event.target.value };
-                      setPreviewProfile(updated);
-                      sessionStorage.setItem("playr1-onboarding-preview", JSON.stringify(updated));
-                    }}
-                    className="min-h-10 min-w-0 flex-1 rounded-lg border border-white/10 bg-black px-3 text-xs text-white outline-none focus:border-orange-400"
-                  />
-                  <button type="button" onClick={() => setScheduleEditing(false)} className="min-h-10 rounded-lg bg-orange-500 px-4 text-[10px] font-black uppercase tracking-wider text-black">Done</button>
-                </div>
-              </section>
-            )}
+            <div className="space-y-4" data-testid="card-day-one-mission">
 
             <div className="px-1 pt-1">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-300">Day 1 mission</p>
-              <h2 className="mt-1 font-heading text-xl font-black uppercase leading-tight text-white sm:text-2xl">Lock in your shooting baseline</h2>
+              <h2 className="font-heading text-xl font-black uppercase leading-tight text-white sm:text-2xl">Welcome to The PLAYR1 Project.</h2>
             </div>
 
-            <section className="relative isolate overflow-hidden rounded-2xl border border-orange-500/25 bg-[radial-gradient(ellipse_at_50%_0%,rgba(249,115,22,0.14),transparent_54%),#050505] p-2 shadow-[0_14px_40px_rgba(0,0,0,0.28)]" data-testid="card-day-one-trailer">
+            <div className="space-y-2" data-testid="card-day-one-trailer">
               <button type="button" onClick={() => setTrailerPlaying(true)} className="group relative block aspect-video w-full overflow-hidden rounded-lg bg-black text-left" data-testid="button-play-onboarding-trailer" aria-label="Play the PLAYR1 trailer">
                 <img src="/images/playr1-trailer-thumbnail.jpg" alt="PLAYR1 trailer thumbnail" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]" />
                 <span className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
@@ -818,14 +821,68 @@ export default function HubPage() {
                 </span>
                 <span className="absolute bottom-2 right-2 rounded bg-black/85 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white">0:05</span>
               </button>
-              <div className="flex items-start gap-3 px-2 pb-2 pt-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-black text-black">P1</span>
+              <div className="flex items-start gap-3 py-1">
+                {trailerCard.avatar ? (
+                  <img src={trailerCard.avatar} alt="PLAYR1 channel profile" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-black text-black">P1</span>
+                )}
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-bold text-white">The PLAYR1 Vision</p>
-                  <p className="mt-0.5 text-[10px] text-zinc-500">PLAYR1 · Official trailer</p>
+                  <p className="truncate text-xs font-bold text-white">{trailerCard.title}</p>
+                  <p className="mt-0.5 truncate text-[10px] text-zinc-500">PLAYR1 · {trailerCard.stats}</p>
                 </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" aria-label="Customize trailer profile, title, and statistics" className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/[0.05] hover:text-orange-300">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-[min(320px,calc(100vw-24px))] space-y-3 border-orange-400/20 bg-[#101010] p-3 text-white shadow-2xl">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Customize video preview</p>
+                    <div>
+                      <label htmlFor="trailer-profile-picture" className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-zinc-400">Channel profile picture</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="trailer-profile-picture"
+                          type="file"
+                          accept="image/*"
+                          className="block w-full text-[10px] text-zinc-400 file:mr-2 file:rounded-full file:border-0 file:bg-orange-500/15 file:px-3 file:py-2 file:text-[9px] file:font-bold file:text-orange-200"
+                          onChange={(event) => {
+                            const file = event.currentTarget.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              const image = new window.Image();
+                              image.onload = () => {
+                                const cropSize = Math.min(image.width, image.height);
+                                const canvas = document.createElement("canvas");
+                                canvas.width = 256;
+                                canvas.height = 256;
+                                const context = canvas.getContext("2d");
+                                if (!context) return;
+                                context.drawImage(image, (image.width - cropSize) / 2, (image.height - cropSize) / 2, cropSize, cropSize, 0, 0, 256, 256);
+                                updateTrailerCard({ avatar: canvas.toDataURL("image/jpeg", 0.84) });
+                              };
+                              image.src = String(reader.result);
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <label className="block text-[9px] font-bold uppercase tracking-wider text-zinc-400">
+                      Video title
+                      <input value={trailerCard.title} onChange={(event) => updateTrailerCard({ title: event.currentTarget.value })} maxLength={90} className="mt-1.5 h-9 w-full rounded-lg border border-white/10 bg-black px-2.5 text-[11px] font-medium normal-case tracking-normal text-white outline-none focus:border-orange-400" />
+                    </label>
+                    <label className="block text-[9px] font-bold uppercase tracking-wider text-zinc-400">
+                      Views and upload date
+                      <input value={trailerCard.stats} onChange={(event) => updateTrailerCard({ stats: event.currentTarget.value })} maxLength={60} placeholder="2.4M views · 2 weeks ago" className="mt-1.5 h-9 w-full rounded-lg border border-white/10 bg-black px-2.5 text-[11px] font-medium normal-case tracking-normal text-white outline-none focus:border-orange-400" />
+                    </label>
+                    {trailerCard.avatar && <button type="button" onClick={() => updateTrailerCard({ avatar: "" })} className="text-[9px] font-bold text-zinc-500 hover:text-white">Remove profile picture</button>}
+                  </PopoverContent>
+                </Popover>
               </div>
-            </section>
+            </div>
 
                 <section className="space-y-4 pb-5" data-testid="hub-onboarding-baseline">
                   <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-800 bg-[radial-gradient(ellipse_at_8%_0%,rgba(249,115,22,0.10),transparent_40%),#050505] px-3 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] sm:px-5 sm:py-5" data-testid="card-onboarding-progress-projection">
@@ -920,7 +977,7 @@ export default function HubPage() {
                         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700 sm:hidden" />
                         <div className="mb-5 flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">Day 1 · Baseline session</p>
+                            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">Baseline session</p>
                             <h3 id="baseline-log-title" className="mt-1 font-heading text-xl font-black uppercase text-white">Log your makes</h3>
                             <p className="mt-1 text-[11px] text-zinc-400">{baselineTotal} attempts · {selectedBaseline.name}</p>
                           </div>
@@ -972,11 +1029,11 @@ export default function HubPage() {
                   {baselineComplete && (
                     <div className="mt-4 space-y-2.5">
                       <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] px-3 py-3">
-                        <p className="flex items-center gap-2 text-xs font-semibold text-emerald-200"><CheckCircle2 className="h-4 w-4 shrink-0" /> Day 1 complete · {baselineTotal} attempts</p>
+                        <p className="flex items-center gap-2 text-xs font-semibold text-emerald-200"><CheckCircle2 className="h-4 w-4 shrink-0" /> Baseline recorded · {baselineTotal} attempts</p>
                         <button type="button" onClick={() => { setBaselineComplete(false); setBaselineLogging(true); }} className="shrink-0 text-[10px] font-bold text-zinc-400 underline underline-offset-4 hover:text-white">Edit results</button>
                       </div>
                       <div className="rounded-xl border border-orange-400/15 bg-[linear-gradient(100deg,rgba(249,115,22,0.09),rgba(10,10,10,0.92))] px-3 py-3">
-                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Next up · Day 2</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Next up</p>
                         <p className="mt-1 text-xs font-bold text-white">The Handle &amp; Footwork Diagnostic</p>
                         <p className="mt-1 text-[10px] text-zinc-500">Unlocks tomorrow. Keep your next session on the calendar.</p>
                       </div>
