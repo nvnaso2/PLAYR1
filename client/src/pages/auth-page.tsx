@@ -216,12 +216,12 @@ function RegisterForm({
   return (
     <Card className="w-full max-w-md rounded-none border-0 bg-transparent text-[#f5f2eb] shadow-none">
       <CardHeader className="px-0 pb-5 pt-0 text-left">
-        <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#f07836]">
+        {!previewMode && <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#f07836]">
           <span className="h-px w-7 bg-[#f07836]" />
           Start with the fundamentals
-        </div>
+        </div>}
         <CardTitle className="font-heading text-4xl font-bold uppercase leading-none tracking-[0.04em] text-[#f5f2eb] sm:text-5xl" data-testid="text-register-title">Create Account</CardTitle>
-        <CardDescription className="mt-2 text-sm text-[#a6a39c]">Make your work count. Your player profile begins now.</CardDescription>
+        {!previewMode && <CardDescription className="mt-2 text-sm text-[#a6a39c]">Make your work count. Your player profile begins now.</CardDescription>}
       </CardHeader>
       <CardContent className="px-0 pb-0">
         <Form {...form}>

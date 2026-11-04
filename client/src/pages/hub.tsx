@@ -146,7 +146,8 @@ export default function HubPage() {
   const [previewProfile] = useState(() => {
     try {
       return JSON.parse(sessionStorage.getItem("playr1-onboarding-preview") || "{}") as {
-        playerName?: string; trainingDays?: number; sessionLength?: number; nextSession?: string;
+        playerName?: string; trainingFrequency?: number; frequencyUnit?: "week" | "month";
+        trainingDays?: number; sessionLength?: number; nextSession?: string;
       };
     } catch {
       return {};
@@ -701,8 +702,10 @@ export default function HubPage() {
               <section className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-1 pb-3" aria-label="Your training plan">
                 <p className="text-xs font-semibold text-zinc-200">
                   Your plan <span className="mx-1.5 text-zinc-600">·</span>
-                  {previewProfile.trainingDays} days/week <span className="mx-1.5 text-zinc-600">·</span>
-                  {previewProfile.sessionLength} min next session
+                  {previewProfile.trainingFrequency
+                    ? `${previewProfile.trainingFrequency} ${previewProfile.frequencyUnit === "month" ? "per month" : "per week"}`
+                    : `${previewProfile.trainingDays ?? "—"} days/week`} <span className="mx-1.5 text-zinc-600">·</span>
+                  {previewProfile.sessionLength} min sessions
                 </p>
                 {previewProfile.nextSession && (
                   <p className="text-[10px] text-zinc-500">
