@@ -39,7 +39,7 @@ import {
   Radar,
 } from "lucide-react";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
-import type { Drill } from "@shared/schema";
+import type { Drill, Workout, WorkoutDrill } from "@shared/schema";
 import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations";
 import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
@@ -84,44 +84,7 @@ const previewShotTypes: Array<{ key: PreviewShotKey; label: string; color: strin
   { key: "midrange", label: "Mid-range", color: "#ff5364" },
   { key: "freeThrows", label: "Free throws", color: "#70f06a" },
 ];
-const dayTwoWorkoutDrills = [
-  {
-    title: "Find Your Range",
-    category: "Range finder",
-    shots: "30 shots",
-    instructions: "Start from the first hash. If you make 2 in a row from the same spot, take one step back. If you miss two in a row, take a step forward. Continue until you have taken 30 total shots. The spot you finish on is your in-game shooting range.",
-  },
-  {
-    title: "Elbow Jumpers",
-    category: "Mid-range",
-    shots: "20 shots",
-    instructions: "Take 10 shots at each elbow. Start at the block and spin the ball out to the elbow. Plant your inside foot on the elbow as you catch the ball. Then turn, square your shoulders to the basket, and shoot.",
-  },
-  {
-    title: "Mid-Range Pull-ups",
-    category: "Mid-range",
-    shots: "40 shots",
-    instructions: "Take 8 shots from each of the 5 spots around the court. Start from behind the 3-point line and take 4 shots dribbling to the left and 4 dribbling to the right.",
-  },
-  {
-    title: "Catch & Shoot 3s",
-    category: "3-point",
-    shots: "25 shots",
-    instructions: "Take 5 shots from each of the 5 spots around the court. If you have a rebounder, take catch-and-shoot shots. If you are training by yourself, take stationary shots.",
-  },
-  {
-    title: "Free Throws",
-    category: "Free throws",
-    shots: "10 shots",
-    instructions: "Take 10 free throws, making sure to practice them as if you were in a game and going through your regular free-throw routine.",
-  },
-  {
-    title: "Finishing & Ball Handling",
-    category: "Bonus",
-    shots: "40 layups · 5 cone sets",
-    instructions: "Start at the top of the key and do 10 regular layups, then 10 inside-hand layups on each side. Dribble toward each cone in a zig-zag, performing a crossover, between-the-legs move, or behind-the-back move at each cone.",
-  },
-];
+const dayTwoWorkoutId = "playr1-onboarding-day2-find-your-shooting-range";
 
 const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
   totalDrills: "#38bdf8",
@@ -201,13 +164,13 @@ export default function HubPage() {
   const [trailerPlaying, setTrailerPlaying] = useState(false);
   const [scheduleEditing, setScheduleEditing] = useState(false);
   const [previewDay, setPreviewDay] = useState(() => new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
-  const [expandedDayTwoDrill, setExpandedDayTwoDrill] = useState<number | null>(0);
   useEffect(() => {
     if (location.split("?")[0] === "/admin/onboarding-preview") {
       setPreviewDay(new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
     }
   }, [location, search]);
   const [dayTwoProfileOpen, setDayTwoProfileOpen] = useState(false);
+  const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
   const [dayTwoSaving, setDayTwoSaving] = useState(false);
   const [dayTwoError, setDayTwoError] = useState("");
   const [dayTwoAnswers, setDayTwoAnswers] = useState({
@@ -263,6 +226,18 @@ export default function HubPage() {
       return updated;
     });
   };
+  const dayTwoWorkoutQuery = useQuery<{
+    workout: Workout;
+    drills: Array<WorkoutDrill & { drill: Drill }>;
+  }>({
+    queryKey: ["/api/workouts", dayTwoWorkoutId],
+    enabled: dayTwoWorkoutOpen,
+    queryFn: async () => {
+      const response = await nativeFetch(`/api/workouts/${dayTwoWorkoutId}`);
+      if (!response.ok) throw new Error("Could not load the workout.");
+      return response.json();
+    },
+  });
   const selectedBaseline = onboardingBaselines.find((option) => option.id === baselineId)!;
   const baselineTotal = selectedBaseline.threes + selectedBaseline.midrange + selectedBaseline.freeThrows;
   const frequency = Math.max(1, Number(previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? 1));
@@ -1332,46 +1307,60 @@ export default function HubPage() {
                     <Pencil className="h-3.5 w-3.5 text-orange-300" /> Complete profile
                   </button>
                 </div>
-                <div className="overflow-hidden rounded-2xl border border-orange-400/20 bg-[radial-gradient(ellipse_at_top_right,rgba(249,115,22,0.12),transparent_50%),linear-gradient(145deg,#17120f,#090909_52%,#111)] shadow-[0_14px_45px_rgba(0,0,0,0.3)]">
-                  <div className="border-b border-white/[0.08] p-4 sm:p-5">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-400/30 bg-orange-500/10 text-orange-300 shadow-[0_0_22px_rgba(249,115,22,0.13)]"><Dumbbell className="h-5 w-5" /></span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Workout</p>
-                        <h3 className="mt-1 font-heading text-lg font-black uppercase text-white sm:text-xl">Find Your Shooting Range</h3>
-                        <p className="mt-1 text-xs leading-relaxed text-zinc-400">A 125-shot session to find your range, build your mid-range game, and finish with free throws.</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      {[["125", "shots"], ["40", "layups"], ["5", "cone sets"]].map(([value, label]) => (
-                        <div key={label} className="rounded-xl border border-white/[0.08] bg-black/35 px-2 py-2.5 text-center">
-                          <p className="text-base font-black tabular-nums text-white">{value}</p>
-                          <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.13em] text-zinc-500">{label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-2 p-3 sm:p-4" aria-label="Workout drills">
-                    {dayTwoWorkoutDrills.map((drill, index) => {
-                      const expanded = expandedDayTwoDrill === index;
-                      return (
-                        <div key={drill.title} className={`overflow-hidden rounded-xl border transition-colors ${expanded ? "border-orange-400/25 bg-orange-500/[0.045]" : "border-white/[0.08] bg-black/25 hover:border-white/15"}`}>
-                          <button type="button" aria-expanded={expanded} onClick={() => setExpandedDayTwoDrill(expanded ? null : index)} className="flex min-h-[58px] w-full items-center gap-3 px-3 py-2.5 text-left sm:px-4">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-orange-400/20 bg-orange-500/[0.08] text-[10px] font-black tabular-nums text-orange-300">{String(index + 1).padStart(2, "0")}</span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-bold text-white">{drill.title}</span>
-                              <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-[0.13em] text-zinc-500">{drill.category}</span>
-                            </span>
-                            <span className="shrink-0 text-[10px] font-black text-orange-200">{drill.shots}</span>
-                            <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${expanded ? "rotate-180 text-orange-300" : ""}`} />
-                          </button>
-                          {expanded && <p className="border-t border-white/[0.07] px-3 pb-3 pt-2.5 text-xs leading-relaxed text-zinc-300 sm:px-4 sm:pl-[3.75rem]">{drill.instructions}</p>}
-                        </div>
-                      );
-                    })}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group flex min-h-28 items-center gap-4 rounded-2xl border border-orange-400/25 bg-[radial-gradient(ellipse_at_top_right,rgba(249,115,22,0.16),transparent_65%),linear-gradient(145deg,#17120f,#090909_60%,#111)] p-4 text-left shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition hover:border-orange-300/50" data-testid="button-preview-day-two-workout">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-orange-400/30 bg-orange-500/10 text-orange-300"><Dumbbell className="h-5 w-5" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Workout · 125 shots + bonus</span>
+                      <span className="mt-1 block text-sm font-black text-white">Find Your Shooting Range</span>
+                      <span className="mt-1 block text-[10px] text-zinc-400">Preview all 6 drills and log your session.</span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 shrink-0 text-orange-300 transition-transform group-hover:translate-x-1" />
+                  </button>
+                  <div className="relative flex min-h-28 items-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(135deg,#151515,#080808)] p-4" data-testid="day-two-video-placeholder">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-zinc-300"><Play className="ml-0.5 h-5 w-5 fill-current" /></span>
+                    <span className="min-w-0">
+                      <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-zinc-500">Day 2 video</span>
+                      <span className="mt-1 block text-sm font-bold text-white">Coming soon</span>
+                      <span className="mt-1 block text-[10px] text-zinc-500">Your intro to finding your shooting range.</span>
+                    </span>
                   </div>
                 </div>
               </section>
+            )}
+
+            {dayTwoWorkoutOpen && (
+              <div className="fixed inset-0 z-[86] flex items-end justify-center bg-black/85 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setDayTwoWorkoutOpen(false)}>
+                <section role="dialog" aria-modal="true" aria-labelledby="day-two-workout-title" className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-t-3xl border border-orange-400/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_0_60px_rgba(249,115,22,0.12)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">PLAYR1 workout · 125 shots + bonus</p>
+                      <h3 id="day-two-workout-title" className="mt-1 font-heading text-xl font-black uppercase text-white">Find Your Shooting Range</h3>
+                      <p className="mt-1 text-xs text-zinc-400">40 bonus layups and 5 cone sets included.</p>
+                    </div>
+                    <button type="button" onClick={() => setDayTwoWorkoutOpen(false)} aria-label="Close workout preview" className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-white"><X className="h-4 w-4" /></button>
+                  </div>
+                  <div className="mt-5 space-y-2">
+                    {dayTwoWorkoutQuery.isLoading && <p className="py-6 text-center text-sm text-zinc-400">Loading workout…</p>}
+                    {dayTwoWorkoutQuery.isError && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-200">Could not load this workout. Please try again.</p>}
+                    {dayTwoWorkoutQuery.data?.drills.map((entry, index) => (
+                      <div key={entry.drillId} className="rounded-xl border border-white/[0.08] bg-black/30 p-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-[10px] font-black text-orange-300">{String(index + 1).padStart(2, "0")}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-white">{entry.drill.title}</p>
+                            <p className="mt-0.5 text-[10px] text-zinc-500">{entry.defaultReps ?? "—"} reps · {entry.defaultDuration ?? "—"} min</p>
+                          </div>
+                        </div>
+                        <p className="mt-2 pl-11 text-xs leading-relaxed text-zinc-400">{entry.drill.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <button type="button" disabled={!dayTwoWorkoutQuery.data} onClick={() => navigate(`/log?workoutId=${encodeURIComponent(dayTwoWorkoutId)}`)} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#ff984f] via-[#f97316] to-[#cf4307] px-4 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[0_0_24px_rgba(249,115,22,0.2)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" data-testid="button-log-day-two-workout">
+                    <Play className="h-4 w-4 fill-current" /> Log Workout
+                  </button>
+                </section>
+              </div>
             )}
 
             {dayTwoProfileOpen && (

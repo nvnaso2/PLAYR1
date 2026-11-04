@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, trainingLogMetrics, analyticsEvents, workouts, workoutDrills, programs, programItems, programEnrollments, programItemCompletions, feedbackPosts, coachPRequests, coachPUsage, journalEntries, type ShotLocation } from "@shared/schema";
+import { drills, benchmarks, evaluationAttributes, shotLocations, shotTypes, userProfiles, metricTemplates, drillMetrics, teamClubs, leagues, archetypes, archetypeRoadmapItems, streakChallenges, type ArchetypeTier, type ArchetypeRoadmapItemType, careerProfiles, playerProfiles, friendships, userFollows, friendActivityFeed, groupChallenges, groupChallengeMembers, userStreaks, trainingLogs, trainingLogMetrics, analyticsEvents, workouts, workoutDrills, programs, programItems, programEnrollments, programItemCompletions, feedbackPosts, coachPRequests, coachPUsage, journalEntries, type ShotLocation, type Drill } from "@shared/schema";
 import { seedPrograms } from "./seed-programs";
 import { users } from "@shared/models/auth";
 import { eq, sql, notInArray, inArray, isNull, and, or, like } from "drizzle-orm";
@@ -292,6 +292,131 @@ const sampleDrills = [
     isFeatured: false
   }
 ];
+
+const dayTwoRangeWorkoutDrills = [
+  {
+    key: "find-range",
+    title: "Find Your Range",
+    description: "Take 30 shots from the first hash. Make two in a row from the same spot to step back; miss two in a row to step forward. Continue for 30 total shots. The spot you finish on is your in-game shooting range.",
+    category: "shooting" as const,
+    difficulty: "beginner" as const,
+    duration: 600,
+    reps: 30,
+    equipment: ["Basketball", "Hoop"],
+    tips: ["Start at the first hash", "Two makes in a row: take one step back", "Two misses in a row: take one step forward"],
+    trackShots: true,
+  },
+  {
+    key: "elbow-jumpers",
+    title: "Elbow Jumpers",
+    description: "Take 10 shots at each elbow. Start at the block and spin the ball out to the elbow. Plant your inside foot on the elbow as you catch the ball, then turn, square your shoulders to the basket, and shoot.",
+    category: "shooting" as const,
+    difficulty: "beginner" as const,
+    duration: 480,
+    reps: 20,
+    equipment: ["Basketball", "Hoop"],
+    tips: ["10 shots at each elbow", "Plant your inside foot as you catch", "Square your shoulders before shooting"],
+    trackShots: true,
+  },
+  {
+    key: "mid-range-pull-ups",
+    title: "Mid-Range Pull-ups",
+    description: "Take 8 shots from each of the 5 spots around the court. Start from behind the 3-point line and take 4 shots dribbling left and 4 dribbling right.",
+    category: "shooting" as const,
+    difficulty: "intermediate" as const,
+    duration: 720,
+    reps: 40,
+    equipment: ["Basketball", "Hoop"],
+    tips: ["8 shots at each of 5 spots", "Split each spot: 4 left, 4 right"],
+    trackShots: true,
+  },
+  {
+    key: "catch-shoot-threes",
+    title: "Catch & Shoot 3s",
+    description: "Take 5 shots from each of the 5 spots around the court. Use a rebounder for catch-and-shoot reps, or take stationary shots if training alone.",
+    category: "shooting" as const,
+    difficulty: "intermediate" as const,
+    duration: 600,
+    reps: 25,
+    equipment: ["Basketball", "Hoop"],
+    tips: ["5 shots at each of 5 spots", "Catch-and-shoot with a rebounder, stationary when solo"],
+    trackShots: true,
+  },
+  {
+    key: "game-free-throws",
+    title: "Free Throws",
+    description: "Take 10 free throws, practicing as if you were in a game and following your regular free-throw routine.",
+    category: "shooting" as const,
+    difficulty: "beginner" as const,
+    duration: 300,
+    reps: 10,
+    equipment: ["Basketball", "Hoop"],
+    tips: ["Use your regular pre-shot routine", "Treat every rep like a game free throw"],
+    trackShots: true,
+  },
+  {
+    key: "finishing-ball-handling",
+    title: "Finishing & Ball Handling",
+    description: "Complete 10 regular layups and 10 inside-hand layups on each side. Then start at the top of the key and zig-zag through 5 cone sets, using a crossover, between-the-legs, or behind-the-back move at each cone.",
+    category: "finishing" as const,
+    difficulty: "beginner" as const,
+    duration: 900,
+    reps: 40,
+    equipment: ["Basketball", "Hoop", "Cones"],
+    tips: ["10 regular layups", "10 inside-hand layups on each side", "5 zig-zag cone sets with a change of direction at each cone"],
+    trackShots: false,
+  },
+] as const;
+
+const dayTwoRangeWorkoutId = "playr1-onboarding-day2-find-your-shooting-range";
+
+async function ensureDayTwoRangeWorkout() {
+  const savedDrills: Array<{ drill: Drill; reps: number; duration: number }> = [];
+  for (const item of dayTwoRangeWorkoutDrills) {
+    let [drill] = await db.select().from(drills).where(and(eq(drills.title, item.title), isNull(drills.userId))).limit(1);
+    if (!drill) {
+      [drill] = await db.insert(drills).values({
+        title: item.title,
+        description: item.description,
+        category: item.category,
+        difficulty: item.difficulty,
+        duration: item.duration,
+        equipment: [...item.equipment],
+        tips: [...item.tips],
+        isFeatured: false,
+        trackShots: item.trackShots,
+        userId: null,
+      }).returning();
+    }
+    savedDrills.push({ drill, reps: item.reps, duration: Math.ceil(item.duration / 60) });
+  }
+
+  const [existingWorkout] = await db.select().from(workouts).where(eq(workouts.id, dayTwoRangeWorkoutId)).limit(1);
+  if (!existingWorkout) {
+    await db.insert(workouts).values({
+      id: dayTwoRangeWorkoutId,
+      name: "Find Your Shooting Range",
+      description: "A 125-shot shooting session with 40 bonus layups and 5 cone sets. Discover your in-game range, build your mid-range game, and finish with your free-throw routine.",
+      userId: null,
+      category: "shooting",
+      estimatedDuration: 55,
+      isFavorite: false,
+    });
+  }
+
+  const existingLinks = await db.select({ id: workoutDrills.id }).from(workoutDrills).where(eq(workoutDrills.workoutId, dayTwoRangeWorkoutId)).limit(1);
+  if (existingLinks.length === 0) {
+    await db.insert(workoutDrills).values(savedDrills.map(({ drill, reps, duration }, sortOrder) => ({
+      workoutId: dayTwoRangeWorkoutId,
+      drillId: drill.id,
+      sortOrder,
+      defaultDuration: duration,
+      defaultReps: reps,
+      coachingNotes: drill.description,
+    })));
+  }
+  console.log("Day 2 Find Your Shooting Range workout is ready");
+}
 
 const sampleBenchmarks = [
   { category: "ball-handling" as const, ageGroup: "12-14", averageScore: "6.2", averageMinutesPerWeek: 45, topPercentileScore: "8.5", sampleSize: 1250 },
@@ -1573,6 +1698,7 @@ export async function seedDatabase() {
     } else {
       console.log("Drills already exist, skipping seed");
     }
+    await ensureDayTwoRangeWorkout();
 
     // Check if benchmarks already exist
     const existingBenchmarks = await db.select().from(benchmarks).limit(1);
