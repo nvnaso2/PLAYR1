@@ -7,11 +7,11 @@ The intended new player onboarding starts with the familiar sign-in screen. Play
 
 The seven-day onboarding is embedded in a personalized Hub that gradually reveals content. Day 1 should contain only a one-session shooting baseline followed by its visual result and the PLAYR1 trailer. The baseline has three volumes: 100 threes + 40 mid-range pull-ups + 25 free throws (165 attempts); 50 + 40 + 25 (115); or 50 + 20 + 15 (85).
 
-The admin preview can demonstrate all seven days, but Days 2–7 need user-approved content. Keep this prototype separate from the current live onboarding until the user explicitly asks to migrate the player-facing flow. The public lead-magnet quiz remains a separate experience.
+The current admin preview should focus on the first-session experience inside the existing Hub shell; do not add a seven-day selector or placeholder days unless requested again. Keep this prototype separate from the current live onboarding until the user explicitly asks to migrate the player-facing flow. The public lead-magnet quiz remains a separate experience.
 
 **Why:** the user wants an immersive path that reuses the familiar account-entry aesthetic, asks schedule questions after account credentials, and then keeps Day 1 inside the Hub and focused on two experiences.
 
-**How to apply:** preserve this order and the exact baseline counts above; do not change live onboarding or invent Days 2–7 content while iterating on the preview. Reuse the existing AuthPage and the actual Hub shell in preview, replacing its normal Day 1 content with an interactive baseline and result graph. Preview submissions stay local and never call auth APIs.
+**How to apply:** preserve this order and the exact baseline counts above; do not change live onboarding while iterating on the preview. Reuse the existing AuthPage and actual Hub shell, keep the schedule questions between signup and Hub, and make the first-session baseline the Hub’s central interactive graph/logger. Preview submissions stay local and never call auth APIs.
 
 ## Current live flow and lead-magnet boundary
 

@@ -134,10 +134,10 @@ export default function HubPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding";
-  const [previewDay, setPreviewDay] = useState(1);
   const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
   const [baselineLogging, setBaselineLogging] = useState(false);
   const [baselineComplete, setBaselineComplete] = useState(false);
+  const [trailerPlaying, setTrailerPlaying] = useState(false);
   const [baselineResults, setBaselineResults] = useState<Record<PreviewShotKey, string>>({
     threes: "", midrange: "", freeThrows: "",
   });
@@ -710,27 +710,21 @@ export default function HubPage() {
       <div className="px-4 space-y-4 mt-4">
         {onboardingPreview ? (
           <>
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-3 sm:p-4" aria-label="Seven day onboarding preview">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Your first week</p>
-                  <h2 className="mt-1 text-sm font-bold text-white">One step at a time</h2>
-                </div>
-                {previewProfile.sessionLength && <span className="rounded-full border border-orange-500/25 bg-orange-500/10 px-2.5 py-1 text-[10px] font-semibold text-orange-200">{previewProfile.sessionLength} min session</span>}
-              </div>
-              <nav className="grid grid-cols-7 gap-1.5" aria-label="Days in onboarding preview">
-                {Array.from({ length: 7 }, (_, index) => index + 1).map((number) => (
-                  <button key={number} type="button" onClick={() => setPreviewDay(number)} aria-current={previewDay === number ? "step" : undefined}
-                    className={`rounded-lg border py-2 text-center transition ${previewDay === number ? "border-orange-500 bg-orange-500 text-black" : "border-zinc-800 bg-black text-zinc-500 hover:text-zinc-200"}`}>
-                    <span className="block text-[8px] font-bold uppercase tracking-wider">Day</span>
-                    <span className="block text-sm font-black">{number}</span>
-                  </button>
-                ))}
-              </nav>
-            </section>
+            {previewProfile.sessionLength && (
+              <section className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2.5" aria-label="Your training plan">
+                <p className="text-xs font-semibold text-zinc-200">
+                  Your plan <span className="mx-1.5 text-zinc-600">·</span>
+                  {previewProfile.trainingDays} days/week <span className="mx-1.5 text-zinc-600">·</span>
+                  {previewProfile.sessionLength} min next session
+                </p>
+                {previewProfile.nextSession && (
+                  <p className="text-[10px] text-zinc-500">
+                    Next: {new Date(previewProfile.nextSession).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </p>
+                )}
+              </section>
+            )}
 
-            {previewDay === 1 ? (
-              <>
                 <section className="overflow-hidden rounded-2xl border border-orange-500/25 bg-gradient-to-br from-[#20140d] via-[#111] to-[#0b0b0b] p-4 sm:p-5" data-testid="hub-onboarding-baseline">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -739,6 +733,48 @@ export default function HubPage() {
                       <p className="mt-2 max-w-xl text-xs leading-5 text-zinc-400">One workout. Pick a session size, record your makes, and see your starting point.</p>
                     </div>
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-500/10 text-orange-300"><Target className="h-5 w-5" /></span>
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/45 p-3.5 sm:p-5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-white">Your shooting snapshot</p>
+                        <p className="mt-0.5 text-[10px] text-zinc-500">3-pointers · mid-range · free throws</p>
+                      </div>
+                      {baselineComplete && <span className="rounded-full bg-orange-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-orange-300">First result</span>}
+                    </div>
+                    <div className="relative">
+                      <svg viewBox="0 0 600 300" role="img" aria-label={baselineComplete ? "Combined shooting baseline graph" : "Combined shooting baseline graph, awaiting results"} className="h-[220px] w-full sm:h-[300px]">
+                        {[0, 25, 50, 75, 100].map((tick) => {
+                          const y = 236 - tick * 1.9;
+                          return (
+                            <g key={tick}>
+                              <line x1="62" x2="575" y1={y} y2={y} stroke="rgba(255,255,255,0.1)" strokeDasharray={tick === 0 ? "0" : "4 7"} />
+                              <text x="48" y={y + 4} textAnchor="end" fill="#71717a" fontSize="11">{tick}%</text>
+                            </g>
+                          );
+                        })}
+                        {previewShotTypes.map(({ key, label }, index) => {
+                          const max = selectedBaseline[key];
+                          const made = Number(baselineResults[key] || 0);
+                          const percent = baselineComplete ? Math.round((made / max) * 100) : 0;
+                          const x = 135 + index * 165;
+                          const height = percent * 1.9;
+                          const color = ["#f97316", "#fbbf24", "#fafafa"][index];
+                          return (
+                            <g key={key}>
+                              <rect x={x} y="46" width="76" height="190" rx="9" fill="rgba(255,255,255,0.035)" />
+                              <rect x={x} y={236 - height} width="76" height={baselineComplete ? Math.max(height, 3) : 3} rx="8" fill={color} opacity={baselineComplete ? 0.92 : 0.2} className="transition-all duration-700" />
+                              <text x={x + 38} y="260" textAnchor="middle" fill="#d4d4d8" fontSize="12" fontWeight="600">{label}</text>
+                              <text x={x + 38} y={baselineComplete ? Math.max(35, 226 - height) : 222} textAnchor="middle" fill={baselineComplete ? color : "#71717a"} fontSize="13" fontWeight="700">{baselineComplete ? `${percent}%` : "—"}</text>
+                              {baselineComplete && <text x={x + 38} y="278" textAnchor="middle" fill="#71717a" fontSize="10">{made}/{max} makes</text>}
+                            </g>
+                          );
+                        })}
+                        <line x1="62" x2="575" y1="236" y2="236" stroke="rgba(255,255,255,0.25)" />
+                      </svg>
+                    </div>
+                    {!baselineComplete && <p className="mt-1 text-center text-[10px] text-zinc-600">One graph. Three parts of your shooting game.</p>}
                   </div>
 
                   <div className="mt-4 grid grid-cols-3 gap-2">
@@ -754,34 +790,6 @@ export default function HubPage() {
                         </button>
                       );
                     })}
-                  </div>
-
-                  <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/45 p-3.5">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-bold text-white">Your shooting snapshot</p>
-                        <p className="mt-0.5 text-[10px] text-zinc-500">3-pointers · mid-range · free throws</p>
-                      </div>
-                      {baselineComplete && <span className="rounded-full bg-orange-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-orange-300">First result</span>}
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      {previewShotTypes.map(({ key, label }) => {
-                        const max = selectedBaseline[key];
-                        const made = Number(baselineResults[key] || 0);
-                        const percent = baselineComplete ? Math.round((made / max) * 100) : 0;
-                        return (
-                          <div key={key} className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5">
-                            <div className="flex h-[72px] items-end justify-center rounded-md bg-[linear-gradient(to_top,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[length:100%_25%]">
-                              <div className={`w-9 rounded-t-md bg-gradient-to-t from-orange-700 to-orange-300 transition-all duration-700 ${baselineComplete ? "opacity-100" : "h-1 opacity-25"}`} style={baselineComplete ? { height: `${Math.max(percent, 5)}%` } : undefined} />
-                            </div>
-                            <p className="mt-2 truncate text-[9px] font-semibold text-zinc-400">{label}</p>
-                            <p className="mt-0.5 text-xs font-black text-white">{baselineComplete ? `${percent}%` : "—"}</p>
-                            {baselineComplete && <p className="text-[9px] text-zinc-600">{made}/{max} makes</p>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {!baselineComplete && <p className="mt-2 text-center text-[9px] text-zinc-600">Your graph fills in when you log the workout.</p>}
                   </div>
 
                   {baselineLogging && !baselineComplete && (
@@ -830,24 +838,21 @@ export default function HubPage() {
                   )}
                 </section>
 
-                <section className="overflow-hidden rounded-2xl border border-zinc-800 bg-black" data-testid="card-day-one-trailer">
-                  <div className="border-b border-white/[0.06] p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Your PLAYR1 story starts now</p>
-                    <h2 className="mt-1 text-lg font-extrabold text-white">Watch the trailer</h2>
-                    <p className="mt-1 text-xs text-zinc-500">See what you can build from here.</p>
-                  </div>
-                  <video className="aspect-video w-full bg-black object-cover" controls preload="metadata" playsInline src={introTrailer}>
-                    Your browser does not support embedded video.
-                  </video>
+                <section className="relative isolate overflow-hidden rounded-2xl border border-zinc-800 bg-black" data-testid="card-day-one-trailer">
+                  {!trailerPlaying ? (
+                    <button type="button" onClick={() => setTrailerPlaying(true)} className="group relative flex aspect-video w-full flex-col justify-end overflow-hidden bg-[radial-gradient(ellipse_at_50%_20%,rgba(249,115,22,0.16),transparent_48%),linear-gradient(160deg,#17120f,#050505_60%)] p-5 text-left sm:p-8" data-testid="button-play-onboarding-trailer">
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-5 border-b border-white/10 bg-black/80" />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 border-t border-white/10 bg-black/80" />
+                      <span className="relative z-10 text-[9px] font-bold uppercase tracking-[0.3em] text-orange-300">A PLAYR1 original</span>
+                      <span className="relative z-10 mt-2 max-w-xl font-heading text-2xl font-black uppercase leading-[0.95] text-white sm:text-4xl">Your story starts<br />with the next rep.</span>
+                      <span className="relative z-10 mt-4 inline-flex w-fit items-center gap-2 rounded-full border border-orange-400/40 bg-orange-500 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-black transition group-hover:bg-orange-400"><Play className="h-3.5 w-3.5 fill-current" /> Watch the trailer</span>
+                    </button>
+                  ) : (
+                    <video autoPlay className="aspect-video w-full bg-black object-cover" controls preload="metadata" playsInline src={introTrailer} onEnded={() => setTrailerPlaying(false)}>
+                      Your browser does not support embedded video.
+                    </video>
+                  )}
                 </section>
-              </>
-            ) : (
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Day {previewDay}</p>
-                <h2 className="mt-2 text-xl font-extrabold text-white">This day’s experience is coming next.</h2>
-                <p className="mt-2 max-w-lg text-sm leading-6 text-zinc-500">The journey reveals more Hub content over the week. Day 1 includes your shooting baseline and the PLAYR1 trailer.</p>
-              </section>
-            )}
           </>
         ) : (
           <>
