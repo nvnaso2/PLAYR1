@@ -73,9 +73,9 @@ const onboardingBaselines: Array<{
   { id: "quick", name: "Quick session", threes: 50, midrange: 20, freeThrows: 15 },
 ];
 const previewShotTypes: Array<{ key: PreviewShotKey; label: string; color: string }> = [
-  { key: "threes", label: "3-pointers", color: "#ff7a24" },
-  { key: "midrange", label: "Mid-range", color: "#35c4e8" },
-  { key: "freeThrows", label: "Free throws", color: "#b28cff" },
+  { key: "threes", label: "3-pointers", color: "#ffd84d" },
+  { key: "midrange", label: "Mid-range", color: "#ff5364" },
+  { key: "freeThrows", label: "Free throws", color: "#70f06a" },
 ];
 
 const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
@@ -994,9 +994,9 @@ export default function HubPage() {
                   <div className="relative mt-4 aspect-[1.2/1] min-h-[280px] overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(ellipse_at_52%_48%,rgba(91,132,161,0.13),transparent_62%),linear-gradient(145deg,#101216,#050608_70%)] shadow-[0_0_38px_rgba(55,255,150,0.06),inset_0_1px_0_rgba(255,255,255,0.08)] sm:aspect-[2.4/1]" data-testid="card-onboarding-progress-projection">
                     {(() => {
                       const series = [
-                        { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, goal: 80, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
-                        { key: "midrange" as const, label: "MID", color: "#ff5364", start: 30, goal: 70, progress: [0, .13, .11, .23, .20, .34, .32, .47, .45, .64, .62, .81, 1] },
-                        { key: "freeThrows" as const, label: "FT", color: "#70f06a", start: 40, goal: 90, progress: [0, .11, .09, .22, .20, .35, .33, .49, .47, .66, .64, .82, 1] },
+                        { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, goal: 80, labelY: 155, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
+                        { key: "midrange" as const, label: "MID", color: "#ff5364", start: 30, goal: 70, labelY: 215, progress: [0, .13, .11, .23, .20, .34, .32, .47, .45, .64, .62, .81, 1] },
+                        { key: "freeThrows" as const, label: "FT", color: "#70f06a", start: 40, goal: 90, labelY: 95, progress: [0, .11, .09, .22, .20, .35, .33, .49, .47, .66, .64, .82, 1] },
                       ].map((item) => {
                         const actualStart = baselineComplete
                           ? Math.max(0, Math.min(100, Math.round((Number(baselineResults[item.key]) / selectedBaseline[item.key]) * 100)))
@@ -1009,7 +1009,7 @@ export default function HubPage() {
                         });
                         return { ...item, values };
                       });
-                      const xAt = (month: number) => 62 + month * 46;
+                      const xAt = (month: number) => 58 + month * 42.5;
                       const yAt = (percent: number) => 330 - percent * 2.4;
                       return (
                         <>
@@ -1056,7 +1056,9 @@ export default function HubPage() {
                                   {line.values.map((value, index) => (
                                     <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 5 : 2.6} fill={index === 12 ? line.color : "#101216"} stroke={line.color} strokeWidth={index === 12 ? 2 : 1.4} />
                                   ))}
-                                  <text x={xAt(12) + 9} y={yAt(line.values[12]) + 5} fill={line.color} fontSize="22" fontWeight="800" style={{ paintOrder: "stroke", stroke: "#090a0c", strokeWidth: 4 }}>{line.values[12]}%</text>
+                                  <line x1={xAt(12) + 5} y1={yAt(line.values[12])} x2={xAt(12) + 20} y2={line.labelY} stroke={line.color} strokeWidth="2" opacity="0.9" />
+                                  <rect x={xAt(12) + 20} y={line.labelY - 17} width="64" height="34" rx="12" fill="rgba(8,10,12,0.78)" stroke={line.color} strokeOpacity="0.55" />
+                                  <text x={xAt(12) + 52} y={line.labelY + 6} textAnchor="middle" fill={line.color} fontSize="18" fontWeight="800" style={{ paintOrder: "stroke", stroke: "#090a0c", strokeWidth: 3 }}>{line.values[12]}%</text>
                                 </g>;
                               })}
                           </svg>
@@ -1069,8 +1071,8 @@ export default function HubPage() {
                                 </span>)}
                               </div>
                             </div>
-                            <button type="button" onClick={() => setBaselinePickerOpen(true)} className="pointer-events-auto inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-orange-200/40 bg-gradient-to-r from-[#ff984f] via-[#f97316] to-[#cf4307] px-3 text-[8px] font-black uppercase tracking-wide text-black shadow-[0_0_18px_rgba(249,115,22,0.28)] transition hover:brightness-110 sm:px-4 sm:text-[10px]" data-testid="button-open-baseline-picker">
-                              <Play className="h-3 w-3 fill-current" /> Log Your Baseline
+                            <button type="button" onClick={() => setBaselinePickerOpen(true)} className="pointer-events-auto inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-[linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.06)_46%,rgba(249,115,22,0.16))] px-3 text-[8px] font-black uppercase tracking-wide text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_8px_22px_rgba(0,0,0,0.36)] backdrop-blur-xl transition hover:border-orange-200/50 hover:bg-white/15 sm:px-4 sm:text-[10px]" data-testid="button-open-baseline-picker">
+                              <Play className="h-3 w-3 fill-current text-orange-300" /> Log Your Baseline
                             </button>
                           </div>
                         </>
@@ -1103,9 +1105,9 @@ export default function HubPage() {
                                 </span>
                                 <span className="mt-2 block text-2xl font-black leading-none text-white">{total}<span className="ml-1 text-[9px] font-semibold uppercase text-zinc-500">shots</span></span>
                                 <span className="mt-3 grid grid-cols-3 gap-1 border-t border-white/[0.08] pt-2 text-center">
-                                  <span><span className="block text-sm font-bold text-orange-300">{option.threes}</span><span className="text-[7px] uppercase text-zinc-500">3PT</span></span>
-                                  <span><span className="block text-sm font-bold text-orange-300">{option.midrange}</span><span className="text-[7px] uppercase text-zinc-500">Mid</span></span>
-                                  <span><span className="block text-sm font-bold text-orange-300">{option.freeThrows}</span><span className="text-[7px] uppercase text-zinc-500">FT</span></span>
+                                  <span><span className="block text-sm font-bold" style={{ color: "#ffd84d" }}>{option.threes}</span><span className="text-[7px] uppercase text-zinc-500">3PT</span></span>
+                                  <span><span className="block text-sm font-bold" style={{ color: "#ff5364" }}>{option.midrange}</span><span className="text-[7px] uppercase text-zinc-500">Mid</span></span>
+                                  <span><span className="block text-sm font-bold" style={{ color: "#70f06a" }}>{option.freeThrows}</span><span className="text-[7px] uppercase text-zinc-500">FT</span></span>
                                 </span>
                               </button>
                             );
@@ -1137,7 +1139,6 @@ export default function HubPage() {
                         </div>
                         <div className="space-y-2.5">
                           {previewShotTypes.map(({ key, label, color }) => {
-                            const makes = Number(baselineResults[key] || 0);
                             const attempts = selectedBaseline[key];
                             return (
                               <div key={key} className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-black/45 p-3">
@@ -1145,17 +1146,36 @@ export default function HubPage() {
                                   <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-300"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />{label}</p>
                                   <p className="mt-1 text-[9px] text-zinc-500">{attempts} attempts</p>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                  <button type="button" aria-label={`Remove one ${label} make`} disabled={makes <= 0} onClick={() => setBaselineResults((current) => ({ ...current, [key]: String(Math.max(0, Number(current[key] || 0) - 1)) }))} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-lg text-zinc-300 transition hover:border-orange-300/40 disabled:opacity-30">−</button>
-                                  <span className="min-w-[58px] text-center text-lg font-black tabular-nums text-white">{makes}<span className="ml-1 text-xs font-semibold text-zinc-500">/ {attempts}</span></span>
-                                  <button type="button" aria-label={`Add one ${label} make`} disabled={makes >= attempts} onClick={() => setBaselineResults((current) => ({ ...current, [key]: String(Math.min(attempts, Number(current[key] || 0) + 1)) }))} className="flex h-9 w-9 items-center justify-center rounded-full border border-orange-400/40 bg-orange-500/10 text-lg text-orange-200 transition hover:bg-orange-500/20 disabled:opacity-30">+</button>
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    value={baselineResults[key] ?? "0"}
+                                    onChange={(event) => {
+                                      const raw = event.currentTarget.value;
+                                      const digits = raw.replace(/\D/g, "");
+                                      if (digits === "") {
+                                        setBaselineResults((current) => ({ ...current, [key]: "" }));
+                                        return;
+                                      }
+                                      const value = Number(digits);
+                                      if (Number.isFinite(value)) {
+                                        setBaselineResults((current) => ({ ...current, [key]: String(Math.min(attempts, Math.max(0, value))) }));
+                                      }
+                                    }}
+                                    aria-label={`${label} makes out of ${attempts} attempts`}
+                                    className="h-11 w-[5.5rem] rounded-xl border bg-black/70 px-2 text-center text-xl font-black tabular-nums outline-none focus:ring-2"
+                                    style={{ borderColor: `${color}88`, color, boxShadow: `inset 0 0 18px ${color}12` }}
+                                  />
+                                  <span className="text-[10px] font-bold tabular-nums text-zinc-500">/ {attempts}</span>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
                         <button type="button"
-                          disabled={previewShotTypes.some(({ key }) => !Number.isInteger(Number(baselineResults[key])) || Number(baselineResults[key]) < 0 || Number(baselineResults[key]) > selectedBaseline[key])}
+                          disabled={previewShotTypes.some(({ key }) => baselineResults[key] === "" || !Number.isInteger(Number(baselineResults[key])) || Number(baselineResults[key]) < 0 || Number(baselineResults[key]) > selectedBaseline[key])}
                           onClick={() => { setBaselineComplete(true); setBaselineLogging(false); }}
                           className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
                           data-testid="button-log-onboarding-baseline"
