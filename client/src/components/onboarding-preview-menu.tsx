@@ -1,13 +1,14 @@
 import { useLocation } from "wouter";
 import { ChevronDown, X } from "lucide-react";
 
-type PreviewPage = "login" | "register" | "profile" | "hub";
+type PreviewPage = "login" | "register" | "profile" | "hub" | "day2";
 
 const previewPages: Array<{ value: PreviewPage; label: string }> = [
   { value: "login", label: "Sign in" },
   { value: "register", label: "Create account" },
   { value: "profile", label: "Complete profile" },
   { value: "hub", label: "Day 1 Hub" },
+  { value: "day2", label: "Day 2 Hub" },
 ];
 
 export function OnboardingPreviewMenu({ page }: { page: PreviewPage }) {

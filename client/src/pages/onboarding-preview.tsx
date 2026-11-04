@@ -31,9 +31,9 @@ export default function OnboardingPreviewPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const requestedPage = new URLSearchParams(search).get("page");
-  const page = (["login", "register", "profile", "hub"].includes(requestedPage || "")
+  const page = (["login", "register", "profile", "hub", "day2"].includes(requestedPage || "")
     ? requestedPage
-    : "login") as "login" | "register" | "profile" | "hub";
+    : "login") as "login" | "register" | "profile" | "hub" | "day2";
   const [playerName, setPlayerName] = useState("");
   const [trainingFrequency, setTrainingFrequency] = useState("");
   const [frequencyUnit, setFrequencyUnit] = useState<"week" | "month">("week");
@@ -74,7 +74,7 @@ export default function OnboardingPreviewPage() {
     setNextSession(toLocalDateTime(updated));
   }
 
-  if (page === "hub") {
+  if (page === "hub" || page === "day2") {
     return <HubPage />;
   }
 
