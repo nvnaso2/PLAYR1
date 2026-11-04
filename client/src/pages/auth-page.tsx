@@ -29,11 +29,23 @@ const registerSchema = z.object({
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
+const previewRegisterSchema = z.object({
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
 
 type LoginValues = z.infer<typeof loginSchema>;
 type RegisterValues = z.infer<typeof registerSchema>;
 
-function LoginForm({ onSwitch }: { onSwitch: () => void }) {
+function LoginForm({
+  onSwitch,
+  previewMode = false,
+  onPreviewLogin,
+}: {
+  onSwitch: () => void;
+  previewMode?: boolean;
+  onPreviewLogin?: () => void;
+}) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
@@ -66,7 +78,13 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
     <Card className="w-full max-w-md rounded-none border-0 bg-transparent text-[#f5f2eb] shadow-none">
       <CardContent className="px-0 pb-0">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
+          <form onSubmit={form.handleSubmit((data) => {
+            if (previewMode) {
+              onPreviewLogin?.();
+              return;
+            }
+            loginMutation.mutate(data);
+          })} className="space-y-4">
             <FormField
               control={form.control}
               name="email"
@@ -147,7 +165,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             className="rounded-sm font-medium text-[#d9d3cd] transition-colors hover:text-[#ff9a5e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9a5e] focus-visible:ring-offset-4 focus-visible:ring-offset-black"
             data-testid="button-switch-register"
           >
-            New Profile?
+            {previewMode ? "Create new account" : "New Profile?"}
           </button>
         </div>
       </CardContent>
@@ -155,14 +173,22 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   );
 }
 
-function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
+function RegisterForm({
+  onSwitch,
+  previewMode = false,
+  onPreviewRegister,
+}: {
+  onSwitch: () => void;
+  previewMode?: boolean;
+  onPreviewRegister?: () => void;
+}) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const queryClient = useQueryClient();
 
-  const form = useForm<RegisterValues>({
-    resolver: zodResolver(registerSchema),
+  const form = useForm<any>({
+    resolver: zodResolver(previewMode ? previewRegisterSchema : registerSchema),
     defaultValues: { firstName: "", lastName: "", email: "", password: "", confirmPassword: "" },
     mode: "onSubmit",
   });
@@ -198,8 +224,14 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       </CardHeader>
       <CardContent className="px-0 pb-0">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+          <form onSubmit={form.handleSubmit((data: RegisterValues) => {
+            if (previewMode) {
+              onPreviewRegister?.();
+              return;
+            }
+            registerMutation.mutate(data);
+          })} className="space-y-4">
+            {!previewMode && <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
                 name="firstName"
@@ -226,7 +258,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                   </FormItem>
                 )}
               />
-            </div>
+            </div>}
             <FormField
               control={form.control}
               name="email"
@@ -271,7 +303,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                 </FormItem>
               )}
             />
-            <FormField
+            {!previewMode && <FormField
               control={form.control}
               name="confirmPassword"
               render={({ field }) => (
@@ -283,10 +315,10 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                   <FormMessage />
                 </FormItem>
               )}
-            />
+            />}
             <Button type="submit" className="mt-1 h-12 w-full rounded-sm border-[#f07836] bg-[#f07836] text-[12px] font-bold uppercase tracking-[0.17em] text-[#17120f] transition-colors hover:bg-[#ff8b4b] hover:text-[#17120f] focus-visible:ring-2 focus-visible:ring-[#ffd0b5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171716]" disabled={registerMutation.isPending} data-testid="button-register-submit">
               {registerMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Create your player profile
+              {previewMode ? "Create Account" : "Create your player profile"}
             </Button>
           </form>
         </Form>
@@ -301,9 +333,19 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   );
 }
 
-export default function AuthPage() {
+export default function AuthPage({
+  previewMode = false,
+  initialMode,
+  onPreviewLogin,
+  onPreviewRegister,
+}: {
+  previewMode?: boolean;
+  initialMode?: "login" | "register";
+  onPreviewLogin?: () => void;
+  onPreviewRegister?: () => void;
+}) {
   const [mode, setMode] = useState<"login" | "register">(() =>
-    new URLSearchParams(window.location.search).get("mode") === "register" ? "register" : "login"
+    initialMode ?? (new URLSearchParams(window.location.search).get("mode") === "register" ? "register" : "login")
   );
   const [, navigate] = useLocation();
 
@@ -321,9 +363,17 @@ export default function AuthPage() {
         />
         <section aria-label={mode === "login" ? "Sign in" : "Create account"}>
           {mode === "login" ? (
-            <LoginForm onSwitch={() => navigate("/app-setup")} />
+            <LoginForm
+              onSwitch={() => previewMode ? setMode("register") : navigate("/app-setup")}
+              previewMode={previewMode}
+              onPreviewLogin={onPreviewLogin}
+            />
           ) : (
-            <RegisterForm onSwitch={() => setMode("login")} />
+            <RegisterForm
+              onSwitch={() => setMode("login")}
+              previewMode={previewMode}
+              onPreviewRegister={onPreviewRegister}
+            />
           )}
         </section>
       </main>

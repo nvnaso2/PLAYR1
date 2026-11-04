@@ -3,13 +3,15 @@ name: Seven-day onboarding direction
 description: User's proposed schedule-aware onboarding, Day 1 baseline options, and boundary from the current live flow.
 ---
 
-The intended new player onboarding is spread across a seven-day journey tailored to each player's stated training frequency. Day 1 should be short: account details, training days per week, next planned training session, and expected session length. Its shooting baseline is completed in one session, with one of three volumes: 100 threes + 40 mid-range pull-ups + 25 free throws (165 attempts); 50 + 40 + 25 (115); or 50 + 20 + 15 (85). Day 1 also includes the PLAYR1 trailer and a motivating progress visualization based on the player's baseline.
+The intended new player onboarding starts with the familiar sign-in screen. Players choosing to create an account enter email and password first, then complete a separate profile step with their name, training days per week, next planned training session, and expected session length. Completing that step takes them into the Hub.
+
+The seven-day onboarding is embedded in a personalized Hub that gradually reveals content. Day 1 should contain only a one-session shooting baseline followed by its visual result and the PLAYR1 trailer. The baseline has three volumes: 100 threes + 40 mid-range pull-ups + 25 free throws (165 attempts); 50 + 40 + 25 (115); or 50 + 20 + 15 (85).
 
 The admin preview can demonstrate all seven days, but Days 2–7 need user-approved content. Keep this prototype separate from the current live onboarding until the user explicitly asks to migrate the player-facing flow. The public lead-magnet quiz remains a separate experience.
 
-**Why:** the user wants onboarding short and actionable on Day 1, with follow-on experiences paced to when players actually train. The baseline is deliberately a single-day session with three workload options.
+**Why:** the user wants an immersive path that reuses the familiar account-entry aesthetic, asks schedule questions after account credentials, and then keeps Day 1 inside the Hub and focused on two experiences.
 
-**How to apply:** use the exact baseline counts above; do not change live onboarding or invent Days 2–7 content while iterating on the preview. Treat progress forecasts as illustrative and grounded in measured baseline data.
+**How to apply:** preserve this order and the exact baseline counts above; do not change live onboarding or invent Days 2–7 content while iterating on the preview. Reuse the existing AuthPage visuals and fields in the preview instead of creating a parallel sign-in/signup design, and ensure preview submits never call auth APIs.
 
 ## Current live flow and lead-magnet boundary
 
