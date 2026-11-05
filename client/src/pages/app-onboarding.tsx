@@ -641,10 +641,10 @@ export default function AppOnboardingPage({
   const progress = (step / 5) * 100;
 
   return (
-    <main className={`relative min-h-[100dvh] overflow-hidden bg-[#090909] px-4 pb-8 text-zinc-100 sm:px-6 ${previewMode ? "pt-14 sm:pt-16" : "pt-[calc(env(safe-area-inset-top,0px)_+_1.25rem)] sm:pt-[calc(env(safe-area-inset-top,0px)_+_2rem)]"}`}>
+      <main className={`relative min-h-[100dvh] overflow-hidden bg-[#090909] px-5 pb-8 text-zinc-100 sm:px-6 ${previewMode ? "pt-14 sm:pt-16" : "pt-[calc(env(safe-area-inset-top,0px)_+_1.25rem)] sm:pt-[calc(env(safe-area-inset-top,0px)_+_2rem)]"}`}>
       <div className="pointer-events-none absolute -right-24 top-44 h-72 w-72 rounded-full border border-orange-500/[0.07]" aria-hidden="true" />
       <div className="pointer-events-none absolute -right-12 top-56 h-48 w-48 rounded-full border border-orange-500/[0.06]" aria-hidden="true" />
-      <div className="relative mx-auto w-full max-w-xl">
+      <div className="relative mx-auto w-full max-w-[340px] sm:max-w-[460px]">
         <header className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-orange-400/40 bg-orange-500/[0.09] text-[11px] font-black tracking-tight text-orange-300">P1</div>

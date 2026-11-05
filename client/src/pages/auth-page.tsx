@@ -358,7 +358,7 @@ export default function AuthPage({
       className="flex min-h-[100dvh] w-full items-center justify-center bg-black px-5 py-12 text-[#f5f2eb] safe-area-inset sm:px-8"
       data-testid="page-auth"
     >
-      <main className="w-full max-w-[400px]">
+      <main className="w-full max-w-[340px] sm:max-w-[400px]">
         <img
           src={logoLandscape}
           alt="PLAYR1"

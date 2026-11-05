@@ -102,7 +102,7 @@ export default function OnboardingPreviewPage() {
   return (
     <main className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black px-5 py-16 text-[#f5f2eb] safe-area-inset sm:px-8" data-testid="onboarding-profile-preview">
       <OnboardingPreviewMenu page="profile" />
-      <section className="w-full max-w-[400px]">
+      <section className="mx-auto w-full max-w-[340px] sm:max-w-[400px]">
         <img src={logoLandscape} alt="PLAYR1" className="mx-auto mb-11 h-12 w-[200px] max-w-[72%] object-contain object-center mix-blend-screen sm:mb-12 sm:h-[58px] sm:w-[228px]" />
         <h1 className="mb-7 font-heading text-3xl font-bold uppercase leading-tight tracking-wide sm:text-4xl">Complete your profile</h1>
         <form onSubmit={handleProfile} className="space-y-5">
