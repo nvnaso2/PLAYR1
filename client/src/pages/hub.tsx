@@ -193,32 +193,12 @@ function MiniCourtRange({ index }: { index: number }) {
 
 function ShootingRangeCourt() {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-white p-2 shadow-[0_6px_22px_rgba(0,0,0,.12)] sm:p-3">
+    <div className="overflow-hidden rounded-xl bg-white shadow-[0_8px_22px_rgba(0,0,0,.14)]">
       <img
         src={dayTwoCourtImage}
-        alt="Half-court shooting range graphic from the original workout reference"
+        alt="Basketball half court with shooting positions numbered one through eight"
         className="block h-auto w-full"
       />
-      <svg
-        viewBox="0 0 536 224"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label="Shooting range marks: 6 college three-point line, 7 NBA three-point line, 8 deep logo range"
-        className="pointer-events-none absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)] sm:inset-3 sm:h-[calc(100%-1.5rem)] sm:w-[calc(100%-1.5rem)]"
-      >
-        <path d="M115 157 Q268 -47 421 157" fill="none" stroke="#737373" strokeWidth="2" strokeDasharray="5 5" opacity=".55" />
-        <path d="M98 157 Q268 -65 438 157" fill="none" stroke="#737373" strokeWidth="2" strokeDasharray="5 5" opacity=".4" />
-        {[
-          { number: "6", x: 336, y: 75 },
-          { number: "7", x: 370, y: 91 },
-          { number: "8", x: 340, y: 32 },
-        ].map(({ number, x, y }) => (
-          <g key={number}>
-            <circle cx={x} cy={y} r="8" fill="white" stroke="#f97316" strokeWidth="2.5" />
-            <text x={x} y={y + 3} textAnchor="middle" fontSize="8" fontWeight="900" fill="#111">{number}</text>
-          </g>
-        ))}
-      </svg>
     </div>
   );
 }
@@ -1641,7 +1621,7 @@ export default function HubPage() {
                     <div className="mt-3">
                       <ShootingRangeCourt />
                     </div>
-                    <span className="relative mt-3 flex min-h-12 items-center justify-between gap-3 rounded-xl bg-black px-4 py-2.5 text-left text-white transition group-hover:bg-zinc-900">
+                    <span className="relative mt-3 flex min-h-12 items-center justify-between gap-3 rounded-xl bg-black px-4 py-2.5 text-left text-white shadow-[0_12px_22px_rgba(0,0,0,0.35)] transition group-hover:bg-zinc-900 group-hover:shadow-[0_14px_26px_rgba(0,0,0,0.42)]">
                       <span><span className="block text-xs font-black uppercase tracking-[0.12em]">Preview the workout</span><span className="mt-0.5 block text-[9px] text-zinc-400">6 drills · 125 shots plus bonus work</span></span>
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-orange-400 transition group-hover:translate-x-1"><ChevronRight className="h-5 w-5" /></span>
                     </span>
