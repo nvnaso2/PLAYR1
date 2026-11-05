@@ -97,7 +97,6 @@ const previewShotTypes: Array<{ key: PreviewShotKey; label: string; color: strin
   { key: "freeThrows", label: "Free throws", color: "#70f06a" },
 ];
 const dayTwoWorkoutId = "playr1-onboarding-day2-find-your-shooting-range";
-const dayTwoIntroVideoSrc = "";
 
 const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
   totalDrills: "#38bdf8",
@@ -217,7 +216,6 @@ export default function HubPage() {
   }, [location, previewPage]);
   const fitOnboardingHub = onboardingPreview && previewDay === 1 && !dayTwoProfileStep;
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
-  const [dayTwoVideoOpen, setDayTwoVideoOpen] = useState(false);
   const [dayTwoSaving, setDayTwoSaving] = useState(false);
   const [dayTwoError, setDayTwoError] = useState("");
   const [dayTwoAnswers, setDayTwoAnswers] = useState<{
@@ -864,7 +862,7 @@ export default function HubPage() {
             <div className="min-w-0">
               <p className="text-zinc-400 text-sm">{formatDate()}</p>
               <h1 className="mt-0.5 truncate text-2xl font-bold text-white">
-                {onboardingPreview && previewProfile.playerName ? `Welcome, ${previewProfile.playerName}` : greetText} <span aria-hidden="true">🏀</span>
+                {onboardingPreview && previewProfile.playerName ? `Welcome, ${previewProfile.playerName}` : greetText}
               </h1>
             </div>
           </div>
@@ -1553,20 +1551,57 @@ export default function HubPage() {
             )}
 
             {previewDay === 2 && (
-              <section className="space-y-5 pb-4" data-testid="card-day-two-mission">
-                <h2 className="font-heading text-xl font-black uppercase text-white sm:text-2xl">Find Your Shooting Range</h2>
-                <article className="overflow-hidden rounded-[1.35rem] border border-zinc-300 bg-[#f6f6f4] text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.35)]" data-testid="day-two-range-workout-card">
-                  <div className="relative overflow-hidden px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
-                    <div className="pointer-events-none absolute inset-0 opacity-50" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
-                    <div className="relative flex items-start justify-between gap-3 border-b-[3px] border-black pb-2">
-                      <div className="min-w-0">
-                        <p className="font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#2</span></p>
-                        <h3 className="mt-2 font-heading text-base font-black uppercase leading-tight sm:text-lg">Find Your Shooting Range</h3>
-                        <p className="mt-1 text-[10px] font-semibold text-zinc-600 sm:text-xs">125 shots · 40 bonus layups · 5 cone sets</p>
-                      </div>
-                      <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm"><Dumbbell className="h-5 w-5" /></span>
+              <section className="mx-auto w-full max-w-2xl space-y-4 pb-5 pt-2 sm:space-y-5" data-testid="card-day-two-mission">
+                <article className="relative overflow-hidden rounded-2xl border border-orange-400/20 bg-[#111211] px-3.5 py-3 text-white shadow-[0_12px_32px_rgba(0,0,0,0.25)] sm:px-4" data-testid="day-two-coach-introduction">
+                  <div className="pointer-events-none absolute -right-10 -top-16 h-36 w-36 rounded-full border border-orange-400/10" />
+                  <div className="relative flex items-center gap-3">
+                    <div className="relative flex h-[58px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-orange-300/60 bg-[radial-gradient(circle_at_35%_24%,#ffbb71,#f67822_68%,#9a3b11)] shadow-[0_5px_18px_rgba(249,115,22,0.2)]" role="img" aria-label="Coach P, your basketball coach">
+                      <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden="true">
+                        <path d="M10 24a22 22 0 0 1 44 0H10Z" fill="#231b16" />
+                        <path d="M14 24h36c-1 13-6 21-18 21S15 37 14 24Z" fill="#e6a77b" />
+                        <path d="M14 22c2-12 10-17 19-17 10 0 17 6 18 17-8-4-25-5-37 0Z" fill="#38251d" />
+                        <path d="M11 24h42" stroke="#f5d2b4" strokeWidth="3" strokeLinecap="round" />
+                        <circle cx="25" cy="30" r="1.5" fill="#30221d" />
+                        <circle cx="39" cy="30" r="1.5" fill="#30221d" />
+                        <path d="M27 37q5 4 10 0" fill="none" stroke="#9d5141" strokeWidth="1.8" strokeLinecap="round" />
+                        <path d="M12 64c1-12 8-18 20-18s19 6 20 18" fill="#26343a" />
+                        <path d="M26 48l6 7 6-7" fill="#f3eee5" />
+                      </svg>
+                      <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-[#111211] bg-orange-400 text-[8px] font-black leading-none text-zinc-950">P</span>
                     </div>
-                    <div className="relative mt-3 overflow-hidden rounded-xl border border-zinc-200 bg-white p-2 shadow-[0_3px_12px_rgba(0,0,0,.08)] sm:p-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-heading text-lg font-black leading-none sm:text-xl">Talk to Coach P</h3>
+                        <div className="flex h-8 shrink-0 items-center gap-[3px] rounded-full border border-orange-400/20 bg-black/40 px-2.5" aria-label="Coach P voice message">
+                          {[8, 14, 10, 19, 12, 16, 7].map((height, index) => (
+                            <span
+                              key={index}
+                              className="w-[2px] rounded-full bg-orange-300 animate-pulse"
+                              style={{ height, animationDelay: `${index * 110}ms`, animationDuration: "900ms" }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="mt-1.5 text-[11px] leading-snug text-zinc-400 sm:text-xs">Your shooting coach is ready to help you find your range.</p>
+                      <button type="button" onClick={() => navigate("/coach-p?welcomeWorkout=1")} className="mt-2.5 inline-flex min-h-8 items-center gap-1.5 rounded-full bg-orange-400 px-3.5 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-950 transition hover:bg-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111211]" data-testid="button-open-day-two-coach">
+                        Start a chat <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+
+                <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group block w-full overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-two-workout">
+                  <span className="relative block overflow-hidden px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
+                    <span className="pointer-events-none absolute inset-0 opacity-50" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
+                    <span className="relative flex items-start justify-between gap-3 border-b-[3px] border-black pb-2">
+                      <span className="min-w-0">
+                        <span className="block font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#2</span></span>
+                        <span className="mt-2 block font-heading text-base font-black uppercase leading-tight sm:text-lg">Find Your Shooting Range</span>
+                        <span className="mt-1 block text-[10px] font-semibold text-zinc-600 sm:text-xs">125 shots · 40 bonus layups · 5 cone sets</span>
+                      </span>
+                      <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm"><Dumbbell className="h-5 w-5" /></span>
+                    </span>
+                    <span className="relative mt-3 block overflow-hidden rounded-xl border border-zinc-200 bg-white p-2 shadow-[0_3px_12px_rgba(0,0,0,.08)] sm:p-3">
                       <svg viewBox="0 0 600 220" role="img" aria-label="Basketball court showing the shooting range extending from the basket toward the perimeter" className="h-auto w-full">
                         <rect x="6" y="6" width="588" height="208" fill="#fbfbfa" stroke="#111" strokeWidth="5" />
                         <path d="M160 214V136Q300 15 440 136V214M214 214V151H386V214M245 151V130H355V151M278 214V197a22 22 0 0 1 44 0v17M270 197a30 30 0 0 0 60 0M281 166a19 19 0 0 0 38 0" fill="none" stroke="#171717" strokeWidth="3" />
@@ -1589,27 +1624,17 @@ export default function HubPage() {
                         <text x="300" y="32" textAnchor="middle" fontSize="11" fontWeight="800" letterSpacing="2" fill="#555">RANGE EXTENDS</text>
                         <text x="32" y="202" fontSize="10" fontWeight="800" fill="#555">START</text>
                         <text x="476" y="30" fontSize="10" fontWeight="800" fill="#555">GAME RANGE</text>
-                      </svg>
-                      <div className="mt-1 flex items-center justify-between px-1 text-[8px] font-black uppercase tracking-[0.14em] text-zinc-500 sm:text-[9px]">
-                        <span>Start close</span><span>Build your range</span><span>Step back</span>
-                      </div>
-                    </div>
-                    <button type="button" onClick={() => setDayTwoVideoOpen(true)} className="group relative mt-3 block aspect-video w-full overflow-hidden rounded-xl border border-zinc-300 bg-[#171717] text-left shadow-md" data-testid="button-play-day-two-video" aria-label="Play the Day 2 shooting range introduction video">
-                      <div className="absolute inset-0 bg-[linear-gradient(125deg,#202020,#080808_56%,#292929)]" />
-                      <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "repeating-linear-gradient(135deg,transparent 0 28px,rgba(255,255,255,.12) 29px,transparent 31px)" }} />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <span className="flex h-12 w-16 items-center justify-center rounded-xl bg-[#e62117] text-white shadow-lg transition-transform group-hover:scale-110"><Play className="ml-1 h-6 w-6 fill-current" /></span>
-                        <span className="mt-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/90">Day 2 · Find Your Range</span>
-                        <span className="mt-1 text-[8px] font-medium text-white/55">Tap to watch your introduction</span>
-                      </div>
-                      <span className="absolute bottom-2 right-2 rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-bold text-white">{dayTwoIntroVideoSrc ? "PLAY VIDEO" : "VIDEO COMING SOON"}</span>
-                    </button>
-                    <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="relative mt-3 inline-flex min-h-12 w-full items-center justify-between rounded-xl bg-black px-4 text-left text-white shadow-[0_5px_0_#d4d4d4] transition hover:bg-zinc-800 active:translate-y-0.5 active:shadow-none" data-testid="button-preview-day-two-workout">
-                      <span><span className="block text-xs font-black uppercase tracking-[0.12em]">Preview the workout</span><span className="mt-0.5 block text-[9px] text-zinc-300">6 drills · 125 shots plus bonus work</span></span>
-                      <ChevronRight className="h-5 w-5 text-orange-400" />
-                    </button>
-                  </div>
-                </article>
+                    </svg>
+                    <span className="mt-1 flex items-center justify-between px-1 text-[8px] font-black uppercase tracking-[0.14em] text-zinc-500 sm:text-[9px]">
+                      <span>Start close</span><span>Build your range</span><span>Step back</span>
+                    </span>
+                    </span>
+                    <span className="relative flex min-h-12 items-center justify-between gap-3 border-t border-zinc-200 bg-white px-4 text-left">
+                      <span><span className="block text-xs font-black uppercase tracking-[0.12em]">Explore the workout</span><span className="mt-0.5 block text-[9px] text-zinc-500">6 drills · 125 shots plus bonus work</span></span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-800 transition group-hover:translate-x-1"><ChevronRight className="h-4 w-4" /></span>
+                    </span>
+                  </span>
+                </button>
               </section>
             )}
 
@@ -1618,23 +1643,28 @@ export default function HubPage() {
                 <section role="dialog" aria-modal="true" aria-labelledby="day-two-workout-title" className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-zinc-300 bg-[#f6f6f4] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-zinc-950 shadow-2xl sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-heading text-sm font-black uppercase tracking-[0.16em] text-orange-700">Workout #2 · 125 shots + bonus</p>
-                      <h3 id="day-two-workout-title" className="mt-1 font-heading text-2xl font-black uppercase text-black">Find Your Shooting Range</h3>
-                      <p className="mt-1 text-xs font-medium text-zinc-600">40 bonus layups and 5 cone sets included.</p>
+                      <p className="font-heading text-sm font-black uppercase tracking-[0.16em] text-orange-700">Workout #2 · {dayTwoWorkoutQuery.data?.workout?.estimatedDuration ? `${dayTwoWorkoutQuery.data.workout.estimatedDuration} min` : "Shooting range"}</p>
+                      <h3 id="day-two-workout-title" className="mt-1 font-heading text-2xl font-black uppercase text-black">{dayTwoWorkoutQuery.data?.workout?.name || "Find Your Shooting Range"}</h3>
+                      <p className="mt-1 text-xs font-medium text-zinc-600">{dayTwoWorkoutQuery.data?.workout?.description || "40 bonus layups and 5 cone sets included."}</p>
                     </div>
                     <button type="button" onClick={() => setDayTwoWorkoutOpen(false)} aria-label="Close workout preview" className="rounded-full border border-zinc-300 bg-white p-2 text-zinc-500 hover:text-black"><X className="h-4 w-4" /></button>
                   </div>
-                  <button type="button" onClick={() => setDayTwoVideoOpen(true)} className="group relative mt-4 block aspect-video w-full overflow-hidden rounded-xl border border-zinc-300 bg-zinc-900 text-left" aria-label="Watch the Day 2 video">
-                    <div className="absolute inset-0 bg-[linear-gradient(125deg,#262626,#080808_56%,#333)]" />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                      <span className="flex h-12 w-16 items-center justify-center rounded-xl bg-[#e62117] text-white transition-transform group-hover:scale-110"><Play className="ml-1 h-6 w-6 fill-current" /></span>
-                      <span className="mt-2 text-[9px] font-black uppercase tracking-[0.16em] text-white">Day 2 · Find Your Range</span>
-                      {!dayTwoIntroVideoSrc && <span className="mt-1 text-[9px] text-white/60">Video placeholder — add your intro when ready</span>}
-                    </div>
-                  </button>
+                  <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white p-2 shadow-[0_3px_12px_rgba(0,0,0,.07)] sm:p-3">
+                    <svg viewBox="0 0 600 220" role="img" aria-label="Workout range map from the basket to the three-point arc" className="h-auto w-full">
+                      <rect x="6" y="6" width="588" height="208" fill="#fbfbfa" stroke="#111" strokeWidth="5" />
+                      <path d="M160 214V136Q300 15 440 136V214M214 214V151H386V214M245 151V130H355V151M278 214V197a22 22 0 0 1 44 0v17M270 197a30 30 0 0 0 60 0M281 166a19 19 0 0 0 38 0" fill="none" stroke="#171717" strokeWidth="3" />
+                      <path d="M160 136Q300 15 440 136" fill="none" stroke="#a8a8a8" strokeWidth="2" strokeDasharray="6 6" />
+                      <path d="M245 151Q300 183 355 151" fill="none" stroke="#555" strokeWidth="2" strokeDasharray="5 5" />
+                      <path d="M300 194V43" stroke="#c2410c" strokeWidth="2.5" strokeDasharray="4 6" />
+                      {[{ y: 187, n: "1", r: 12 }, { y: 158, n: "2", r: 13 }, { y: 127, n: "3", r: 14 }, { y: 94, n: "4", r: 15 }, { y: 60, n: "5", r: 16 }].map((spot) => (
+                        <g key={spot.n}><circle cx="300" cy={spot.y} r={spot.r + 6} fill="#f97316" fillOpacity=".12" /><circle cx="300" cy={spot.y} r={spot.r} fill="white" stroke="#c2410c" strokeWidth="3" /><text x="300" y={spot.y + 4} textAnchor="middle" fontSize="12" fontWeight="900" fill="#111">{spot.n}</text></g>
+                      ))}
+                    </svg>
+                    <div className="mt-1 flex items-center justify-between px-1 text-[8px] font-black uppercase tracking-[0.14em] text-zinc-500 sm:text-[9px]"><span>Start close</span><span>Build your range</span><span>Step back</span></div>
+                  </div>
                   <div className="mt-4 space-y-2">
-                    {dayTwoWorkoutQuery.isLoading && <p className="py-6 text-center text-sm text-zinc-500">Loading workout…</p>}
-                    {dayTwoWorkoutQuery.isError && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">Could not load this workout. Please try again.</p>}
+                    {dayTwoWorkoutQuery.isLoading && <div className="space-y-2 py-2" aria-label="Loading workout details">{[0, 1, 2].map((item) => <Skeleton key={item} className="h-24 rounded-xl bg-zinc-200" />)}</div>}
+                    {dayTwoWorkoutQuery.isError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><span>Could not load this workout.</span><button type="button" onClick={() => dayTwoWorkoutQuery.refetch()} className="rounded-full border border-red-300 px-3 py-1.5 text-xs font-bold text-red-800 hover:bg-red-100">Try again</button></div>}
                     {dayTwoWorkoutQuery.data?.drills.map((entry, index) => (
                       <div key={entry.drillId} className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-[0_3px_12px_rgba(0,0,0,.07)] sm:grid-cols-[8.5rem_1fr] sm:items-center sm:p-4">
                         <div className="relative flex aspect-[1.4/1] items-center justify-center overflow-hidden rounded-lg border-2 border-black bg-[#fafafa]">
@@ -1654,26 +1684,6 @@ export default function HubPage() {
                   <button type="button" disabled={!dayTwoWorkoutQuery.data} onClick={() => navigate(`/log?workoutId=${encodeURIComponent(dayTwoWorkoutId)}`)} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-black px-4 text-xs font-black uppercase tracking-[0.12em] text-white shadow-[0_5px_0_#c4c4c4] transition hover:bg-zinc-800 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50" data-testid="button-log-day-two-workout">
                     <Play className="h-4 w-4 fill-current" /> Log Workout
                   </button>
-                </section>
-              </div>
-            )}
-
-            {dayTwoVideoOpen && (
-              <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm" onClick={() => setDayTwoVideoOpen(false)}>
-                <section role="dialog" aria-modal="true" aria-labelledby="day-two-video-title" className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/15 bg-[#111] shadow-2xl" onClick={(event) => event.stopPropagation()}>
-                  <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                    <h3 id="day-two-video-title" className="font-heading text-sm font-black uppercase text-white">Day 2 · Find Your Range</h3>
-                    <button type="button" onClick={() => setDayTwoVideoOpen(false)} aria-label="Close Day 2 video" className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-white"><X className="h-4 w-4" /></button>
-                  </div>
-                  {dayTwoIntroVideoSrc ? (
-                    <video src={dayTwoIntroVideoSrc} controls autoPlay playsInline className="aspect-video w-full bg-black" />
-                  ) : (
-                    <div className="flex aspect-video flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,#333,#080808_70%)] px-6 text-center">
-                      <PlayCircle className="h-14 w-14 text-white/70" />
-                      <p className="mt-4 font-heading text-lg font-black uppercase text-white">Your Day 2 video goes here</p>
-                      <p className="mt-2 max-w-sm text-sm leading-relaxed text-zinc-400">This player is ready for your introduction video. Add the video when it’s finished and it will play here.</p>
-                    </div>
-                  )}
                 </section>
               </div>
             )}

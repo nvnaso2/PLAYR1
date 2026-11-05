@@ -109,7 +109,7 @@ export function BottomTabBar({ previewMode = false }: { previewMode?: boolean })
   const tabs = isTrainerView ? trainerTabs : playerTabs;
 
   function isTabActive(tab: typeof tabs[0]): boolean {
-    if (previewMode) return tab.id === "hub";
+    if (previewMode && location.startsWith("/admin/onboarding-preview")) return tab.id === "hub";
     if (location.startsWith("/streak-challenges/")) {
       const returnTo = new URLSearchParams(window.location.search).get("returnTo");
       if (tab.id === "hub") return returnTo === "/hub";
@@ -141,9 +141,7 @@ export function BottomTabBar({ previewMode = false }: { previewMode?: boolean })
             <button
               key={tab.id}
               data-testid={`tab-${tab.id}`}
-              onClick={() => { if (!previewMode) navigate(tab.path); }}
-              aria-disabled={previewMode || undefined}
-              disabled={previewMode}
+              onClick={() => navigate(tab.path)}
               className="relative flex flex-1 flex-col items-center justify-end pb-2 pt-1"
               aria-label={tab.label}
             >
@@ -173,9 +171,7 @@ export function BottomTabBar({ previewMode = false }: { previewMode?: boolean })
           <button
             key={tab.id}
             data-testid={`tab-${tab.id}`}
-            onClick={() => { if (!previewMode) navigate(tab.path); }}
-            aria-disabled={previewMode || undefined}
-            disabled={previewMode}
+            onClick={() => navigate(tab.path)}
             className="flex flex-col items-center justify-end pt-3 pb-2 flex-1 gap-1 transition-all duration-150 active:scale-95"
             aria-label={tab.label}
           >

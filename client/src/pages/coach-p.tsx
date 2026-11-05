@@ -4,9 +4,11 @@ import { Keyboard } from "@capacitor/keyboard";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, CalendarDays, Check, ChevronLeft, ChevronRight, Dumbbell, GraduationCap, History, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Target, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Check, ChevronLeft, ChevronRight, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
+import { CoachPIcon } from "@/components/coach-p-icon";
+import { STARTER_PROMPTS } from "@/lib/coach-p-starter-prompts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -121,30 +123,6 @@ type SavedConversation = {
   updatedAt: string | null;
   pinned?: boolean;
 };
-
-const STARTER_PROMPTS = [
-  {
-    label: "Build my next workout",
-    prompt: "Build my next workout",
-    icon: Dumbbell,
-    workoutBuilder: true,
-  },
-  {
-    label: "Find my biggest opportunity",
-    prompt: "Find my biggest opportunity",
-    icon: Target,
-  },
-  {
-    label: "Review my last training session",
-    prompt: "Review my last training session",
-    icon: History,
-  },
-  {
-    label: "Prepare for my next game",
-    prompt: "Prepare for my next game",
-    icon: CalendarDays,
-  },
-];
 
 function WorkoutPreviewCard({
   preview,
@@ -476,21 +454,6 @@ function WorkoutIntakeCard({
           </Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function CoachPIcon({ size = "sm" }: { size?: "sm" | "lg" }) {
-  const isLarge = size === "lg";
-  return (
-    <div className={`relative shrink-0 ${isLarge ? "w-14 h-14" : "w-9 h-9"}`} aria-hidden="true">
-      <div className="absolute inset-0 rounded-full bg-orange-500/25 blur-md" />
-      <div className={`relative w-full h-full rounded-full bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 border border-orange-200/70 flex items-center justify-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.7),0_5px_18px_rgba(249,115,22,0.35)] ${isLarge ? "rotate-[-4deg]" : ""}`}>
-        <GraduationCap className={`${isLarge ? "w-7 h-7" : "w-5 h-5"} text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]`} strokeWidth={2.4} />
-      </div>
-      <span className={`absolute -right-0.5 -bottom-0.5 rounded-full bg-zinc-950 border border-orange-400/70 text-orange-300 font-black leading-none flex items-center justify-center ${isLarge ? "w-5 h-5 text-[9px]" : "w-4 h-4 text-[8px]"}`}>
-        P
-      </span>
     </div>
   );
 }
