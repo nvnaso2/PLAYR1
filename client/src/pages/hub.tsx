@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DrillCard } from "@/components/drill-card";
 import { apiRequest, getObjectUrl, nativeFetch, queryClient, statsUrl } from "@/lib/queryClient";
 import {
@@ -43,6 +43,7 @@ import type { Drill, Workout, WorkoutDrill } from "@shared/schema";
 import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations";
 import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
+import { BottomTabBar } from "@/components/bottom-tab-bar";
 import {
   PLAYER_SETUP_GOALS,
   PLAYER_SETUP_SITUATIONS,
@@ -768,10 +769,10 @@ export default function HubPage() {
   );
 
   return (
-    <div className="min-h-full bg-background pb-6">
+    <div className={onboardingPreview ? "min-h-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]" : "min-h-full bg-background pb-6"}>
       {/* Greeting Header */}
       <div className="px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
-        {onboardingPreview && <OnboardingPreviewMenu page={previewDay === 2 ? "day2" : "hub"} inline />}
+        {onboardingPreview && <OnboardingPreviewMenu page={previewDay === 2 ? "day2" : "hub"} />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
@@ -1007,6 +1008,7 @@ export default function HubPage() {
                 </DialogTrigger>
                 <DialogContent className="max-h-[88dvh] w-[calc(100vw-24px)] max-w-[390px] gap-0 overflow-y-auto rounded-2xl border border-orange-400/20 bg-[#101010] p-4 text-white shadow-2xl">
                   <DialogTitle className="pr-8 text-[11px] font-black uppercase tracking-[0.18em] text-orange-300">Your training calendar</DialogTitle>
+                  <DialogDescription className="sr-only">Choose one of your seven training sessions, then edit its date and time.</DialogDescription>
                   <p className="mt-1 text-[10px] text-zinc-500">Select a session, then choose its date and time.</p>
                   <div className="mt-3 space-y-1.5">
                     {onboardingSchedule.map((date, index) => (
@@ -1179,8 +1181,8 @@ export default function HubPage() {
                       const chartMin = Math.max(0, Math.floor(lowestProjection / 5) * 5);
                       const tickStep = highestProjection - chartMin <= 40 ? 5 : 10;
                       const chartMax = Math.min(100, Math.max(chartMin + tickStep, Math.ceil((highestProjection + 1) / tickStep) * tickStep));
-                      const xAt = (month: number) => 56 + month * (550 / 12);
-                      const yAt = (percent: number) => 390 - ((percent - chartMin) * 350) / (chartMax - chartMin);
+                      const xAt = (month: number) => 105 + month * (470 / 12);
+                      const yAt = (percent: number) => 470 - ((percent - chartMin) * 430) / (chartMax - chartMin);
                       const chartTicks = Array.from({ length: Math.floor((chartMax - chartMin) / tickStep) + 1 }, (_, index) => chartMin + index * tickStep);
                       const currentScheduleIndex = Math.min(previewDay - 1, onboardingSchedule.length - 1);
                       return (
@@ -1201,7 +1203,7 @@ export default function HubPage() {
                                 <span className="h-2.5 w-2.5 rounded-full border border-white bg-white/20 shadow-[0_0_8px_rgba(255,255,255,0.5)]" />You are here
                               </span>
                             </div>
-                            <svg id="onboarding-projection-chart" viewBox="0 0 680 460" role="img" aria-label="Illustrative shooting baseline and monthly projection ranges for three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
+                            <svg id="onboarding-projection-chart" viewBox="0 0 680 540" role="img" aria-label="Illustrative shooting baseline and monthly projection ranges for three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
                                   <feGaussianBlur stdDeviation="5" result="blur" />
@@ -1213,25 +1215,25 @@ export default function HubPage() {
                                   <stop offset="100%" stopColor="#ff5364" stopOpacity="0.05" />
                                 </linearGradient>
                               </defs>
-                               <rect width="680" height="400" fill="url(#shot-chart-wash)" />
+                                <rect width="680" height="540" fill="url(#shot-chart-wash)" />
                                {chartTicks.map((tick) => {
                                 const y = yAt(tick);
                                  const majorTick = tick % 10 === 0;
                                 return <g key={tick}>
-                                  {tick !== chartMin && <line x1="56" x2="606" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.055)"} strokeDasharray="3 8" />}
-                                    <text x="46" y={y + 4} textAnchor="end" fill="#a1a7ae" fontSize="12" fontWeight="500">{tick}%</text>
+                                  {tick !== chartMin && <line x1="105" x2="575" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)"} strokeDasharray="3 7" />}
+                                    <text x="95" y={y + 5} textAnchor="end" fill="#c3c7cd" fontSize="18" fontWeight="700">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
                                 <g key={month}>
-                                    <text x={xAt(month)} y="438" textAnchor="middle" fill={month === 0 ? "#fff" : "#929ba5"} fontSize="12" fontWeight={month === 0 ? "800" : "400"}>{month === 0 ? "NOW" : `M${month}`}</text>
+                                    <text x={xAt(month)} y="520" textAnchor="middle" fill={month === 0 ? "#fff" : "#b5bac2"} fontSize="16" fontWeight="800">{month === 0 ? "NOW" : `M${month}`}</text>
                                 </g>
                               ))}
                               {[3, 6, 9].map((month) => (
-                                  <line key={`month-grid-${month}`} x1={xAt(month)} x2={xAt(month)} y1="40" y2="390" stroke="rgba(255,255,255,0.055)" strokeDasharray="3 8" />
+                                  <line key={`month-grid-${month}`} x1={xAt(month)} x2={xAt(month)} y1="40" y2="470" stroke="rgba(255,255,255,0.07)" strokeDasharray="3 7" />
                               ))}
-                                <line x1="56" x2="56" y1="40" y2="390" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
-                                <line x1="56" x2="606" y1="390" y2="390" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
+                                <line x1="105" x2="105" y1="40" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
+                                <line x1="105" x2="575" y1="470" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
                               {visibleSeries.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
@@ -1241,9 +1243,9 @@ export default function HubPage() {
                                 const currentY = yAt(line.start);
                                 return <g key={line.key}>
                                   <path d={rangePath} fill={line.color} fillOpacity="0.10" />
-                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="6 5" opacity="0.68" />
-                                  <circle cx={xAt(0)} cy={currentY} r="8" fill={line.color} fillOpacity="0.18" stroke="white" strokeWidth="1.5" />
-                                  <circle cx={xAt(0)} cy={currentY} r="4" fill={line.color} stroke="white" strokeWidth="1.5" />
+                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="8 5" opacity="0.82" />
+                                  <circle cx={xAt(0)} cy={currentY} r="10" fill={line.color} fillOpacity="0.2" stroke="white" strokeWidth="2" />
+                                  <circle cx={xAt(0)} cy={currentY} r="5" fill={line.color} stroke="white" strokeWidth="2" />
                                 </g>;
                               })}
                           </svg>
@@ -1258,6 +1260,7 @@ export default function HubPage() {
                                 </DialogTrigger>
                                 <DialogContent className="w-[calc(100vw-32px)] max-w-[360px] gap-3 rounded-2xl border border-orange-400/25 bg-[#101010] p-4 text-white shadow-2xl">
                                   <DialogTitle className="pr-8 text-[10px] font-black uppercase tracking-[0.18em] text-orange-300">Your training plan</DialogTitle>
+                                  <DialogDescription className="sr-only">Update how often you train and your usual session length.</DialogDescription>
                                   <div>
                                     <label htmlFor="hub-training-frequency-summary" className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-zinc-400">How often do you train outside of practice?</label>
                                     <div className="grid grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] gap-2">
@@ -1309,6 +1312,7 @@ export default function HubPage() {
                               </DialogTrigger>
                               <DialogContent className="w-[calc(100vw-24px)] max-w-[360px] gap-3 rounded-2xl border border-orange-400/20 bg-[#101010] p-4 text-white shadow-2xl">
                                 <DialogTitle className="pr-8 text-[10px] font-black uppercase tracking-[0.18em] text-orange-300">Edit next session</DialogTitle>
+                                <DialogDescription className="sr-only">Choose a date and time for your next training session.</DialogDescription>
                                 <Calendar
                                   mode="single"
                                   selected={onboardingSchedule[currentScheduleIndex]}
@@ -1341,7 +1345,7 @@ export default function HubPage() {
                               </DialogContent>
                             </Dialog>
                           </div>
-                          <div className="mx-4 mt-4 grid grid-cols-3 gap-2" role="group" aria-label="Filter shooting projection by shot type">
+                          <div className="mx-4 mt-3 grid grid-cols-3 gap-2" role="group" aria-label="Filter shooting projection by shot type">
                             {series.map((line) => (
                               <button
                                 key={`${line.key}-summary`}
@@ -1349,7 +1353,7 @@ export default function HubPage() {
                                 aria-pressed={activeProjectionType === line.key}
                                 aria-label={activeProjectionType === line.key ? "Show all shot types" : `Show only ${line.label} projection`}
                                 onClick={() => setActiveProjectionType((current) => current === line.key ? null : line.key)}
-                                  className={`flex min-h-[92px] min-w-0 flex-col items-stretch justify-center gap-2 rounded-lg border px-2 py-2 text-left transition sm:min-h-[100px] sm:px-3 ${
+                                  className={`flex min-h-[68px] min-w-0 flex-col items-stretch justify-center gap-1 rounded-lg border px-2 py-1.5 text-left transition sm:min-h-[74px] sm:px-3 ${
                                   activeProjectionType === line.key
                                     ? "border-white/40 bg-white/[0.09] shadow-[0_0_12px_rgba(255,255,255,0.12)]"
                                     : activeProjectionType
@@ -1363,10 +1367,9 @@ export default function HubPage() {
                                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 6px ${line.color}` }} />
                                     <span className="truncate">{line.label}</span>
                                   </span>
-                                  <span className="shrink-0 whitespace-nowrap text-[9px] font-black text-white sm:text-xs">{line.start}%</span>
+                                  <span className="shrink-0 whitespace-nowrap text-[9px] font-black text-white sm:text-xs">{line.start}% <span className="text-[6px] font-bold uppercase text-zinc-500 sm:text-[8px]">now</span></span>
                                 </div>
-                                <span className="text-[6px] font-bold uppercase tracking-wide text-zinc-500 sm:text-[8px]">Current baseline</span>
-                                <p className="text-[6px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
+                                <p className="text-[7px] font-bold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
                                   Year range <span className="text-zinc-200">{Math.floor(line.lowValues[12])}–{Math.ceil(line.highValues[12])}%</span>
                                 </p>
                               </button>
@@ -1875,6 +1878,11 @@ export default function HubPage() {
           </>
         )}
       </div>
+      {onboardingPreview && (
+        <div className="fixed inset-x-0 bottom-0 z-[60]">
+          <BottomTabBar previewMode />
+        </div>
+      )}
       </div>
   );
 }

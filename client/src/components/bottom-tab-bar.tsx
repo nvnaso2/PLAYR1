@@ -84,7 +84,7 @@ const trainerTabs = [
   },
 ];
 
-export function BottomTabBar() {
+export function BottomTabBar({ previewMode = false }: { previewMode?: boolean }) {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
   const { activeView } = useRole();
@@ -95,7 +95,7 @@ export function BottomTabBar() {
       if (!response.ok) throw new Error("Failed to load message notifications");
       return response.json();
     },
-    enabled: !!user,
+    enabled: !previewMode && !!user,
     staleTime: 0,
     refetchInterval: 3000,
     refetchIntervalInBackground: true,
@@ -109,6 +109,7 @@ export function BottomTabBar() {
   const tabs = isTrainerView ? trainerTabs : playerTabs;
 
   function isTabActive(tab: typeof tabs[0]): boolean {
+    if (previewMode) return tab.id === "hub";
     if (location.startsWith("/streak-challenges/")) {
       const returnTo = new URLSearchParams(window.location.search).get("returnTo");
       if (tab.id === "hub") return returnTo === "/hub";
@@ -127,6 +128,7 @@ export function BottomTabBar() {
   return (
     <nav
       data-testid="bottom-tab-bar"
+      aria-label={previewMode ? "Main app navigation preview" : "Main app navigation"}
       className="shrink-0 w-full z-50 flex items-end justify-around bg-zinc-950/98 backdrop-blur-xl border-t border-zinc-800/80"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)" }}
     >
@@ -139,8 +141,10 @@ export function BottomTabBar() {
             <button
               key={tab.id}
               data-testid={`tab-${tab.id}`}
-              onClick={() => navigate(tab.path)}
-              className="flex flex-col items-center justify-end pb-2 pt-1 flex-1 relative"
+              onClick={() => { if (!previewMode) navigate(tab.path); }}
+              aria-disabled={previewMode || undefined}
+              disabled={previewMode}
+              className="relative flex flex-1 flex-col items-center justify-end pb-2 pt-1"
               aria-label={tab.label}
             >
               <div
@@ -169,7 +173,9 @@ export function BottomTabBar() {
           <button
             key={tab.id}
             data-testid={`tab-${tab.id}`}
-            onClick={() => navigate(tab.path)}
+            onClick={() => { if (!previewMode) navigate(tab.path); }}
+            aria-disabled={previewMode || undefined}
+            disabled={previewMode}
             className="flex flex-col items-center justify-end pt-3 pb-2 flex-1 gap-1 transition-all duration-150 active:scale-95"
             aria-label={tab.label}
           >
