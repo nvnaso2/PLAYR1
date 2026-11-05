@@ -910,7 +910,7 @@ export default function HubPage() {
                             const value = event.currentTarget.value;
                             updatePreviewProfile({ trainingFrequency: value ? Math.min(99, Math.max(1, Number(value))) : undefined });
                           }}
-                          className="h-10 min-w-0 rounded-lg border border-white/10 bg-black px-3 text-sm text-white outline-none focus:border-orange-400"
+                           className="input-no-spinner h-10 min-w-0 rounded-lg border border-white/10 bg-black px-3 text-sm text-white outline-none focus:border-orange-400"
                         />
                         <Select value={previewProfile.frequencyUnit ?? "week"} onValueChange={(value) => updatePreviewProfile({ frequencyUnit: value as "week" | "month" })}>
                           <SelectTrigger aria-label="Training frequency unit" className="h-10 rounded-lg border-white/10 bg-black px-3 text-xs text-white focus:ring-orange-400/40">
@@ -1131,7 +1131,7 @@ export default function HubPage() {
             </div>
 
                 <section className="space-y-2 pb-1" data-testid="hub-onboarding-baseline">
-                  <div className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
+                  <div className="overflow-hidden rounded-xl border border-orange-300/25 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[0_0_24px_rgba(249,115,22,0.08),inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
                     {(() => {
                       const series = [
                         { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, goal: 80, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
@@ -1149,14 +1149,14 @@ export default function HubPage() {
                         });
                         return { ...item, values };
                       });
-                      const xAt = (month: number) => 56 + month * (566 / 12);
-                      const yAt = (percent: number) => 224 - ((percent - 20) * 189) / 80;
+                      const xAt = (month: number) => 56 + month * (610 / 12);
+                      const yAt = (percent: number) => 242 - ((percent - 20) * 220) / 80;
                       return (
                         <>
                           <div className="mb-1.5 space-y-1.5">
                             <div className="flex items-center justify-between gap-2">
                               <div className="min-w-0">
-                                <h3 className="whitespace-nowrap font-heading text-[11px] font-black leading-none tracking-tight text-white sm:text-base">Your Shooting Potential.</h3>
+                                <h3 className="whitespace-nowrap font-heading text-[13px] font-black uppercase leading-none tracking-wide text-white sm:text-lg">Your Shooting Potential</h3>
                               </div>
                               <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-2 text-[8px] font-black tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
                                 <Play className="h-3 w-3 fill-current text-orange-300" /> Set your baseline
@@ -1168,7 +1168,7 @@ export default function HubPage() {
                               </span>)}
                             </div>
                           </div>
-                          <svg id="onboarding-projection-chart" viewBox="0 0 680 270" role="img" aria-label="Illustrative shooting growth chart with monthly three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
+                          <svg id="onboarding-projection-chart" viewBox="0 0 680 280" role="img" aria-label="Illustrative shooting growth chart with monthly three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
                                   <feGaussianBlur stdDeviation="5" result="blur" />
@@ -1186,21 +1186,21 @@ export default function HubPage() {
                                   </linearGradient>
                                 ))}
                               </defs>
-                              <rect width="680" height="270" fill="url(#shot-chart-wash)" />
+                              <rect width="680" height="280" fill="url(#shot-chart-wash)" />
                               {[20, 40, 60, 80, 100].map((tick) => {
                                 const y = yAt(tick);
                                 return <g key={tick}>
-                                  <line x1="56" x2="622" y1={y} y2={y} stroke={tick === 20 ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.24)"} strokeDasharray={tick === 20 ? undefined : "4 7"} />
+                                  <line x1="56" x2="666" y1={y} y2={y} stroke={tick === 20 ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.24)"} strokeDasharray={tick === 20 ? undefined : "4 7"} />
                                   <text x="46" y={y + 4} textAnchor="end" fill="#a1a7ae" fontSize="10" fontWeight="500">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
                                 <g key={month}>
-                                  <line x1={xAt(month)} x2={xAt(month)} y1="35" y2="224" stroke="rgba(255,255,255,0.16)" strokeDasharray="3 7" />
-                                  <text x={xAt(month)} y="253" textAnchor="middle" fill="#929ba5" fontSize="11">{month === 0 ? "NOW" : `M${month}`}</text>
+                                  <line x1={xAt(month)} x2={xAt(month)} y1="22" y2="242" stroke="rgba(255,255,255,0.16)" strokeDasharray="3 7" />
+                                  <text x={xAt(month)} y="270" textAnchor="middle" fill="#929ba5" fontSize="11">{month === 0 ? "NOW" : `M${month}`}</text>
                                 </g>
                               ))}
-                              <rect x="56" y="35" width="566" height="189" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
+                              <rect x="56" y="22" width="610" height="220" rx="5" fill="none" stroke="rgba(255,255,255,0.34)" strokeWidth="1.25" />
                               {series.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
@@ -1212,9 +1212,9 @@ export default function HubPage() {
                                   {line.values.map((value, index) => (
                                     <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 4.5 : 2.5} fill={index === 12 ? line.color : "#101216"} stroke={line.color} strokeWidth={index === 12 ? 2 : 1.4} />
                                   ))}
-                                  <line x1={xAt(12) + 5} y1={yAt(line.values[12])} x2="634" y2={yAt(line.values[12])} stroke={line.color} strokeWidth="1.5" opacity="0.8" />
-                                  <rect x="636" y={yAt(line.values[12]) - 9} width="42" height="18" rx="8" fill="#101216" stroke={line.color} strokeOpacity="0.8" />
-                                  <text x="657" y={yAt(line.values[12]) + 3.5} textAnchor="middle" fill={line.color} fontSize="11" fontWeight="800">{line.values[12]}%</text>
+                                  <line x1={xAt(12)} y1={yAt(line.values[12]) - 4} x2="670" y2={yAt(line.values[12]) - 4} stroke={line.color} strokeWidth="1.5" opacity="0.8" />
+                                  <rect x="622" y={yAt(line.values[12]) - 22} width="48" height="18" rx="8" fill="#101216" stroke={line.color} strokeOpacity="0.9" />
+                                  <text x="646" y={yAt(line.values[12]) - 9} textAnchor="middle" fill={line.color} fontSize="11" fontWeight="800">{line.values[12]}%</text>
                                 </g>;
                               })}
                           </svg>
