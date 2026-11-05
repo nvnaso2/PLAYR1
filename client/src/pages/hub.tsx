@@ -1134,9 +1134,9 @@ export default function HubPage() {
                   <div className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
                     {(() => {
                       const series = [
-                        { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, goal: 80, labelY: 155, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
-                        { key: "midrange" as const, label: "MID", color: "#ff5364", start: 30, goal: 70, labelY: 215, progress: [0, .13, .11, .23, .20, .34, .32, .47, .45, .64, .62, .81, 1] },
-                        { key: "freeThrows" as const, label: "FT", color: "#70f06a", start: 40, goal: 90, labelY: 95, progress: [0, .11, .09, .22, .20, .35, .33, .49, .47, .66, .64, .82, 1] },
+                        { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, goal: 80, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
+                        { key: "midrange" as const, label: "MID", color: "#ff5364", start: 30, goal: 70, progress: [0, .13, .11, .23, .20, .34, .32, .47, .45, .64, .62, .81, 1] },
+                        { key: "freeThrows" as const, label: "FT", color: "#70f06a", start: 40, goal: 90, progress: [0, .11, .09, .22, .20, .35, .33, .49, .47, .66, .64, .82, 1] },
                       ].map((item) => {
                         const actualStart = baselineComplete
                           ? Math.max(0, Math.min(100, Math.round((Number(baselineResults[item.key]) / selectedBaseline[item.key]) * 100)))
@@ -1149,24 +1149,28 @@ export default function HubPage() {
                         });
                         return { ...item, values };
                       });
-                      const xAt = (month: number) => 54 + month * (572 / 12);
-                      const yAt = (percent: number) => 258 - percent * 1.95;
+                      const xAt = (month: number) => 56 + month * (566 / 12);
+                      const yAt = (percent: number) => 224 - ((percent - 20) * 189) / 80;
                       return (
                         <>
-                          <div className="mb-1 flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <h3 className="whitespace-nowrap font-heading text-[11px] font-black leading-none tracking-tight text-white sm:text-base">Here's where your shooting could be</h3>
-                              <div className="mt-1.5 flex items-center gap-2 text-[8px] font-black tracking-wide sm:gap-3 sm:text-[10px]">
-                                {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5" style={{ color: line.color }}>
-                                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
-                                </span>)}
+                          <div className="mb-1.5 space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-[7px] font-bold uppercase tracking-[0.2em] text-zinc-400 sm:text-[9px]">Set your baseline <span className="ml-1 inline-block w-5 align-middle border-t border-orange-400" /></p>
+                                <h3 className="mt-0.5 whitespace-nowrap font-heading text-[10px] font-black uppercase italic leading-none tracking-tight text-white sm:text-base">Here's where your shooting could be</h3>
                               </div>
+                              <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-2 text-[7px] font-black uppercase tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
+                                <Play className="h-3 w-3 fill-current text-orange-300" /> Baseline
+                              </button>
                             </div>
-                            <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-white/20 bg-white/[0.06] px-2 text-[7px] font-black uppercase tracking-wide text-white sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
-                              <Play className="h-3 w-3 fill-current text-orange-300" /> Baseline
-                            </button>
+                            <p className="text-[8px] leading-tight text-zinc-400 sm:text-[10px]">Projected improvement through consistent training.</p>
+                            <div className="flex items-center gap-1.5">
+                              {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[8px] font-bold sm:text-[10px]" style={{ color: line.color }}>
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 7px ${line.color}` }} />{line.label}
+                              </span>)}
+                            </div>
                           </div>
-                          <svg id="onboarding-projection-chart" viewBox="0 0 680 320" role="img" aria-label="Illustrative shooting growth chart with monthly three-point, mid-range, and free-throw percentages" className="mt-1 block h-auto w-full">
+                          <svg id="onboarding-projection-chart" viewBox="0 0 680 270" role="img" aria-label="Illustrative shooting growth chart with monthly three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
                                   <feGaussianBlur stdDeviation="5" result="blur" />
@@ -1184,34 +1188,53 @@ export default function HubPage() {
                                   </linearGradient>
                                 ))}
                               </defs>
-                              <rect width="680" height="320" fill="url(#shot-chart-wash)" />
+                              <rect width="680" height="270" fill="url(#shot-chart-wash)" />
                               {[20, 40, 60, 80, 100].map((tick) => {
                                 const y = yAt(tick);
                                 return <g key={tick}>
-                                  <line x1="54" x2="626" y1={y} y2={y} stroke="rgba(210,224,235,0.15)" strokeDasharray={tick === 20 ? undefined : "3 8"} />
-                                  <text x="43" y={y + 4} textAnchor="end" fill="#818a94" fontSize="11" fontWeight="500">{tick}%</text>
+                                  <line x1="56" x2="622" y1={y} y2={y} stroke="rgba(210,224,235,0.17)" strokeDasharray={tick === 20 ? undefined : "3 8"} />
+                                  <text x="46" y={y + 4} textAnchor="end" fill="#a1a7ae" fontSize="10" fontWeight="500">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
                                 <g key={month}>
-                                  <line x1={xAt(month)} x2={xAt(month)} y1="42" y2="260" stroke="rgba(147,197,253,0.08)" strokeDasharray="2 9" />
-                                  <text x={xAt(month)} y="294" textAnchor="middle" fill="#929ba5" fontSize="12">{month === 0 ? "NOW" : `M${month}`}</text>
+                                  <line x1={xAt(month)} x2={xAt(month)} y1="35" y2="224" stroke="rgba(147,197,253,0.08)" strokeDasharray="2 9" />
+                                  <text x={xAt(month)} y="253" textAnchor="middle" fill="#929ba5" fontSize="11">{month === 0 ? "NOW" : `M${month}`}</text>
                                 </g>
                               ))}
                               {series.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
-                                const fillPath = `${linePath} L${xAt(12)},260 L${xAt(0)},260 Z`;
+                                const fillPath = `${linePath} L${xAt(12)},${yAt(20)} L${xAt(0)},${yAt(20)} Z`;
                                 return <g key={line.key}>
                                   <path d={fillPath} fill={`url(#shot-fill-${line.key})`} />
                                   <path d={linePath} fill="none" stroke={line.color} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" opacity="0.16" filter="url(#shot-line-glow)" />
                                   <path d={linePath} fill="none" stroke={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                                   {line.values.map((value, index) => (
-                                    <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 5 : 2.6} fill={index === 12 ? line.color : "#101216"} stroke={line.color} strokeWidth={index === 12 ? 2 : 1.4} />
+                                    <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 4.5 : 2.5} fill={index === 12 ? line.color : "#101216"} stroke={line.color} strokeWidth={index === 12 ? 2 : 1.4} />
                                   ))}
+                                  <line x1={xAt(12) + 5} y1={yAt(line.values[12])} x2="634" y2={yAt(line.values[12])} stroke={line.color} strokeWidth="1.5" opacity="0.8" />
+                                  <rect x="636" y={yAt(line.values[12]) - 9} width="42" height="18" rx="8" fill="#101216" stroke={line.color} strokeOpacity="0.8" />
+                                  <text x="657" y={yAt(line.values[12]) + 3.5} textAnchor="middle" fill={line.color} fontSize="11" fontWeight="800">{line.values[12]}%</text>
                                 </g>;
                               })}
                           </svg>
+                          <div className="mt-1 grid grid-cols-3 gap-1.5">
+                            {series.map((line) => (
+                              <div key={`${line.key}-summary`} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.025] px-1.5 py-1 sm:px-2.5 sm:py-2">
+                                <div className="flex items-center gap-1 text-[8px] font-black sm:text-[10px]" style={{ color: line.color }}>
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 6px ${line.color}` }} />
+                                  {line.label}
+                                </div>
+                                <p className="mt-0.5 whitespace-nowrap text-[8px] font-black text-white sm:text-xs">
+                                  {line.values[0]}% <span className="text-orange-400">→</span> {line.values[12]}%
+                                </p>
+                                <p className="text-[6px] font-medium uppercase tracking-wide text-zinc-500 sm:text-[8px]">
+                                  Projected +{line.values[12] - line.values[0]}%
+                                </p>
+                              </div>
+                            ))}
+                          </div>
                         </>
                       );
                     })()}
