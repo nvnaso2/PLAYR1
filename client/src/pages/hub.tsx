@@ -1058,8 +1058,11 @@ export default function HubPage() {
             </div>
 
             <div className="space-y-2" data-testid="card-day-one-trailer">
-              <button type="button" onClick={() => setTrailerPlaying(true)} className="block aspect-video w-full overflow-hidden rounded-lg bg-black" data-testid="button-play-onboarding-trailer" aria-label="Play the PLAYR1 trailer">
+              <button type="button" onClick={() => setTrailerPlaying(true)} className="relative block aspect-video w-full overflow-hidden rounded-lg bg-black" data-testid="button-play-onboarding-trailer" aria-label="Play the PLAYR1 trailer">
                 <img src="/images/playr1-trailer-thumbnail.jpg" alt="PLAYR1 trailer thumbnail" className="h-full w-full object-cover" />
+                <span className="absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/45 bg-black/20 text-white/90 shadow-sm backdrop-blur-[2px] transition hover:bg-black/35">
+                  <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+                </span>
               </button>
               <div className="flex items-start gap-3 py-1">
                 {trailerCard.avatar ? (
@@ -1141,7 +1144,8 @@ export default function HubPage() {
                           : item.start;
                         const ceiling = Math.max(actualStart, item.ceiling);
                         const potential = ceiling - actualStart;
-                        const annualGain = potential * (1 - Math.exp(-0.13 * trainingDose));
+                        const startSensitiveRate = 0.12 + 0.16 * (1 - actualStart / 100);
+                        const annualGain = potential * (1 - Math.exp(-startSensitiveRate * trainingDose));
                         const projection = Array.from({ length: 13 }, (_, month) => {
                           const progress = (1 - Math.exp(-2.8 * (month / 12))) / (1 - Math.exp(-2.8));
                           const expected = actualStart + annualGain * progress;
@@ -1187,7 +1191,7 @@ export default function HubPage() {
                                 <h3 className="whitespace-nowrap font-heading text-[13px] font-black uppercase leading-none tracking-wide text-white sm:text-lg">Road to Elite Shooting</h3>
                               </div>
                               <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-2 text-[8px] font-black tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
-                                <Play className="h-3 w-3 fill-current text-orange-300" /> Set your baseline
+                                <Play className="h-3 w-3 fill-current text-orange-300" /> SET YOUR BASELINE
                               </button>
                             </div>
                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
