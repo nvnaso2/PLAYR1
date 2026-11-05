@@ -39,7 +39,7 @@ import {
   Radar,
 } from "lucide-react";
 import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
-import type { Drill, Workout, WorkoutDrill } from "@shared/schema";
+import type { Drill, TutorialVideo, Workout, WorkoutDrill } from "@shared/schema";
 import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations";
 import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
@@ -234,24 +234,51 @@ export default function HubPage() {
       return updated;
     });
   };
-  const [trailerCard, setTrailerCard] = useState<TrailerCardPreview>(() => {
-    const defaults: TrailerCardPreview = { avatar: "", title: "The PLAYR1 Vision", stats: "0 views · Just now" };
-    try {
-      return { ...defaults, ...JSON.parse(sessionStorage.getItem("playr1-onboarding-trailer-card") || "{}") } as TrailerCardPreview;
-    } catch {
-      return defaults;
-    }
+  const [trailerCard, setTrailerCard] = useState<TrailerCardPreview>({ avatar: "", title: "The PLAYR1 Vision", stats: "0 views · Just now" });
+  const [trailerCardSaving, setTrailerCardSaving] = useState(false);
+  const [trailerCardSaved, setTrailerCardSaved] = useState(false);
+  const [trailerCardSaveError, setTrailerCardSaveError] = useState("");
+  const trailerCardQuery = useQuery<TutorialVideo | null>({
+    queryKey: ["/api/tutorial-videos/onboarding-trailer"],
+    enabled: onboardingPreview,
+    queryFn: async () => {
+      const response = await nativeFetch("/api/tutorial-videos/onboarding-trailer");
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error("Could not load the shared trailer details.");
+      return response.json();
+    },
   });
-  const updateTrailerCard = (patch: Partial<TrailerCardPreview>) => {
-    setTrailerCard((current) => {
-      const updated = { ...current, ...patch };
-      try {
-        sessionStorage.setItem("playr1-onboarding-trailer-card", JSON.stringify(updated));
-      } catch {
-        // Keep the editor usable if browser storage is unavailable.
-      }
-      return updated;
+  useEffect(() => {
+    const saved = trailerCardQuery.data;
+    if (!saved) return;
+    setTrailerCard({
+      avatar: saved.thumbnailUrl ?? "",
+      title: saved.title,
+      stats: saved.description ?? "",
     });
+  }, [trailerCardQuery.data]);
+  const updateTrailerCard = (patch: Partial<TrailerCardPreview>) => {
+    setTrailerCardSaved(false);
+    setTrailerCard((current) => ({ ...current, ...patch }));
+  };
+  const saveTrailerCard = async () => {
+    setTrailerCardSaving(true);
+    setTrailerCardSaveError("");
+    try {
+      const videoUrl = new URL(introTrailer, window.location.origin).toString();
+      await apiRequest("PUT", "/api/tutorial-videos/onboarding-trailer", {
+        title: trailerCard.title.trim(),
+        description: trailerCard.stats.trim(),
+        thumbnailUrl: trailerCard.avatar || null,
+        url: videoUrl,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["/api/tutorial-videos/onboarding-trailer"] });
+      setTrailerCardSaved(true);
+    } catch {
+      setTrailerCardSaveError("Could not save these shared details. Try again.");
+    } finally {
+      setTrailerCardSaving(false);
+    }
   };
   const dayTwoWorkoutQuery = useQuery<{
     workout: Workout;
@@ -768,7 +795,7 @@ export default function HubPage() {
   return (
     <div className="min-h-full bg-background pb-6">
       {/* Greeting Header */}
-      <div className="px-5 pt-6 pb-2">
+      <div className="px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
         {onboardingPreview && <OnboardingPreviewMenu page={previewDay === 2 ? "day2" : "hub"} />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
@@ -1018,10 +1045,10 @@ export default function HubPage() {
         )}
       </div>
 
-      <div className="px-4 space-y-4 mt-4">
+      <div className="px-4 space-y-3 mt-2">
         {onboardingPreview ? (
           <>
-            <div className={previewDay === 1 ? "space-y-4" : "hidden"} data-testid="card-day-one-mission">
+            <div className={previewDay === 1 ? "space-y-2" : "hidden"} data-testid="card-day-one-mission">
 
             <div className="px-1 pt-1">
               <h2 className="font-heading text-xl font-black uppercase leading-tight text-white sm:text-2xl">Welcome to The PLAYR1 Project.</h2>
@@ -1094,13 +1121,17 @@ export default function HubPage() {
                       <input value={trailerCard.stats} onChange={(event) => updateTrailerCard({ stats: event.currentTarget.value })} maxLength={60} placeholder="2.4M views · 2 weeks ago" className="mt-1.5 h-9 w-full rounded-lg border border-white/10 bg-black px-2.5 text-[11px] font-medium normal-case tracking-normal text-white outline-none focus:border-orange-400" />
                     </label>
                     {trailerCard.avatar && <button type="button" onClick={() => updateTrailerCard({ avatar: "" })} className="text-[9px] font-bold text-zinc-500 hover:text-white">Remove profile picture</button>}
+                    {trailerCardSaveError && <p role="alert" className="text-[10px] text-red-300">{trailerCardSaveError}</p>}
+                    <button type="button" onClick={saveTrailerCard} disabled={trailerCardSaving || !trailerCard.title.trim()} className="inline-flex min-h-9 w-full items-center justify-center rounded-lg bg-orange-500 px-3 text-[10px] font-black uppercase tracking-wide text-black disabled:opacity-50" data-testid="button-save-trailer-card">
+                      {trailerCardSaving ? "Saving…" : trailerCardSaved ? "Saved for all accounts" : "Save for all accounts"}
+                    </button>
                   </PopoverContent>
                 </Popover>
               </div>
             </div>
 
-                <section className="space-y-4 pb-5" data-testid="hub-onboarding-baseline">
-                  <div className="relative mt-4 aspect-[1.2/1] min-h-[280px] overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(ellipse_at_52%_48%,rgba(91,132,161,0.13),transparent_62%),linear-gradient(145deg,#101216,#050608_70%)] shadow-[0_0_38px_rgba(55,255,150,0.06),inset_0_1px_0_rgba(255,255,255,0.08)] sm:aspect-[2.4/1]" data-testid="card-onboarding-progress-projection">
+                <section className="space-y-2 pb-1" data-testid="hub-onboarding-baseline">
+                  <div className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
                     {(() => {
                       const series = [
                         { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, goal: 80, labelY: 155, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
@@ -1119,10 +1150,10 @@ export default function HubPage() {
                         return { ...item, values };
                       });
                       const xAt = (month: number) => 58 + month * 42.5;
-                      const yAt = (percent: number) => 330 - percent * 2.4;
+                      const yAt = (percent: number) => 258 - percent * 1.95;
                       return (
                         <>
-                          <svg id="onboarding-projection-chart" viewBox="0 0 680 400" preserveAspectRatio="none" role="img" aria-label="Illustrative shooting growth chart with monthly three-point, mid-range, and free-throw percentages" className="absolute inset-0 h-full w-full">
+                          <svg id="onboarding-projection-chart" viewBox="0 0 680 320" role="img" aria-label="Illustrative shooting growth chart with monthly three-point, mid-range, and free-throw percentages" className="mt-1 block h-auto w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
                                   <feGaussianBlur stdDeviation="5" result="blur" />
@@ -1140,7 +1171,7 @@ export default function HubPage() {
                                   </linearGradient>
                                 ))}
                               </defs>
-                              <rect width="680" height="400" fill="url(#shot-chart-wash)" />
+                              <rect width="680" height="320" fill="url(#shot-chart-wash)" />
                               {[20, 40, 60, 80, 100].map((tick) => {
                                 const y = yAt(tick);
                                 return <g key={tick}>
@@ -1150,38 +1181,35 @@ export default function HubPage() {
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
                                 <g key={month}>
-                                  <line x1={xAt(month)} x2={xAt(month)} y1="78" y2="332" stroke="rgba(147,197,253,0.10)" strokeDasharray="2 9" />
-                                  <text x={xAt(month)} y="365" textAnchor="middle" fill="#929ba5" fontSize="12">{month === 0 ? "NOW" : `M${month}`}</text>
+                                  <line x1={xAt(month)} x2={xAt(month)} y1="42" y2="260" stroke="rgba(147,197,253,0.08)" strokeDasharray="2 9" />
+                                  <text x={xAt(month)} y="294" textAnchor="middle" fill="#929ba5" fontSize="12">{month === 0 ? "NOW" : `M${month}`}</text>
                                 </g>
                               ))}
                               {series.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
-                                const fillPath = `${linePath} L${xAt(12)},330 L${xAt(0)},330 Z`;
+                                const fillPath = `${linePath} L${xAt(12)},260 L${xAt(0)},260 Z`;
                                 return <g key={line.key}>
                                   <path d={fillPath} fill={`url(#shot-fill-${line.key})`} />
-                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" opacity="0.24" filter="url(#shot-line-glow)" />
-                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" opacity="0.16" filter="url(#shot-line-glow)" />
+                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                                   {line.values.map((value, index) => (
                                     <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 5 : 2.6} fill={index === 12 ? line.color : "#101216"} stroke={line.color} strokeWidth={index === 12 ? 2 : 1.4} />
                                   ))}
-                                  <line x1={xAt(12) + 5} y1={yAt(line.values[12])} x2={xAt(12) + 20} y2={line.labelY} stroke={line.color} strokeWidth="2" opacity="0.9" />
-                                  <rect x={xAt(12) + 20} y={line.labelY - 17} width="64" height="34" rx="12" fill="rgba(8,10,12,0.78)" stroke={line.color} strokeOpacity="0.55" />
-                                  <text x={xAt(12) + 52} y={line.labelY + 6} textAnchor="middle" fill={line.color} fontSize="18" fontWeight="800" style={{ paintOrder: "stroke", stroke: "#090a0c", strokeWidth: 3 }}>{line.values[12]}%</text>
                                 </g>;
                               })}
                           </svg>
-                          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-3 sm:p-5">
+                          <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <h3 className="max-w-[190px] text-sm font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:max-w-none sm:text-xl">Here's where your shooting could be</h3>
-                              <div className="mt-2 flex items-center gap-3 text-[9px] font-black tracking-wide drop-shadow-[0_1px_5px_rgba(0,0,0,0.95)] sm:text-[10px]">
+                              <h3 className="whitespace-nowrap font-heading text-[11px] font-black leading-none tracking-tight text-white sm:text-base">Here's where your shooting could be</h3>
+                              <div className="mt-1.5 flex items-center gap-2 text-[8px] font-black tracking-wide sm:gap-3 sm:text-[10px]">
                                 {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5" style={{ color: line.color }}>
                                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
                                 </span>)}
                               </div>
                             </div>
-                            <button type="button" onClick={() => setBaselinePickerOpen(true)} className="pointer-events-auto inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-[linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.06)_46%,rgba(249,115,22,0.16))] px-3 text-[8px] font-black uppercase tracking-wide text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_8px_22px_rgba(0,0,0,0.36)] backdrop-blur-xl transition hover:border-orange-200/50 hover:bg-white/15 sm:px-4 sm:text-[10px]" data-testid="button-open-baseline-picker">
-                              <Play className="h-3 w-3 fill-current text-orange-300" /> Log Your Baseline
+                            <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-white/20 bg-white/[0.06] px-2 text-[7px] font-black uppercase tracking-wide text-white sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
+                              <Play className="h-3 w-3 fill-current text-orange-300" /> Baseline
                             </button>
                           </div>
                         </>

@@ -2948,7 +2948,12 @@ ${JSON.stringify(catalogForPrompt)}
 
   app.put("/api/tutorial-videos/:key", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
-      const tutorialVideoSchema = z.object({ title: z.string().min(1), url: z.string().url(), description: z.string().optional() });
+      const tutorialVideoSchema = z.object({
+        title: z.string().trim().min(1).max(90),
+        url: z.string().url(),
+        description: z.string().max(60).optional(),
+        thumbnailUrl: z.string().max(600_000).nullable().optional(),
+      });
       const parsed = tutorialVideoSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid tutorial video data", errors: parsed.error.flatten() });
