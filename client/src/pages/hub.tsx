@@ -38,8 +38,7 @@ import {
   Layers3,
   Radar,
 } from "lucide-react";
-import introTrailer from "@assets/Welcome_To_PLAYR1_1781991119550.mp4";
-import type { Drill, TutorialVideo, Workout, WorkoutDrill } from "@shared/schema";
+import type { Drill, Workout, WorkoutDrill } from "@shared/schema";
 import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations";
 import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
@@ -66,8 +65,6 @@ type WeeklyTrendPoint = {
 };
 type CategoryStatPoint = { category: string; minutes: number; sessions: number };
 type PreviewShotKey = "threes" | "midrange" | "freeThrows";
-type TrailerCardPreview = { avatar: string; title: string; stats: string };
-
 const onboardingBaselines: Array<{
   id: "full" | "standard" | "quick";
   name: string;
@@ -188,7 +185,6 @@ export default function HubPage() {
   const [baselineLogging, setBaselineLogging] = useState(false);
   const [baselineComplete, setBaselineComplete] = useState(false);
   const [activeProjectionType, setActiveProjectionType] = useState<PreviewShotKey | null>(null);
-  const [trailerPlaying, setTrailerPlaying] = useState(false);
   const [scheduleEditing, setScheduleEditing] = useState(false);
   const [previewDay, setPreviewDay] = useState(() => new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
   useEffect(() => {
@@ -235,52 +231,6 @@ export default function HubPage() {
       return updated;
     });
   };
-  const [trailerCard, setTrailerCard] = useState<TrailerCardPreview>({ avatar: "", title: "The PLAYR1 Vision", stats: "0 views · Just now" });
-  const [trailerCardSaving, setTrailerCardSaving] = useState(false);
-  const [trailerCardSaved, setTrailerCardSaved] = useState(false);
-  const [trailerCardSaveError, setTrailerCardSaveError] = useState("");
-  const trailerCardQuery = useQuery<TutorialVideo | null>({
-    queryKey: ["/api/tutorial-videos/onboarding-trailer"],
-    enabled: onboardingPreview,
-    queryFn: async () => {
-      const response = await nativeFetch("/api/tutorial-videos/onboarding-trailer");
-      if (response.status === 404) return null;
-      if (!response.ok) throw new Error("Could not load the shared trailer details.");
-      return response.json();
-    },
-  });
-  useEffect(() => {
-    const saved = trailerCardQuery.data;
-    if (!saved) return;
-    setTrailerCard({
-      avatar: saved.thumbnailUrl ?? "",
-      title: saved.title,
-      stats: saved.description ?? "",
-    });
-  }, [trailerCardQuery.data]);
-  const updateTrailerCard = (patch: Partial<TrailerCardPreview>) => {
-    setTrailerCardSaved(false);
-    setTrailerCard((current) => ({ ...current, ...patch }));
-  };
-  const saveTrailerCard = async () => {
-    setTrailerCardSaving(true);
-    setTrailerCardSaveError("");
-    try {
-      const videoUrl = new URL(introTrailer, window.location.origin).toString();
-      await apiRequest("PUT", "/api/tutorial-videos/onboarding-trailer", {
-        title: trailerCard.title.trim(),
-        description: trailerCard.stats.trim(),
-        thumbnailUrl: trailerCard.avatar || null,
-        url: videoUrl,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["/api/tutorial-videos/onboarding-trailer"] });
-      setTrailerCardSaved(true);
-    } catch {
-      setTrailerCardSaveError("Could not save these shared details. Try again.");
-    } finally {
-      setTrailerCardSaving(false);
-    }
-  };
   const dayTwoWorkoutQuery = useQuery<{
     workout: Workout;
     drills: Array<WorkoutDrill & { drill: Drill }>;
@@ -309,9 +259,6 @@ export default function HubPage() {
   });
   const [testHubView, setTestHubView] = useState<"onboarding" | "everyday" | null>(null);
   const [recommendationDay, setRecommendationDay] = useState(() => localDateKey(new Date()));
-  const [trailerDismissed, setTrailerDismissed] = useState(() =>
-    localStorage.getItem("playr1_intro_trailer_dismissed") === "1"
-  );
   useEffect(() => {
     const now = new Date();
     const nextLocalDay = new Date(now);
@@ -322,16 +269,6 @@ export default function HubPage() {
     );
     return () => window.clearTimeout(timeout);
   }, [recommendationDay]);
-  function dismissTrailer() {
-    setTrailerDismissed(true);
-    localStorage.setItem("playr1_intro_trailer_dismissed", "1");
-  }
-
-  function replayTrailer() {
-    setTrailerDismissed(false);
-    localStorage.removeItem("playr1_intro_trailer_dismissed");
-  }
-
   const { data: careerData } = useQuery<any>({ queryKey: ["/api/career"] });
   const { data: overview, isLoading: overviewLoading } = useQuery<any>({
     queryKey: ["/api/stats/overview", "hub-monthly"],
@@ -799,7 +736,7 @@ export default function HubPage() {
     <div className="min-h-full bg-background pb-6">
       {/* Greeting Header */}
       <div className="px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
-        {onboardingPreview && <OnboardingPreviewMenu page={previewDay === 2 ? "day2" : "hub"} />}
+        {onboardingPreview && <OnboardingPreviewMenu page={previewDay === 2 ? "day2" : "hub"} inline />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
@@ -1053,6 +990,7 @@ export default function HubPage() {
           <>
             <div className={previewDay === 1 ? "space-y-2" : "hidden"} data-testid="card-day-one-mission">
 
+            {/*
             <div className="px-1 pt-1">
               <h2 className="font-heading text-xl font-black uppercase leading-tight text-white sm:text-2xl">Welcome to The PLAYR1 Project.</h2>
             </div>
@@ -1130,9 +1068,9 @@ export default function HubPage() {
                 </Popover>
               </div>
             </div>
+            */}
 
                 <section className="space-y-2 pb-1" data-testid="hub-onboarding-baseline">
-                  <div className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
                     {(() => {
                       const series = [
                         { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, ceiling: 95, phase: 0.2 },
@@ -1185,6 +1123,7 @@ export default function HubPage() {
                       const chartTicks = Array.from({ length: Math.floor((chartMax - chartMin) / tickStep) + 1 }, (_, index) => chartMin + index * tickStep);
                       return (
                         <>
+                          <div className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
                           <div className="mb-1.5 space-y-1.5">
                             <div className="flex items-center justify-between gap-2">
                               <div className="min-w-0">
@@ -1249,7 +1188,8 @@ export default function HubPage() {
                                 </g>;
                               })}
                           </svg>
-                          <div className="mt-1 grid grid-cols-3 gap-1.5" role="group" aria-label="Filter shooting projection by shot type">
+                          </div>
+                          <div className="mt-2 grid grid-cols-3 gap-2" role="group" aria-label="Filter shooting projection by shot type">
                             {series.map((line) => (
                               <button
                                 key={`${line.key}-summary`}
@@ -1257,7 +1197,7 @@ export default function HubPage() {
                                 aria-pressed={activeProjectionType === line.key}
                                 aria-label={activeProjectionType === line.key ? "Show all shot types" : `Show only ${line.label} projection`}
                                 onClick={() => setActiveProjectionType((current) => current === line.key ? null : line.key)}
-                                className={`min-w-0 rounded-lg border px-1.5 py-1 text-left transition sm:px-2.5 sm:py-2 ${
+                                className={`min-h-[56px] min-w-0 rounded-lg border px-1.5 py-1 text-left transition sm:px-2.5 sm:py-2 ${
                                   activeProjectionType === line.key
                                     ? "border-white/40 bg-white/[0.09] shadow-[0_0_12px_rgba(255,255,255,0.12)]"
                                     : activeProjectionType
@@ -1271,7 +1211,7 @@ export default function HubPage() {
                                   {line.label}
                                 </div>
                                 <p className="mt-0.5 whitespace-nowrap text-[8px] font-black text-white sm:text-xs">
-                                  <span className="text-white">{line.start}%</span> <span className="text-[6px] font-bold uppercase text-zinc-500 sm:text-[8px]">now</span>
+                                  {line.start}% <span className="text-[6px] font-bold uppercase text-zinc-500 sm:text-[8px]">now</span>
                                 </p>
                                 <p className="text-[6px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
                                   Year range <span className="text-zinc-200">{Math.floor(line.lowValues[12])}–{Math.ceil(line.highValues[12])}%</span>
@@ -1282,8 +1222,6 @@ export default function HubPage() {
                         </>
                       );
                     })()}
-                  </div>
-
                   {previewDay === 1 && baselinePickerOpen && (
                     <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/80 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setBaselinePickerOpen(false)}>
                       <section role="dialog" aria-modal="true" aria-labelledby="baseline-picker-title" className="max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-white/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
@@ -1554,6 +1492,7 @@ export default function HubPage() {
               </div>
             )}
 
+                {/*
                 {trailerPlaying && (
                   <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="PLAYR1 trailer">
                     <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-orange-400/25 bg-black shadow-[0_0_60px_rgba(249,115,22,0.16)]">
@@ -1564,11 +1503,13 @@ export default function HubPage() {
                     </div>
                   </div>
                 )}
+                */}
           </>
         ) : (
           <>
         {showProfileSetup && (
           <>
+            {/*
             {!trailerDismissed && (
               <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-black" data-testid="card-intro-trailer">
             <video
@@ -1600,8 +1541,10 @@ export default function HubPage() {
             </div>
               </div>
             )}
+            */}
 
             <section className="space-y-3" data-testid="section-post-onboarding">
+              {/*
               {trailerDismissed && (
                 <button
                   onClick={replayTrailer}
@@ -1618,6 +1561,7 @@ export default function HubPage() {
                   <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
                 </button>
               )}
+              */}
 
               <button
                 type="button"

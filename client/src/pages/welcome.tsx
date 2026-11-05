@@ -654,7 +654,7 @@ export default function WelcomePage({
     localStorage.setItem("playr1_new_onboarding","1");
     if (registeredUser) qc.setQueryData(["/api/auth/user"], registeredUser);
     else qc.invalidateQueries({ queryKey: ["/api/auth/user"] });
-    navigate("/hub");
+    navigate("/welcome-video");
   }
 
   async function handleShareSummary() {

@@ -8,6 +8,7 @@ import AuthPage from "./auth-page";
 import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
 import HubPage from "./hub";
+import { OnboardingTrailerStep } from "@/components/onboarding-trailer-step";
 
 function tomorrowAtFive() {
   const date = new Date();
@@ -31,9 +32,9 @@ export default function OnboardingPreviewPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const requestedPage = new URLSearchParams(search).get("page");
-  const page = (["login", "register", "profile", "hub", "day2"].includes(requestedPage || "")
+  const page = (["login", "register", "profile", "welcome", "hub", "day2"].includes(requestedPage || "")
     ? requestedPage
-    : "login") as "login" | "register" | "profile" | "hub" | "day2";
+    : "login") as "login" | "register" | "profile" | "welcome" | "hub" | "day2";
   const [playerName, setPlayerName] = useState("");
   const [trainingFrequency, setTrainingFrequency] = useState("");
   const [frequencyUnit, setFrequencyUnit] = useState<"week" | "month">("week");
@@ -56,7 +57,7 @@ export default function OnboardingPreviewPage() {
       sessionLength: Number(sessionLength),
       nextSession,
     }));
-    navigate("/admin/onboarding-preview?page=hub");
+    navigate("/admin/onboarding-preview?page=welcome");
   }
 
   function updateSessionDate(date: Date) {
@@ -72,6 +73,10 @@ export default function OnboardingPreviewPage() {
     const updated = new Date(nextSession);
     updated.setHours(hours, minutes, 0, 0);
     setNextSession(toLocalDateTime(updated));
+  }
+
+  if (page === "welcome") {
+    return <OnboardingTrailerStep previewMode />;
   }
 
   if (page === "hub" || page === "day2") {

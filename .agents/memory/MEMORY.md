@@ -2,7 +2,7 @@
 - [Type-check compatibility boundaries](typecheck-compatibility.md) — contain schema drift at stale adapters and persistence boundaries without excluding active app code
 - [PLAYR1 Stripe credentials](stripe-connector-credentials.md) — use separate test/live manual keys and managed webhooks; verify production behavior, not just secret presence
 - [Hub onboarding path](hub-onboarding-path.md) — profile-derived Hub states share one Coach P prompt; daily drill picks are deterministic and profile-based
-- [Shared onboarding trailer card](shared-onboarding-trailer-card.md) — Day 1 trailer title, description, and profile image are global admin-managed content
+- [Shared onboarding trailer card](shared-onboarding-trailer-card.md) — show the video before the Hub and keep its metadata global/admin-managed
 - [Baseline shooting projections](baseline-shooting-projections.md) — Day 1 forecast starts from measured percentages and scales diminishing growth by stated training frequency
 - [Profile and Hub scope](profile-first-release-scope.md) — lead Profile with the player card; fill the mobile content area and keep Pro pricing compact
 - [Auth and launch visual direction](auth-startup-visual-direction.md) — keep PLAYR1 sign-in sparse and centered, and preserve the black splash as the app's preview entry

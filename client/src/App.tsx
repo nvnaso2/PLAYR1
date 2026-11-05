@@ -39,6 +39,7 @@ import MicroQuizPage from "@/pages/micro-quiz";
 const Drills = lazy(pageLoaders.drills);
 const DrillPage = lazy(pageLoaders.drill);
 const AppOnboardingPage = lazy(() => import("@/pages/app-onboarding"));
+const WelcomeTrailerPage = lazy(() => import("@/pages/welcome-trailer"));
 const TrainingLog = lazy(pageLoaders.trainingLog);
 const Dashboard = lazy(pageLoaders.dashboard);
 const Videos = lazy(pageLoaders.videos);
@@ -481,6 +482,7 @@ function Router() {
             <SetupAwareLayout>
               <Switch>
                 <Route path="/" component={HomeRedirect} />
+                <Route path="/welcome-video" component={WelcomeTrailerPage} />
                 <Route path="/drills" component={Drills} />
                 <Route path="/drill/:id" component={DrillPage} />
                 <Route path="/programs">{() => <Redirect to="/courses" />}</Route>

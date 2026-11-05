@@ -1,17 +1,18 @@
 import { useLocation } from "wouter";
 import { ChevronDown, X } from "lucide-react";
 
-type PreviewPage = "login" | "register" | "profile" | "hub" | "day2";
+type PreviewPage = "login" | "register" | "profile" | "welcome" | "hub" | "day2";
 
 const previewPages: Array<{ value: PreviewPage; label: string }> = [
   { value: "login", label: "Sign in" },
   { value: "register", label: "Create account" },
   { value: "profile", label: "Complete profile" },
+  { value: "welcome", label: "Welcome video" },
   { value: "hub", label: "Day 1 Hub" },
   { value: "day2", label: "Day 2 Hub" },
 ];
 
-export function OnboardingPreviewMenu({ page }: { page: PreviewPage }) {
+export function OnboardingPreviewMenu({ page, inline = false }: { page: PreviewPage; inline?: boolean }) {
   const [, navigate] = useLocation();
 
   function changePage(value: PreviewPage) {
@@ -19,7 +20,7 @@ export function OnboardingPreviewMenu({ page }: { page: PreviewPage }) {
   }
 
   return (
-    <div className="fixed right-3 top-[calc(env(safe-area-inset-top,0px)+0.5rem)] z-[70] flex items-center gap-1.5" data-testid="onboarding-preview-page-menu">
+    <div className={inline ? "mb-3 flex items-center justify-end gap-1.5" : "fixed right-3 top-[calc(env(safe-area-inset-top,0px)+0.5rem)] z-[70] flex items-center gap-1.5"} data-testid="onboarding-preview-page-menu">
       <label className="sr-only" htmlFor="onboarding-preview-page">Preview page</label>
       <div className="relative">
         <select
