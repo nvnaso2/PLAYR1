@@ -822,7 +822,7 @@ export default function HubPage() {
         </div>
         {onboardingPreview && (
           <div className="mt-4" data-testid="onboarding-day-progress">
-            <div className="mb-2 flex flex-col items-end gap-1.5">
+              <div className="hidden">
               <div className="flex items-center justify-end gap-1.5 text-right">
                 <p className="text-[9px] font-semibold text-zinc-300">
                   {previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? 1} {previewProfile.frequencyUnit === "month" ? "per month" : "per week"}
@@ -1070,7 +1070,7 @@ export default function HubPage() {
             </div>
             */}
 
-                <section className="space-y-2 pb-1" data-testid="hub-onboarding-baseline">
+                <section className="-mx-4 space-y-2 pb-1" data-testid="hub-onboarding-baseline">
                     {(() => {
                       const series = [
                         { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, ceiling: 95, phase: 0.2 },
@@ -1123,17 +1123,15 @@ export default function HubPage() {
                       const chartTicks = Array.from({ length: Math.floor((chartMax - chartMin) / tickStep) + 1 }, (_, index) => chartMin + index * tickStep);
                       return (
                         <>
-                          <div className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
-                          <div className="mb-1.5 space-y-1.5">
+                          <div className="mb-3 flex items-center justify-between gap-3 px-4">
                             <div className="flex items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                <h3 className="whitespace-nowrap font-heading text-[13px] font-black uppercase leading-none tracking-wide text-white sm:text-lg">Road to Elite Shooting</h3>
-                              </div>
-                              <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-2 text-[8px] font-black tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
+                              <h3 className="whitespace-nowrap font-heading text-xl font-black uppercase leading-tight tracking-wide text-white sm:text-2xl">Road to Elite Shooting</h3>
+                              <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-3 text-[10px] font-black tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-4 sm:text-xs" data-testid="button-open-baseline-picker">
                                 <Play className="h-3 w-3 fill-current text-orange-300" /> SET YOUR BASELINE
                               </button>
                             </div>
-                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          </div>
+                          <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 px-4">
                               {visibleSeries.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5 text-[9px] font-black tracking-wide sm:text-[10px]" style={{ color: line.color }}>
                                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
                               </span>)}
@@ -1141,7 +1139,6 @@ export default function HubPage() {
                                 <span className="h-2.5 w-2.5 rounded-full border border-white bg-white/20 shadow-[0_0_8px_rgba(255,255,255,0.5)]" />You are here
                               </span>
                             </div>
-                          </div>
                            <svg id="onboarding-projection-chart" viewBox="0 0 680 280" role="img" aria-label="Illustrative shooting baseline and monthly projection ranges for three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -1188,8 +1185,11 @@ export default function HubPage() {
                                 </g>;
                               })}
                           </svg>
+                          <div className="mx-4 mt-2 flex flex-wrap items-center justify-between gap-2 text-[9px] font-semibold text-zinc-300 sm:text-[11px]" data-testid="onboarding-session-summary">
+                            <span>{previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? 1} {previewProfile.frequencyUnit === "month" ? "per month" : "per week"}{previewProfile.sessionLength ? ` · ${previewProfile.sessionLength} min sessions` : ""}</span>
+                            <span className="inline-flex items-center gap-1.5 text-orange-200"><CalendarDays className="h-3 w-3" />Next session · {onboardingSchedule[Math.min(previewDay - 1, onboardingSchedule.length - 1)].toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                           </div>
-                          <div className="mt-2 grid grid-cols-3 gap-2" role="group" aria-label="Filter shooting projection by shot type">
+                          <div className="mx-4 mt-2 grid grid-cols-1 gap-1.5" role="group" aria-label="Filter shooting projection by shot type">
                             {series.map((line) => (
                               <button
                                 key={`${line.key}-summary`}
@@ -1197,7 +1197,7 @@ export default function HubPage() {
                                 aria-pressed={activeProjectionType === line.key}
                                 aria-label={activeProjectionType === line.key ? "Show all shot types" : `Show only ${line.label} projection`}
                                 onClick={() => setActiveProjectionType((current) => current === line.key ? null : line.key)}
-                                className={`min-h-[56px] min-w-0 rounded-lg border px-1.5 py-1 text-left transition sm:px-2.5 sm:py-2 ${
+                                className={`flex min-h-10 min-w-0 items-center justify-between gap-3 rounded-lg border px-3 py-1.5 text-left transition sm:px-4 ${
                                   activeProjectionType === line.key
                                     ? "border-white/40 bg-white/[0.09] shadow-[0_0_12px_rgba(255,255,255,0.12)]"
                                     : activeProjectionType
@@ -1206,14 +1206,14 @@ export default function HubPage() {
                                 }`}
                                 data-testid={`button-projection-filter-${line.key}`}
                               >
-                                <div className="flex items-center gap-1 text-[8px] font-black sm:text-[10px]" style={{ color: line.color }}>
+                                <div className="flex w-1/4 items-center gap-1.5 text-[9px] font-black sm:text-[10px]" style={{ color: line.color }}>
                                   <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 6px ${line.color}` }} />
                                   {line.label}
                                 </div>
-                                <p className="mt-0.5 whitespace-nowrap text-[8px] font-black text-white sm:text-xs">
+                                <p className="whitespace-nowrap text-[9px] font-black text-white sm:text-xs">
                                   {line.start}% <span className="text-[6px] font-bold uppercase text-zinc-500 sm:text-[8px]">now</span>
                                 </p>
-                                <p className="text-[6px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
+                                <p className="text-right text-[7px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
                                   Year range <span className="text-zinc-200">{Math.floor(line.lowValues[12])}–{Math.ceil(line.highValues[12])}%</span>
                                 </p>
                               </button>

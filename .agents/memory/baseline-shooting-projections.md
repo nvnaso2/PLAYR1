@@ -7,6 +7,8 @@ After a player logs a baseline, the Day 1 chart should start from their measured
 
 The current shooting status should be visually prominent and distinct from a translucent, fluctuating forecast range. Zoom the chart to 5% boundaries around the player’s range, using 5% tick marks when the chart is zoomed in. Avoid presenting trivial 1% annual improvement as a precise outcome.
 
+On the Hub, keep the shooting title and baseline action above a borderless, full-width graph. Put the training-frequency and next-session summary below the graph, followed by three vertically stacked, wide shot-type buttons that retain each type's current percentage and annual range.
+
 **Why:** The user requested forecasts that respond to both the player's baseline and planned training frequency rather than showing the same path for everyone, and explicitly rejected a trivial 1% annual projection.
 
-**How to apply:** Recalculate the chart from makes divided by attempts and the player's weekly-equivalent training frequency. Clearly mark the current baseline, show future outcomes as an illustrative range with modest variation, keep plotted data inside the chart, and do not present the result as guaranteed.
+**How to apply:** Recalculate the chart from makes divided by attempts and the player's weekly-equivalent training frequency. Clearly mark the current baseline, show future outcomes as an illustrative range with modest variation, keep plotted data inside the chart, and do not present the result as guaranteed. Preserve the agreed full-width hierarchy and keep the session summary and detailed filter buttons below the graph.
