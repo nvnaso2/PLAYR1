@@ -187,6 +187,7 @@ export default function HubPage() {
   const [baselinePickerOpen, setBaselinePickerOpen] = useState(false);
   const [baselineLogging, setBaselineLogging] = useState(false);
   const [baselineComplete, setBaselineComplete] = useState(false);
+  const [activeProjectionType, setActiveProjectionType] = useState<PreviewShotKey | null>(null);
   const [trailerPlaying, setTrailerPlaying] = useState(false);
   const [scheduleEditing, setScheduleEditing] = useState(false);
   const [previewDay, setPreviewDay] = useState(() => new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
@@ -1136,8 +1137,8 @@ export default function HubPage() {
                   <div className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
                     {(() => {
                       const series = [
-                        { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, ceiling: 94, phase: 0.2 },
-                        { key: "midrange" as const, label: "MID", color: "#ff5364", start: 30, ceiling: 96, phase: 1.7 },
+                        { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, ceiling: 95, phase: 0.2 },
+                        { key: "midrange" as const, label: "MID", color: "#ff5364", start: 30, ceiling: 95, phase: 1.7 },
                         { key: "freeThrows" as const, label: "FT", color: "#70f06a", start: 40, ceiling: 99, phase: 3.1 },
                       ].map((item) => {
                         const actualStart = baselineComplete
@@ -1145,15 +1146,14 @@ export default function HubPage() {
                           : item.start;
                         const ceiling = Math.max(actualStart, item.ceiling);
                         const potential = ceiling - actualStart;
-                        const modeledGain = potential * (1 - Math.exp(-0.22 * trainingDose));
-                        const minimumUsefulGain = Math.min(potential, Math.max(2, 4 * Math.sqrt(trainingSessionsPerWeek)));
-                        const annualGain = Math.min(potential, Math.max(modeledGain, minimumUsefulGain));
+                        const annualGain = potential * (1 - Math.exp(-0.13 * trainingDose));
                         const projection = Array.from({ length: 13 }, (_, month) => {
                           const progress = (1 - Math.exp(-2.8 * (month / 12))) / (1 - Math.exp(-2.8));
                           const expected = actualStart + annualGain * progress;
-                          const wobble = Math.sin(month * 1.65 + item.phase) * (month / 12) * (1.2 + trainingDose * 0.25);
+                          const yearFraction = month / 12;
+                          const wobble = Math.sin(month * 1.55 + item.phase) * yearFraction * (1 - yearFraction) * (8 + trainingDose * 2);
                           const uncertainty = (month / 12) * (2.2 + trainingDose * 0.55);
-                          const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
+                          const clampPercent = (value: number) => Math.max(0, Math.min(ceiling, value));
                           return {
                             value: clampPercent(expected + wobble),
                             low: clampPercent(expected - uncertainty),
@@ -1169,8 +1169,11 @@ export default function HubPage() {
                           highValues: projection.map((point) => point.high),
                         };
                       });
-                      const lowestProjection = Math.min(...series.flatMap((line) => line.lowValues));
-                      const highestProjection = Math.max(...series.flatMap((line) => line.highValues));
+                      const visibleSeries = activeProjectionType
+                        ? series.filter((line) => line.key === activeProjectionType)
+                        : series;
+                      const lowestProjection = Math.min(...visibleSeries.flatMap((line) => line.lowValues));
+                      const highestProjection = Math.max(...visibleSeries.flatMap((line) => line.highValues));
                       const chartMin = baselineComplete
                         ? Math.max(0, Math.floor(lowestProjection / 5) * 5)
                         : 20;
@@ -1193,7 +1196,7 @@ export default function HubPage() {
                               </button>
                             </div>
                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                              {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5 text-[9px] font-black tracking-wide sm:text-[10px]" style={{ color: line.color }}>
+                              {visibleSeries.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5 text-[9px] font-black tracking-wide sm:text-[10px]" style={{ color: line.color }}>
                                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
                               </span>)}
                               <span className="inline-flex items-center gap-1.5 text-[8px] font-black uppercase tracking-wide text-white sm:text-[9px]">
@@ -1232,7 +1235,7 @@ export default function HubPage() {
                               ))}
                               <line x1="56" x2="56" y1="22" y2="242" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
                               <line x1="56" x2="666" y1="242" y2="242" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
-                              {series.map((line) => {
+                              {visibleSeries.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
                                 const upperPoints = line.highValues.map((value, index) => `${xAt(index)},${yAt(value)}`);
@@ -1247,9 +1250,23 @@ export default function HubPage() {
                                 </g>;
                               })}
                           </svg>
-                          <div className="mt-1 grid grid-cols-3 gap-1.5">
+                          <div className="mt-1 grid grid-cols-3 gap-1.5" role="group" aria-label="Filter shooting projection by shot type">
                             {series.map((line) => (
-                              <div key={`${line.key}-summary`} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.025] px-1.5 py-1 sm:px-2.5 sm:py-2">
+                              <button
+                                key={`${line.key}-summary`}
+                                type="button"
+                                aria-pressed={activeProjectionType === line.key}
+                                aria-label={activeProjectionType === line.key ? "Show all shot types" : `Show only ${line.label} projection`}
+                                onClick={() => setActiveProjectionType((current) => current === line.key ? null : line.key)}
+                                className={`min-w-0 rounded-lg border px-1.5 py-1 text-left transition sm:px-2.5 sm:py-2 ${
+                                  activeProjectionType === line.key
+                                    ? "border-white/40 bg-white/[0.09] shadow-[0_0_12px_rgba(255,255,255,0.12)]"
+                                    : activeProjectionType
+                                      ? "border-white/10 bg-white/[0.015] opacity-45 hover:opacity-100"
+                                      : "border-white/10 bg-white/[0.025] hover:border-white/25 hover:bg-white/[0.05]"
+                                }`}
+                                data-testid={`button-projection-filter-${line.key}`}
+                              >
                                 <div className="flex items-center gap-1 text-[8px] font-black sm:text-[10px]" style={{ color: line.color }}>
                                   <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 6px ${line.color}` }} />
                                   {line.label}
@@ -1260,7 +1277,7 @@ export default function HubPage() {
                                 <p className="text-[6px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
                                   Year range <span className="text-zinc-200">{Math.floor(line.lowValues[12])}–{Math.ceil(line.highValues[12])}%</span>
                                 </p>
-                              </div>
+                              </button>
                             ))}
                           </div>
                         </>
