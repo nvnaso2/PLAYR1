@@ -69,6 +69,17 @@ type WeeklyTrendPoint = {
 };
 type CategoryStatPoint = { category: string; minutes: number; sessions: number };
 type PreviewShotKey = "threes" | "midrange" | "freeThrows";
+
+function readPlayerSkillRankings(value?: Partial<PlayerSetupSkillRankings> | null): PlayerSetupSkillRankings {
+  const defaults = makeUniqueRankings();
+  return Object.fromEntries(PLAYER_SETUP_RANK_FIELDS.map(({ key }) => {
+    const choice = value?.[key];
+    return [key, typeof choice === "string" && PLAYER_SETUP_SKILLS.includes(choice as (typeof PLAYER_SETUP_SKILLS)[number])
+      ? choice
+      : defaults[key]];
+  })) as PlayerSetupSkillRankings;
+}
+
 const onboardingBaselines: Array<{
   id: "full" | "standard" | "quick";
   name: string;
@@ -223,7 +234,7 @@ export default function HubPage() {
         currentSituation: saved.currentSituation || "",
         primaryGoal: saved.primaryGoal || "",
         positions: Array.isArray(saved.positions) ? saved.positions : [],
-        skillRankings: makeUniqueRankings(saved.skillRankings),
+        skillRankings: readPlayerSkillRankings(saved.skillRankings),
         experienceYears: /^\d{1,2}$/.test(savedYears) ? savedYears : savedYears.match(/\d{1,2}/)?.[0] ?? "",
       };
     } catch {
@@ -231,7 +242,7 @@ export default function HubPage() {
         currentSituation: "",
         primaryGoal: "",
         positions: [] as string[],
-        skillRankings: makeUniqueRankings(),
+        skillRankings: readPlayerSkillRankings(),
         experienceYears: "",
       };
     }
@@ -1081,10 +1092,10 @@ export default function HubPage() {
         )}
       </div>
 
-      <div className={fitOnboardingHub ? "min-h-0 flex-1 overflow-hidden px-4 mt-1" : "px-4 space-y-5 mt-4"}>
+      <div className={fitOnboardingHub ? "min-h-0 flex flex-1 flex-col overflow-hidden px-4 mt-1" : "px-4 space-y-5 mt-4"}>
         {onboardingPreview ? (
           <>
-            <div className={previewDay === 1 ? "space-y-2" : "hidden"} data-testid="card-day-one-mission">
+            <div className={previewDay === 1 ? "flex min-h-0 flex-1 flex-col" : "hidden"} data-testid="card-day-one-mission">
 
             {/*
             <div className="px-1 pt-1">
@@ -1166,7 +1177,7 @@ export default function HubPage() {
             </div>
             */}
 
-                <section className="-mx-4 space-y-2 pb-1 pt-1" data-testid="hub-onboarding-baseline">
+                <section className="-mx-4 flex min-h-0 flex-1 flex-col justify-between pb-1 pt-1" data-testid="hub-onboarding-baseline">
                     {(() => {
                       const series = [
                         { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, ceiling: 95, phase: 0.2 },
@@ -1709,7 +1720,7 @@ export default function HubPage() {
                             {field.label}
                             <Select value={dayTwoAnswers.skillRankings[field.key]} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, skillRankings: { ...current.skillRankings, [field.key]: value } }))}>
                               <SelectTrigger className="auth-pill-input h-[44px] min-w-0 px-2.5 text-[11px] normal-case tracking-normal text-[#f5f2eb] focus:ring-0 focus:ring-offset-0"><SelectValue placeholder="Choose skill" /></SelectTrigger>
-                              <SelectContent position="popper" className="z-[100] border-orange-500/30 bg-[#111] text-zinc-100">{PLAYER_SETUP_SKILLS.map((skill) => <SelectItem key={skill} value={skill} disabled={Object.entries(dayTwoAnswers.skillRankings).some(([key, value]) => key !== field.key && value === skill)} className="focus:bg-orange-500/15 focus:text-white">{skill}</SelectItem>)}</SelectContent>
+                              <SelectContent position="popper" className="z-[100] border-orange-500/30 bg-[#111] text-zinc-100">{PLAYER_SETUP_SKILLS.map((skill) => <SelectItem key={skill} value={skill} className="focus:bg-orange-500/15 focus:text-white">{skill}</SelectItem>)}</SelectContent>
                             </Select>
                           </label>
                         ))}
@@ -1725,7 +1736,7 @@ export default function HubPage() {
                     </label>
 
                     {dayTwoError && <p role="alert" className="text-xs text-red-300">{dayTwoError}</p>}
-                    <button type="button" onClick={saveDayTwoProfile} disabled={dayTwoSaving || !dayTwoAnswers.currentSituation || !dayTwoAnswers.primaryGoal || !dayTwoAnswers.positions.length || dayTwoAnswers.experienceYears === "" || new Set(Object.values(dayTwoAnswers.skillRankings)).size !== 4} className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-5 text-xs font-black uppercase tracking-wide text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400 disabled:opacity-50">{dayTwoSaving ? "Saving..." : "Continue"} <ChevronRight className="h-4 w-4" /></button>
+                    <button type="button" onClick={saveDayTwoProfile} disabled={dayTwoSaving || !dayTwoAnswers.currentSituation || !dayTwoAnswers.primaryGoal || !dayTwoAnswers.positions.length || dayTwoAnswers.experienceYears === ""} className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-5 text-xs font-black uppercase tracking-wide text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400 disabled:opacity-50">{dayTwoSaving ? "Saving..." : "Continue"} <ChevronRight className="h-4 w-4" /></button>
                   </div>
                 </section>
               </div>
