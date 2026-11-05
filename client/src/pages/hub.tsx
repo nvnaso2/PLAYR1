@@ -772,7 +772,7 @@ export default function HubPage() {
     <div className={onboardingPreview ? "min-h-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]" : "min-h-full bg-background pb-6"}>
       {/* Greeting Header */}
       <div className="px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
-        {onboardingPreview && <OnboardingPreviewMenu page={previewDay === 2 ? "day2" : "hub"} />}
+        {onboardingPreview && <OnboardingPreviewMenu page={previewDay === 2 ? "day2" : "hub"} showFeedback />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
@@ -1181,7 +1181,7 @@ export default function HubPage() {
                       const chartMin = Math.max(0, Math.floor(lowestProjection / 5) * 5);
                       const tickStep = highestProjection - chartMin <= 40 ? 5 : 10;
                       const chartMax = Math.min(100, Math.max(chartMin + tickStep, Math.ceil((highestProjection + 1) / tickStep) * tickStep));
-                      const xAt = (month: number) => 105 + month * (470 / 12);
+                      const xAt = (month: number) => 50 + month * (590 / 12);
                       const yAt = (percent: number) => 470 - ((percent - chartMin) * 430) / (chartMax - chartMin);
                       const chartTicks = Array.from({ length: Math.floor((chartMax - chartMin) / tickStep) + 1 }, (_, index) => chartMin + index * tickStep);
                       const currentScheduleIndex = Math.min(previewDay - 1, onboardingSchedule.length - 1);
@@ -1220,8 +1220,8 @@ export default function HubPage() {
                                 const y = yAt(tick);
                                  const majorTick = tick % 10 === 0;
                                 return <g key={tick}>
-                                  {tick !== chartMin && <line x1="105" x2="575" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)"} strokeDasharray="3 7" />}
-                                    <text x="95" y={y + 5} textAnchor="end" fill="#c3c7cd" fontSize="18" fontWeight="700">{tick}%</text>
+                                  {tick !== chartMin && <line x1="50" x2="640" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)"} strokeDasharray="3 7" />}
+                                    <text x="40" y={y + 5} textAnchor="end" fill="#c3c7cd" fontSize="18" fontWeight="700">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
@@ -1232,8 +1232,8 @@ export default function HubPage() {
                               {[3, 6, 9].map((month) => (
                                   <line key={`month-grid-${month}`} x1={xAt(month)} x2={xAt(month)} y1="40" y2="470" stroke="rgba(255,255,255,0.07)" strokeDasharray="3 7" />
                               ))}
-                                <line x1="105" x2="105" y1="40" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
-                                <line x1="105" x2="575" y1="470" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
+                                <line x1="50" x2="50" y1="40" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
+                                <line x1="50" x2="640" y1="470" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
                               {visibleSeries.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
@@ -1346,34 +1346,45 @@ export default function HubPage() {
                             </Dialog>
                           </div>
                           <div className="mx-4 mt-3 grid grid-cols-3 gap-2" role="group" aria-label="Filter shooting projection by shot type">
-                            {series.map((line) => (
-                              <button
+                            {series.map((line) => {
+                              const active = activeProjectionType === line.key;
+                              const yearLow = Math.floor(line.lowValues[12]);
+                              const yearHigh = Math.ceil(line.highValues[12]);
+                              return <button
                                 key={`${line.key}-summary`}
                                 type="button"
-                                aria-pressed={activeProjectionType === line.key}
-                                aria-label={activeProjectionType === line.key ? "Show all shot types" : `Show only ${line.label} projection`}
+                                aria-pressed={active}
+                                aria-label={active ? "Show all shot types" : `Show only ${line.label} projection`}
                                 onClick={() => setActiveProjectionType((current) => current === line.key ? null : line.key)}
-                                  className={`flex min-h-[68px] min-w-0 flex-col items-stretch justify-center gap-1 rounded-lg border px-2 py-1.5 text-left transition sm:min-h-[74px] sm:px-3 ${
-                                  activeProjectionType === line.key
-                                    ? "border-white/40 bg-white/[0.09] shadow-[0_0_12px_rgba(255,255,255,0.12)]"
+                                className={`group relative flex min-h-[78px] min-w-0 flex-col justify-center gap-2 overflow-hidden rounded-xl border px-2.5 py-2 text-left transition-all sm:min-h-[82px] sm:px-3 ${
+                                  active
+                                    ? "border-white/35 ring-1 ring-white/15 shadow-[0_0_16px_rgba(255,255,255,0.1)]"
                                     : activeProjectionType
-                                      ? "border-white/10 bg-white/[0.015] opacity-45 hover:opacity-100"
-                                      : "border-white/10 bg-white/[0.025] hover:border-white/25 hover:bg-white/[0.05]"
+                                      ? "border-white/5 opacity-45 hover:opacity-100"
+                                      : "border-white/10 hover:border-white/25 hover:shadow-lg"
                                 }`}
+                                style={{
+                                  borderColor: active ? `${line.color}aa` : `${line.color}50`,
+                                  background: active
+                                    ? `linear-gradient(145deg, ${line.color}22, rgba(10,10,10,0.96) 76%)`
+                                    : `linear-gradient(145deg, ${line.color}12, rgba(10,10,10,0.95) 86%)`,
+                                }}
                                 data-testid={`button-projection-filter-${line.key}`}
                               >
-                                <div className="flex min-w-0 items-center justify-between gap-1">
-                                  <span className="flex min-w-0 items-center gap-1 text-[8px] font-black sm:text-[10px]" style={{ color: line.color }}>
-                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 6px ${line.color}` }} />
+                                <span className="absolute inset-x-3 top-0 h-[2px] rounded-b-full opacity-90" style={{ background: `linear-gradient(90deg, transparent, ${line.color}, transparent)` }} />
+                                <div className="flex min-w-0 items-center justify-between gap-1.5">
+                                  <span className="flex min-w-0 items-center gap-1.5 text-[8px] font-black uppercase tracking-wide sm:text-[10px]" style={{ color: line.color }}>
+                                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 8px ${line.color}` }} />
                                     <span className="truncate">{line.label}</span>
                                   </span>
-                                  <span className="shrink-0 whitespace-nowrap text-[9px] font-black text-white sm:text-xs">{line.start}% <span className="text-[6px] font-bold uppercase text-zinc-500 sm:text-[8px]">now</span></span>
+                                  <span className="shrink-0 whitespace-nowrap text-[13px] font-black leading-none text-white sm:text-base">{line.start}<span className="text-[8px]">%</span><span className="ml-1 text-[6px] font-bold uppercase tracking-wide text-zinc-500 sm:text-[8px]">now</span></span>
                                 </div>
-                                <p className="text-[7px] font-bold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
-                                  Year range <span className="text-zinc-200">{Math.floor(line.lowValues[12])}–{Math.ceil(line.highValues[12])}%</span>
-                                </p>
+                                <div className="flex items-center justify-between gap-1 border-t border-white/[0.08] pt-1.5">
+                                  <span className="text-[6px] font-bold uppercase tracking-[0.12em] text-zinc-500 sm:text-[7px]">1-year range</span>
+                                  <span className="whitespace-nowrap text-[8px] font-extrabold text-zinc-100 sm:text-[10px]">{yearLow}–{yearHigh}%</span>
+                                </div>
                               </button>
-                            ))}
+                            })}
                           </div>
                         </>
                       );
