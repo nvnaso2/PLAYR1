@@ -1242,7 +1242,7 @@ export default function HubPage() {
 
                   {previewDay === 1 && baselinePickerOpen && (
                     <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/80 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setBaselinePickerOpen(false)}>
-                      <section role="dialog" aria-modal="true" aria-labelledby="baseline-picker-title" className="max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-orange-400/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
+                      <section role="dialog" aria-modal="true" aria-labelledby="baseline-picker-title" className="max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-white/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
                         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700 sm:hidden" />
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div>
@@ -1258,10 +1258,10 @@ export default function HubPage() {
                             return (
                               <button key={option.id} type="button" aria-pressed={active}
                                 onClick={() => setBaselineId(option.id)}
-                                className={`rounded-2xl border p-3 text-left transition-all ${active ? "border-orange-400/60 bg-[linear-gradient(145deg,rgba(249,115,22,0.18),rgba(12,12,12,0.96)_75%)] shadow-[0_0_24px_rgba(249,115,22,0.12)]" : "border-white/[0.09] bg-zinc-950/80 hover:border-white/20 hover:bg-zinc-900"}`}>
+                                className={`rounded-2xl border p-3 text-left transition-all ${active ? "border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.10),rgba(12,12,12,0.96)_75%)] shadow-[0_0_18px_rgba(255,255,255,0.12)]" : "border-white/[0.09] bg-zinc-950/80 hover:border-white/20 hover:bg-zinc-900"}`}>
                                 <span className="flex items-center justify-between gap-2">
                                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-white">{option.name}</span>
-                                  {active && <CheckCircle2 className="h-4 w-4 text-orange-300" />}
+                                  {active && <CheckCircle2 className="h-4 w-4 text-white" />}
                                 </span>
                                 <span className="mt-2 block text-2xl font-black leading-none text-white">{total}<span className="ml-1 text-[9px] font-semibold uppercase text-zinc-500">shots</span></span>
                                 <span className="mt-3 grid grid-cols-3 gap-1 border-t border-white/[0.08] pt-2 text-center">
@@ -1278,7 +1278,7 @@ export default function HubPage() {
                           setBaselineComplete(false);
                           setBaselinePickerOpen(false);
                           setBaselineLogging(true);
-                        }} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400" data-testid="button-start-onboarding-baseline">
+                        }} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(110deg,#ff7417_0%,#ff8c1e_58%,#ffad32_100%)] px-4 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[0_8px_24px_rgba(255,122,26,0.28)] transition hover:brightness-110 hover:shadow-[0_10px_30px_rgba(255,138,38,0.36)] active:brightness-95" data-testid="button-start-onboarding-baseline">
                           <Play className="h-4 w-4 fill-current" /> Start This Workout
                         </button>
                       </section>
