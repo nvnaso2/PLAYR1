@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,6 +51,7 @@ import {
   PLAYER_SETUP_SKILLS,
   PLAYER_SETUP_RANK_FIELDS,
   makeUniqueRankings,
+  type PlayerSetupSkillRankings,
 } from "@/lib/player-setup-answers";
 
 type WeeklyStatPoint = { date: string; minutes: number; sessions: number };
@@ -180,8 +182,11 @@ export default function HubPage() {
   const { user } = useAuth();
   const [location, navigate] = useLocation();
   const search = useSearch();
+  const previewPage = new URLSearchParams(search).get("page");
+  const dayTwoProfileStep = location.split("?")[0] === "/admin/onboarding-preview" && previewPage === "player-profile";
+  const dayTwoProfileOpen = dayTwoProfileStep;
   const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding"
-    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "day2"].includes(new URLSearchParams(search).get("page") || ""));
+    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2"].includes(previewPage || ""));
   const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
   const [baselinePickerOpen, setBaselinePickerOpen] = useState(false);
   const [baselineLogging, setBaselineLogging] = useState(false);
@@ -196,20 +201,40 @@ export default function HubPage() {
   const [previewDay, setPreviewDay] = useState(() => new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
   useEffect(() => {
     if (location.split("?")[0] === "/admin/onboarding-preview") {
-      setPreviewDay(new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
+      setPreviewDay(previewPage === "day2" ? 2 : 1);
     }
-  }, [location, search]);
-  const [dayTwoProfileOpen, setDayTwoProfileOpen] = useState(false);
+  }, [location, previewPage]);
+  const fitOnboardingHub = onboardingPreview && previewDay === 1 && !dayTwoProfileStep;
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
   const [dayTwoVideoOpen, setDayTwoVideoOpen] = useState(false);
   const [dayTwoSaving, setDayTwoSaving] = useState(false);
   const [dayTwoError, setDayTwoError] = useState("");
-  const [dayTwoAnswers, setDayTwoAnswers] = useState({
-    currentSituation: "",
-    primaryGoal: "",
-    positions: [] as string[],
-    skillRankings: makeUniqueRankings(),
-    experienceYears: "",
+  const [dayTwoAnswers, setDayTwoAnswers] = useState<{
+    currentSituation: string;
+    primaryGoal: string;
+    positions: string[];
+    skillRankings: PlayerSetupSkillRankings;
+    experienceYears: string;
+  }>(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("playr1-onboarding-day2-profile") || "{}");
+      const savedYears = String(saved.experienceYears ?? "");
+      return {
+        currentSituation: saved.currentSituation || "",
+        primaryGoal: saved.primaryGoal || "",
+        positions: Array.isArray(saved.positions) ? saved.positions : [],
+        skillRankings: makeUniqueRankings(saved.skillRankings),
+        experienceYears: /^\d{1,2}$/.test(savedYears) ? savedYears : savedYears.match(/\d{1,2}/)?.[0] ?? "",
+      };
+    } catch {
+      return {
+        currentSituation: "",
+        primaryGoal: "",
+        positions: [] as string[],
+        skillRankings: makeUniqueRankings(),
+        experienceYears: "",
+      };
+    }
   });
   const [baselineResults, setBaselineResults] = useState<Record<PreviewShotKey, string>>({
     threes: "", midrange: "", freeThrows: "",
@@ -408,7 +433,7 @@ export default function HubPage() {
       positions: dayTwoAnswers.positions,
       skillRankings: dayTwoAnswers.skillRankings,
       skillRoles: Object.values(dayTwoAnswers.skillRankings),
-      experienceYears: dayTwoAnswers.experienceYears,
+      experienceYears: Number(dayTwoAnswers.experienceYears),
     };
     try {
       if (onboardingPreview) {
@@ -418,7 +443,7 @@ export default function HubPage() {
         await queryClient.invalidateQueries({ queryKey: ["/api/player-setup"] });
         await queryClient.invalidateQueries({ queryKey: ["/api/career"] });
       }
-      setDayTwoProfileOpen(false);
+      if (dayTwoProfileStep) navigate("/admin/onboarding-preview?page=day2");
     } catch {
       setDayTwoError("We couldn't save your profile yet. Please try again.");
     } finally {
@@ -769,10 +794,14 @@ export default function HubPage() {
   );
 
   return (
-    <div className={onboardingPreview ? "min-h-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]" : "min-h-full bg-background pb-6"}>
+    <div className={fitOnboardingHub
+      ? "flex h-[100dvh] flex-col overflow-hidden bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+      : onboardingPreview
+        ? "min-h-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+        : "min-h-full bg-background pb-6"}>
       {/* Greeting Header */}
-      <div className="px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
-        {onboardingPreview && <OnboardingPreviewMenu page={previewDay === 2 ? "day2" : "hub"} showFeedback />}
+      <div className="shrink-0 px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
+        {onboardingPreview && <OnboardingPreviewMenu page={dayTwoProfileStep ? "player-profile" : previewDay === 2 ? "day2" : "hub"} showFeedback />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
@@ -857,7 +886,7 @@ export default function HubPage() {
             })()}
         </div>
         {onboardingPreview && (
-          <div className="mt-4" data-testid="onboarding-day-progress">
+          <div className="mt-2" data-testid="onboarding-day-progress">
               <div className="hidden">
               <div className="flex items-center justify-end gap-1.5 text-right">
                 <p className="text-[9px] font-semibold text-zinc-300">
@@ -983,7 +1012,7 @@ export default function HubPage() {
                   <button key={index} type="button" disabled={index > 1} onClick={() => {
                     const day = index + 1;
                     setPreviewDay(day);
-                    if (location.split("?")[0] === "/admin/onboarding-preview") navigate(`/admin/onboarding-preview?page=${day === 2 ? "day2" : "hub"}`);
+                    if (location.split("?")[0] === "/admin/onboarding-preview") navigate(`/admin/onboarding-preview?page=${day === 2 ? "player-profile" : "hub"}`);
                   }} aria-pressed={previewDay === index + 1} className="min-w-0 text-center disabled:cursor-default" aria-label={`Day ${index + 1}: ${date.toLocaleDateString()}`}>
                     <span className="block truncate text-[7px] font-semibold uppercase tracking-tight text-zinc-400 sm:text-[9px]">
                       {date.toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}
@@ -1052,7 +1081,7 @@ export default function HubPage() {
         )}
       </div>
 
-      <div className="px-4 space-y-5 mt-4">
+      <div className={fitOnboardingHub ? "min-h-0 flex-1 overflow-hidden px-4 mt-1" : "px-4 space-y-5 mt-4"}>
         {onboardingPreview ? (
           <>
             <div className={previewDay === 1 ? "space-y-2" : "hidden"} data-testid="card-day-one-mission">
@@ -1137,7 +1166,7 @@ export default function HubPage() {
             </div>
             */}
 
-                <section className="-mx-4 space-y-4 pb-2 pt-2" data-testid="hub-onboarding-baseline">
+                <section className="-mx-4 space-y-2 pb-1 pt-1" data-testid="hub-onboarding-baseline">
                     {(() => {
                       const series = [
                         { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, ceiling: 95, phase: 0.2 },
@@ -1187,7 +1216,7 @@ export default function HubPage() {
                       const currentScheduleIndex = Math.min(previewDay - 1, onboardingSchedule.length - 1);
                       return (
                         <>
-                          <div className="mb-4 flex items-center gap-3 px-4">
+                          <div className="mb-2 flex items-center gap-3 px-4">
                             <div className="flex w-full min-w-0 items-center gap-2">
                               <h3 className="min-w-0 flex-1 truncate font-heading text-lg font-black uppercase leading-tight tracking-wide text-white sm:text-2xl">Road to Elite Shooting</h3>
                               <button type="button" onClick={() => setBaselinePickerOpen(true)} className="ml-auto inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-3 text-[10px] font-black tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-4 sm:text-xs" data-testid="button-open-baseline-picker">
@@ -1203,7 +1232,7 @@ export default function HubPage() {
                                 <span className="h-2.5 w-2.5 rounded-full border border-white bg-white/20 shadow-[0_0_8px_rgba(255,255,255,0.5)]" />You are here
                               </span>
                             </div>
-                            <svg id="onboarding-projection-chart" viewBox="0 0 680 540" role="img" aria-label="Illustrative shooting baseline and monthly projection ranges for three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
+                            <svg id="onboarding-projection-chart" viewBox="0 0 680 540" role="img" aria-label="Illustrative shooting baseline and monthly projection ranges for three-point, mid-range, and free-throw percentages" className="block h-[40dvh] min-h-[300px] max-h-[390px] w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
                                   <feGaussianBlur stdDeviation="5" result="blur" />
@@ -1249,8 +1278,8 @@ export default function HubPage() {
                                 </g>;
                               })}
                           </svg>
-                          <div className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 text-[9px] font-semibold text-zinc-300 sm:text-[11px]" data-testid="onboarding-session-summary">
-                            <div className="flex items-center gap-2">
+                          <div className="mx-4 mt-2 flex min-w-0 flex-nowrap items-center justify-between gap-2 whitespace-nowrap text-[8px] font-semibold text-zinc-300 sm:text-[10px]" data-testid="onboarding-session-summary">
+                            <div className="flex shrink-0 items-center gap-1.5">
                               <span>{previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? 1} {previewProfile.frequencyUnit === "month" ? "per month" : "per week"}{previewProfile.sessionLength ? ` · ${previewProfile.sessionLength} min sessions` : ""}</span>
                               <Dialog open={trainingPlanOpen} onOpenChange={setTrainingPlanOpen}>
                                 <DialogTrigger asChild>
@@ -1304,9 +1333,9 @@ export default function HubPage() {
                             </div>
                             <Dialog open={nextSessionOpen} onOpenChange={setNextSessionOpen}>
                               <DialogTrigger asChild>
-                                <button type="button" aria-label="Edit next session date and time" className="inline-flex items-center gap-1.5 rounded-md py-1 text-left text-orange-200 transition hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+                                <button type="button" aria-label="Edit next session date and time" className="inline-flex min-w-0 flex-1 items-center justify-end gap-1 rounded-md py-1 text-right text-orange-200 transition hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
                                   <CalendarDays className="h-3 w-3 shrink-0" />
-                                  <span>Next session · {onboardingSchedule[Math.min(previewDay - 1, onboardingSchedule.length - 1)].toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                                  <span className="min-w-0 truncate">Next session · {onboardingSchedule[Math.min(previewDay - 1, onboardingSchedule.length - 1)].toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                                   <Pencil className="h-3 w-3 shrink-0" />
                                 </button>
                               </DialogTrigger>
@@ -1345,7 +1374,7 @@ export default function HubPage() {
                               </DialogContent>
                             </Dialog>
                           </div>
-                          <div className="mx-4 mt-3 grid grid-cols-3 gap-2" role="group" aria-label="Filter shooting projection by shot type">
+                          <div className="mx-4 mt-2 grid grid-cols-3 gap-2" role="group" aria-label="Filter shooting projection by shot type">
                             {series.map((line) => {
                               const active = activeProjectionType === line.key;
                               const yearLow = Math.floor(line.lowValues[12]);
@@ -1356,7 +1385,7 @@ export default function HubPage() {
                                 aria-pressed={active}
                                 aria-label={active ? "Show all shot types" : `Show only ${line.label} projection`}
                                 onClick={() => setActiveProjectionType((current) => current === line.key ? null : line.key)}
-                                className={`group relative flex min-h-[78px] min-w-0 flex-col justify-center gap-2 overflow-hidden rounded-xl border px-2.5 py-2 text-left transition-all sm:min-h-[82px] sm:px-3 ${
+                                className={`group relative flex min-h-[68px] min-w-0 flex-col justify-center gap-1.5 overflow-hidden rounded-xl border px-2 py-1.5 text-left transition-all sm:min-h-[82px] sm:px-3 ${
                                   active
                                     ? "border-white/35 ring-1 ring-white/15 shadow-[0_0_16px_rgba(255,255,255,0.1)]"
                                     : activeProjectionType
@@ -1498,29 +1527,23 @@ export default function HubPage() {
                 </section>
             </div>
 
+            {previewDay === 1 && baselineComplete && (
+              <div className="mx-4 mt-2 flex items-center justify-between gap-2 rounded-xl border border-orange-400/20 bg-orange-500/[0.04] px-3 py-2">
+                <p className="min-w-0 truncate text-[8px] font-bold uppercase tracking-wide text-orange-200">Day 1 complete · Next: your profile</p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin/onboarding-preview?page=player-profile")}
+                  className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1 rounded-full bg-orange-500 px-3 text-[8px] font-black uppercase tracking-wide text-black transition hover:bg-orange-400"
+                  data-testid="button-continue-to-player-profile"
+                >
+                  Continue <ChevronRight className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
             {previewDay === 2 && (
               <section className="space-y-5 pb-4" data-testid="card-day-two-mission">
-                <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="font-heading text-xl font-black uppercase text-white sm:text-2xl">Find Your Shooting Range</h2>
-                  <button type="button" onClick={() => {
-                    let saved: Record<string, any> = {};
-                    if (onboardingPreview) {
-                      try { saved = JSON.parse(sessionStorage.getItem("playr1-onboarding-day2-profile") || "{}"); } catch {}
-                    }
-                    const source = { ...setupData?.answers, ...saved };
-                    setDayTwoAnswers({
-                      currentSituation: source.currentSituation || "",
-                      primaryGoal: source.primaryGoal || "",
-                      positions: Array.isArray(source.positions) ? source.positions : [],
-                      skillRankings: makeUniqueRankings(source.skillRankings),
-                      experienceYears: source.experienceYears === undefined ? "" : String(source.experienceYears),
-                    });
-                    setDayTwoError("");
-                    setDayTwoProfileOpen(true);
-                  }} className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border border-white/20 bg-white/[0.06] px-3 text-[9px] font-black uppercase tracking-wide text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-lg transition hover:border-orange-300/50 hover:bg-orange-500/10">
-                    <Pencil className="h-3.5 w-3.5 text-orange-300" /> Complete profile
-                  </button>
-                </div>
+                <h2 className="font-heading text-xl font-black uppercase text-white sm:text-2xl">Find Your Shooting Range</h2>
                 <article className="overflow-hidden rounded-[1.35rem] border border-zinc-300 bg-[#f6f6f4] text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.35)]" data-testid="day-two-range-workout-card">
                   <div className="relative overflow-hidden px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
                     <div className="pointer-events-none absolute inset-0 opacity-50" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
@@ -1645,16 +1668,65 @@ export default function HubPage() {
             )}
 
             {dayTwoProfileOpen && (
-              <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/80 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setDayTwoProfileOpen(false)}>
-                <section role="dialog" aria-modal="true" aria-labelledby="day-two-profile-title" className="max-h-[90dvh] w-full max-w-xl space-y-4 overflow-y-auto rounded-t-3xl border border-orange-400/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
-                  <div className="flex items-center justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Player profile</p><h3 id="day-two-profile-title" className="mt-1 font-heading text-lg font-black uppercase text-white">Tell us more about your game</h3></div><button type="button" onClick={() => setDayTwoProfileOpen(false)} aria-label="Close profile questions" className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-white"><X className="h-4 w-4" /></button></div>
-                  <label className="block space-y-1.5"><span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Basketball situation</span><Select value={dayTwoAnswers.currentSituation} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, currentSituation: value }))}><SelectTrigger className="h-11 border-white/10 bg-black text-white"><SelectValue placeholder="Select your situation" /></SelectTrigger><SelectContent className="border-orange-500/30 bg-[#111] text-white">{PLAYER_SETUP_SITUATIONS.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></label>
-                  <label className="block space-y-1.5"><span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Primary goal</span><Select value={dayTwoAnswers.primaryGoal} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, primaryGoal: value }))}><SelectTrigger className="h-11 border-white/10 bg-black text-white"><SelectValue placeholder="Select your goal" /></SelectTrigger><SelectContent className="border-orange-500/30 bg-[#111] text-white">{PLAYER_SETUP_GOALS.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></label>
-                  <fieldset><legend className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Positions</legend><div className="grid grid-cols-5 gap-2">{["PG", "SG", "SF", "PF", "C"].map((position) => <button key={position} type="button" aria-pressed={dayTwoAnswers.positions.includes(position)} onClick={() => setDayTwoAnswers((current) => ({ ...current, positions: current.positions.includes(position) ? current.positions.filter((item) => item !== position) : [...current.positions, position] }))} className={`h-10 rounded-lg border text-xs font-black ${dayTwoAnswers.positions.includes(position) ? "border-orange-400 bg-orange-500/15 text-orange-200" : "border-white/10 bg-black text-zinc-400"}`}>{position}</button>)}</div></fieldset>
-                  <div className="space-y-2"><p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Rank your skills</p>{PLAYER_SETUP_RANK_FIELDS.map((field) => <label key={field.key} className="grid grid-cols-[7rem_1fr] items-center gap-2"><span className="text-[10px] text-zinc-400">{field.label}</span><Select value={dayTwoAnswers.skillRankings[field.key]} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, skillRankings: { ...current.skillRankings, [field.key]: value } }))}><SelectTrigger className="h-10 border-white/10 bg-black text-xs text-white"><SelectValue placeholder="Choose skill" /></SelectTrigger><SelectContent className="border-orange-500/30 bg-[#111] text-white">{PLAYER_SETUP_SKILLS.map((skill) => <SelectItem key={skill} value={skill} disabled={Object.entries(dayTwoAnswers.skillRankings).some(([key, value]) => key !== field.key && value === skill)}>{skill}</SelectItem>)}</SelectContent></Select></label>)}</div>
-                  <label className="block space-y-1.5"><span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Years played</span><Select value={dayTwoAnswers.experienceYears} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, experienceYears: value }))}><SelectTrigger className="h-11 border-white/10 bg-black text-white"><SelectValue placeholder="Choose years played" /></SelectTrigger><SelectContent className="border-orange-500/30 bg-[#111] text-white">{["0", "1 to 3", "4 to 6", "7 to 10", "10+"].map((value) => <SelectItem key={value} value={value}>{value === "0" ? "Less than 1 year" : `${value} years`}</SelectItem>)}</SelectContent></Select></label>
-                  {dayTwoError && <p role="alert" className="text-xs text-red-300">{dayTwoError}</p>}
-                  <button type="button" onClick={saveDayTwoProfile} disabled={dayTwoSaving || !dayTwoAnswers.currentSituation || !dayTwoAnswers.primaryGoal || !dayTwoAnswers.positions.length || !dayTwoAnswers.experienceYears || new Set(Object.values(dayTwoAnswers.skillRankings)).size !== 4} className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-50">{dayTwoSaving ? "Saving..." : "Save Profile"}</button>
+              <div className="fixed inset-0 z-[65] overflow-hidden bg-black text-[#f5f2eb]">
+                <section aria-labelledby="day-two-profile-title" className="mx-auto h-full w-full max-w-[400px] overflow-hidden px-5 pb-3 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]">
+                  <img src={logoLandscape} alt="PLAYR1" className="mx-auto mb-5 h-10 w-[170px] max-w-[72%] object-contain object-center mix-blend-screen" />
+                  <h1 id="day-two-profile-title" className="font-heading text-2xl font-bold uppercase leading-tight tracking-wide">Player Profile</h1>
+
+                  <div className="mt-5 space-y-3">
+                    <label className="grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">
+                      Basketball situation
+                      <Select value={dayTwoAnswers.currentSituation} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, currentSituation: value }))}>
+                        <SelectTrigger className="auth-pill-input h-[50px] px-4 text-sm text-[#f5f2eb] focus:ring-0 focus:ring-offset-0"><SelectValue placeholder="Select your situation" /></SelectTrigger>
+                        <SelectContent position="popper" className="z-[100] border-orange-500/30 bg-[#111] text-zinc-100">{PLAYER_SETUP_SITUATIONS.map((value) => <SelectItem key={value} value={value} className="focus:bg-orange-500/15 focus:text-white">{value}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </label>
+
+                    <label className="grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">
+                      Primary goal
+                      <Select value={dayTwoAnswers.primaryGoal} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, primaryGoal: value }))}>
+                        <SelectTrigger className="auth-pill-input h-[50px] px-4 text-sm text-[#f5f2eb] focus:ring-0 focus:ring-offset-0"><SelectValue placeholder="Select your goal" /></SelectTrigger>
+                        <SelectContent position="popper" className="z-[100] border-orange-500/30 bg-[#111] text-zinc-100">{PLAYER_SETUP_GOALS.map((value) => <SelectItem key={value} value={value} className="focus:bg-orange-500/15 focus:text-white">{value}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </label>
+
+                    <fieldset>
+                      <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">Positions</legend>
+                      <div className="grid grid-cols-5 gap-2">
+                        {["PG", "SG", "SF", "PF", "C"].map((position) => (
+                          <button key={position} type="button" aria-pressed={dayTwoAnswers.positions.includes(position)} onClick={() => setDayTwoAnswers((current) => ({ ...current, positions: current.positions.includes(position) ? current.positions.filter((item) => item !== position) : [...current.positions, position] }))} className={`h-[42px] rounded-full border text-[11px] font-black transition ${dayTwoAnswers.positions.includes(position) ? "border-orange-300 bg-orange-500/15 text-orange-200 shadow-[0_0_14px_rgba(249,115,22,0.15)]" : "border-white/15 bg-[#090909] text-zinc-400 hover:border-orange-300/50"}`}>
+                            {position}
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+
+                    <fieldset>
+                      <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">Rank your skills</legend>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                        {PLAYER_SETUP_RANK_FIELDS.map((field) => (
+                          <label key={field.key} className="grid min-w-0 gap-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                            {field.label}
+                            <Select value={dayTwoAnswers.skillRankings[field.key]} onValueChange={(value) => setDayTwoAnswers((current) => ({ ...current, skillRankings: { ...current.skillRankings, [field.key]: value } }))}>
+                              <SelectTrigger className="auth-pill-input h-[44px] min-w-0 px-2.5 text-[11px] normal-case tracking-normal text-[#f5f2eb] focus:ring-0 focus:ring-offset-0"><SelectValue placeholder="Choose skill" /></SelectTrigger>
+                              <SelectContent position="popper" className="z-[100] border-orange-500/30 bg-[#111] text-zinc-100">{PLAYER_SETUP_SKILLS.map((skill) => <SelectItem key={skill} value={skill} disabled={Object.entries(dayTwoAnswers.skillRankings).some(([key, value]) => key !== field.key && value === skill)} className="focus:bg-orange-500/15 focus:text-white">{skill}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+
+                    <label className="grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">
+                      Years played
+                      <input type="number" inputMode="numeric" min={0} max={99} step={1} value={dayTwoAnswers.experienceYears} onChange={(event) => {
+                        const experienceYears = event.currentTarget.value.replace(/\D/g, "").slice(0, 2);
+                        setDayTwoAnswers((current) => ({ ...current, experienceYears }));
+                      }} placeholder="0" className="auth-pill-input h-[50px] min-w-0 px-4 text-sm text-[#f5f2eb] placeholder:text-[#88837e] outline-none focus-visible:ring-0 focus-visible:ring-offset-0" data-testid="input-years-played" />
+                    </label>
+
+                    {dayTwoError && <p role="alert" className="text-xs text-red-300">{dayTwoError}</p>}
+                    <button type="button" onClick={saveDayTwoProfile} disabled={dayTwoSaving || !dayTwoAnswers.currentSituation || !dayTwoAnswers.primaryGoal || !dayTwoAnswers.positions.length || dayTwoAnswers.experienceYears === "" || new Set(Object.values(dayTwoAnswers.skillRankings)).size !== 4} className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-5 text-xs font-black uppercase tracking-wide text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400 disabled:opacity-50">{dayTwoSaving ? "Saving..." : "Continue"} <ChevronRight className="h-4 w-4" /></button>
+                  </div>
                 </section>
               </div>
             )}
@@ -1889,7 +1961,7 @@ export default function HubPage() {
           </>
         )}
       </div>
-      {onboardingPreview && (
+      {onboardingPreview && !dayTwoProfileStep && (
         <div className="fixed inset-x-0 bottom-0 z-[60]">
           <BottomTabBar previewMode />
         </div>
