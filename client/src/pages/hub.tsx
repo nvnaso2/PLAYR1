@@ -1187,20 +1187,24 @@ export default function HubPage() {
                                 ))}
                               </defs>
                               <rect width="680" height="280" fill="url(#shot-chart-wash)" />
-                              {[20, 40, 60, 80, 100].map((tick) => {
+                              {Array.from({ length: 9 }, (_, index) => 20 + index * 10).map((tick) => {
                                 const y = yAt(tick);
+                                const majorTick = tick % 20 === 0;
                                 return <g key={tick}>
-                                  <line x1="56" x2="666" y1={y} y2={y} stroke={tick === 20 ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.24)"} strokeDasharray={tick === 20 ? undefined : "4 7"} />
+                                  {tick !== 20 && <line x1="56" x2="666" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.055)"} strokeDasharray="3 8" />}
                                   <text x="46" y={y + 4} textAnchor="end" fill="#a1a7ae" fontSize="10" fontWeight="500">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
                                 <g key={month}>
-                                  <line x1={xAt(month)} x2={xAt(month)} y1="22" y2="242" stroke="rgba(255,255,255,0.16)" strokeDasharray="3 7" />
                                   <text x={xAt(month)} y="270" textAnchor="middle" fill="#929ba5" fontSize="11">{month === 0 ? "NOW" : `M${month}`}</text>
                                 </g>
                               ))}
-                              <rect x="56" y="22" width="610" height="220" rx="5" fill="none" stroke="rgba(255,255,255,0.34)" strokeWidth="1.25" />
+                              {[3, 6, 9].map((month) => (
+                                <line key={`month-grid-${month}`} x1={xAt(month)} x2={xAt(month)} y1="22" y2="242" stroke="rgba(255,255,255,0.055)" strokeDasharray="3 8" />
+                              ))}
+                              <line x1="56" x2="56" y1="22" y2="242" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
+                              <line x1="56" x2="666" y1="242" y2="242" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
                               {series.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
@@ -1212,9 +1216,6 @@ export default function HubPage() {
                                   {line.values.map((value, index) => (
                                     <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 4.5 : 2.5} fill={index === 12 ? line.color : "#101216"} stroke={line.color} strokeWidth={index === 12 ? 2 : 1.4} />
                                   ))}
-                                  <line x1={xAt(12)} y1={yAt(line.values[12]) - 4} x2="670" y2={yAt(line.values[12]) - 4} stroke={line.color} strokeWidth="1.5" opacity="0.8" />
-                                  <rect x="622" y={yAt(line.values[12]) - 22} width="48" height="18" rx="8" fill="#101216" stroke={line.color} strokeOpacity="0.9" />
-                                  <text x="646" y={yAt(line.values[12]) - 9} textAnchor="middle" fill={line.color} fontSize="11" fontWeight="800">{line.values[12]}%</text>
                                 </g>;
                               })}
                           </svg>
