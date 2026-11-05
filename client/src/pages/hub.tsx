@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
-import dayTwoCourtImage from "@assets/day2-shooting-court.png";
+import dayTwoCourtImage from "@/assets/day2-shooting-court.png";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
