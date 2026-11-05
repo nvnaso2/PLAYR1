@@ -1064,7 +1064,15 @@ export default function CoachPPage() {
       });
     } else if (prompt) {
       startNewConversation();
-      setDraft(prompt);
+      const starterPrompt = STARTER_PROMPTS.find((starter) => starter.prompt === prompt);
+      if (!starterPrompt) {
+        setDraft(prompt);
+      } else if (starterPrompt.workoutBuilder) {
+        setWorkoutBuilderMode(true);
+        sendMessage(prompt, { workoutBuilder: true, displayContent: starterPrompt.label });
+      } else {
+        sendMessage(prompt, { displayContent: starterPrompt.label });
+      }
     }
   }, [search]);
 

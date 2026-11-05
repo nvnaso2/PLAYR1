@@ -2,12 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
+import dayTwoCourtImage from "@assets/day2-shooting-court.png";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DrillCard } from "@/components/drill-card";
+import { CoachPIcon } from "@/components/coach-p-icon";
 import { apiRequest, getObjectUrl, nativeFetch, queryClient, statsUrl } from "@/lib/queryClient";
 import {
   HUB_STAT_DEFINITIONS,
@@ -45,6 +47,7 @@ import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations
 import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
+import { STARTER_PROMPTS } from "@/lib/coach-p-starter-prompts";
 import {
   PLAYER_SETUP_GOALS,
   PLAYER_SETUP_SITUATIONS,
@@ -185,6 +188,38 @@ function MiniCourtRange({ index }: { index: number }) {
       ))}
       {index === 0 && <path d="M150 126V36" stroke="#c2410c" strokeWidth="2" strokeDasharray="3 5" />}
     </svg>
+  );
+}
+
+function ShootingRangeCourt() {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-white p-2 shadow-[0_6px_22px_rgba(0,0,0,.12)] sm:p-3">
+      <img
+        src={dayTwoCourtImage}
+        alt="Half-court shooting range graphic from the original workout reference"
+        className="block h-auto w-full"
+      />
+      <svg
+        viewBox="0 0 536 224"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="Shooting range marks: 6 college three-point line, 7 NBA three-point line, 8 deep logo range"
+        className="pointer-events-none absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)] sm:inset-3 sm:h-[calc(100%-1.5rem)] sm:w-[calc(100%-1.5rem)]"
+      >
+        <path d="M115 157 Q268 -47 421 157" fill="none" stroke="#737373" strokeWidth="2" strokeDasharray="5 5" opacity=".55" />
+        <path d="M98 157 Q268 -65 438 157" fill="none" stroke="#737373" strokeWidth="2" strokeDasharray="5 5" opacity=".4" />
+        {[
+          { number: "6", x: 336, y: 75 },
+          { number: "7", x: 370, y: 91 },
+          { number: "8", x: 340, y: 32 },
+        ].map(({ number, x, y }) => (
+          <g key={number}>
+            <circle cx={x} cy={y} r="8" fill="white" stroke="#f97316" strokeWidth="2.5" />
+            <text x={x} y={y + 3} textAnchor="middle" fontSize="8" fontWeight="900" fill="#111">{number}</text>
+          </g>
+        ))}
+      </svg>
+    </div>
   );
 }
 
@@ -1552,47 +1587,49 @@ export default function HubPage() {
 
             {previewDay === 2 && (
               <section className="mx-auto w-full max-w-2xl space-y-4 pb-5 pt-2 sm:space-y-5" data-testid="card-day-two-mission">
-                <article className="relative overflow-hidden rounded-2xl border border-orange-400/20 bg-[#111211] px-3.5 py-3 text-white shadow-[0_12px_32px_rgba(0,0,0,0.25)] sm:px-4" data-testid="day-two-coach-introduction">
-                  <div className="pointer-events-none absolute -right-10 -top-16 h-36 w-36 rounded-full border border-orange-400/10" />
-                  <div className="relative flex items-center gap-3">
-                    <div className="relative flex h-[58px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-orange-300/60 bg-[radial-gradient(circle_at_35%_24%,#ffbb71,#f67822_68%,#9a3b11)] shadow-[0_5px_18px_rgba(249,115,22,0.2)]" role="img" aria-label="Coach P, your basketball coach">
-                      <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden="true">
-                        <path d="M10 24a22 22 0 0 1 44 0H10Z" fill="#231b16" />
-                        <path d="M14 24h36c-1 13-6 21-18 21S15 37 14 24Z" fill="#e6a77b" />
-                        <path d="M14 22c2-12 10-17 19-17 10 0 17 6 18 17-8-4-25-5-37 0Z" fill="#38251d" />
-                        <path d="M11 24h42" stroke="#f5d2b4" strokeWidth="3" strokeLinecap="round" />
-                        <circle cx="25" cy="30" r="1.5" fill="#30221d" />
-                        <circle cx="39" cy="30" r="1.5" fill="#30221d" />
-                        <path d="M27 37q5 4 10 0" fill="none" stroke="#9d5141" strokeWidth="1.8" strokeLinecap="round" />
-                        <path d="M12 64c1-12 8-18 20-18s19 6 20 18" fill="#26343a" />
-                        <path d="M26 48l6 7 6-7" fill="#f3eee5" />
-                      </svg>
-                      <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-[#111211] bg-orange-400 text-[8px] font-black leading-none text-zinc-950">P</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-heading text-lg font-black leading-none sm:text-xl">Talk to Coach P</h3>
-                        <div className="flex h-8 shrink-0 items-center gap-[3px] rounded-full border border-orange-400/20 bg-black/40 px-2.5" aria-label="Coach P voice message">
-                          {[8, 14, 10, 19, 12, 16, 7].map((height, index) => (
-                            <span
-                              key={index}
-                              className="w-[2px] rounded-full bg-orange-300 animate-pulse"
-                              style={{ height, animationDelay: `${index * 110}ms`, animationDuration: "900ms" }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="mt-1.5 text-[11px] leading-snug text-zinc-400 sm:text-xs">Your shooting coach is ready to help you find your range.</p>
-                      <button type="button" onClick={() => navigate("/coach-p?welcomeWorkout=1")} className="mt-2.5 inline-flex min-h-8 items-center gap-1.5 rounded-full bg-orange-400 px-3.5 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-950 transition hover:bg-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111211]" data-testid="button-open-day-two-coach">
-                        Start a chat <ChevronRight className="h-3.5 w-3.5" />
+                <article className="relative flex min-h-[42dvh] flex-col justify-center px-1 py-4 text-white sm:px-2 sm:py-5" data-testid="day-two-coach-introduction">
+                  <div className="mb-4 flex items-center justify-center gap-3">
+                    <CoachPIcon size="lg" />
+                    <h3 className="font-heading text-2xl font-black tracking-wide sm:text-3xl">Talk to Coach P</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {STARTER_PROMPTS.map(({ label, prompt, icon: Icon }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => navigate(`/coach-p?prompt=${encodeURIComponent(prompt)}`)}
+                        className="flex min-h-10 w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                        data-testid={`button-day-two-coach-prompt-${label.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
+                        <Icon className={`h-4 w-4 shrink-0 ${label === "Build my next workout" ? "text-orange-400" : "text-zinc-500"}`} />
+                        <span className="min-w-0 flex-1 text-xs text-zinc-200 sm:text-sm">{label}</span>
+                        <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-zinc-600" />
                       </button>
-                    </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/coach-p")}
+                    className="mt-4 flex min-h-12 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    data-testid="button-open-day-two-coach"
+                  >
+                    <span className="min-w-0 flex-1 text-sm text-zinc-500">Ask Coach P anything about your game...</span>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)]"><ArrowUp className="h-4 w-4" /></span>
+                  </button>
+                  <div className="pointer-events-none absolute right-5 top-5 flex h-7 items-center gap-[3px] opacity-70" aria-hidden="true">
+                    {[8, 14, 10, 19, 12, 16, 7].map((height, index) => (
+                      <span
+                        key={index}
+                        className="coach-voice-bar w-[2px] rounded-full bg-orange-300"
+                        style={{ height, animationDelay: `${index * 120}ms` }}
+                      />
+                    ))}
                   </div>
                 </article>
 
                 <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group block w-full overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-two-workout">
                   <span className="relative block overflow-hidden px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
-                    <span className="pointer-events-none absolute inset-0 opacity-50" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
+                    <span className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), repeating-linear-gradient(135deg, transparent 0 54px, rgba(0,0,0,.018) 55px 56px, transparent 57px 96px), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
                     <span className="relative flex items-start justify-between gap-3 border-b-[3px] border-black pb-2">
                       <span className="min-w-0">
                         <span className="block font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#2</span></span>
@@ -1601,37 +1638,12 @@ export default function HubPage() {
                       </span>
                       <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm"><Dumbbell className="h-5 w-5" /></span>
                     </span>
-                    <span className="relative mt-3 block overflow-hidden rounded-xl border border-zinc-200 bg-white p-2 shadow-[0_3px_12px_rgba(0,0,0,.08)] sm:p-3">
-                      <svg viewBox="0 0 600 220" role="img" aria-label="Basketball court showing the shooting range extending from the basket toward the perimeter" className="h-auto w-full">
-                        <rect x="6" y="6" width="588" height="208" fill="#fbfbfa" stroke="#111" strokeWidth="5" />
-                        <path d="M160 214V136Q300 15 440 136V214M214 214V151H386V214M245 151V130H355V151M278 214V197a22 22 0 0 1 44 0v17M270 197a30 30 0 0 0 60 0M281 166a19 19 0 0 0 38 0" fill="none" stroke="#171717" strokeWidth="3" />
-                        <path d="M160 136Q300 15 440 136" fill="none" stroke="#a8a8a8" strokeWidth="2" strokeDasharray="6 6" />
-                        <path d="M245 151Q300 183 355 151" fill="none" stroke="#555" strokeWidth="2" strokeDasharray="5 5" />
-                        <path d="M300 194V43" stroke="#c2410c" strokeWidth="2.5" strokeDasharray="4 6" />
-                        {[
-                          { y: 187, n: "1", r: 12 },
-                          { y: 158, n: "2", r: 13 },
-                          { y: 127, n: "3", r: 14 },
-                          { y: 94, n: "4", r: 15 },
-                          { y: 60, n: "5", r: 16 },
-                        ].map((spot) => (
-                          <g key={spot.n} className="origin-center animate-pulse">
-                            <circle cx="300" cy={spot.y} r={spot.r + 6} fill="#f97316" fillOpacity=".12" />
-                            <circle cx="300" cy={spot.y} r={spot.r} fill="white" stroke="#c2410c" strokeWidth="3" />
-                            <text x="300" y={spot.y + 4} textAnchor="middle" fontSize="12" fontWeight="900" fill="#111">{spot.n}</text>
-                          </g>
-                        ))}
-                        <text x="300" y="32" textAnchor="middle" fontSize="11" fontWeight="800" letterSpacing="2" fill="#555">RANGE EXTENDS</text>
-                        <text x="32" y="202" fontSize="10" fontWeight="800" fill="#555">START</text>
-                        <text x="476" y="30" fontSize="10" fontWeight="800" fill="#555">GAME RANGE</text>
-                    </svg>
-                    <span className="mt-1 flex items-center justify-between px-1 text-[8px] font-black uppercase tracking-[0.14em] text-zinc-500 sm:text-[9px]">
-                      <span>Start close</span><span>Build your range</span><span>Step back</span>
-                    </span>
-                    </span>
-                    <span className="relative flex min-h-12 items-center justify-between gap-3 border-t border-zinc-200 bg-white px-4 text-left">
-                      <span><span className="block text-xs font-black uppercase tracking-[0.12em]">Explore the workout</span><span className="mt-0.5 block text-[9px] text-zinc-500">6 drills · 125 shots plus bonus work</span></span>
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-800 transition group-hover:translate-x-1"><ChevronRight className="h-4 w-4" /></span>
+                    <div className="mt-3">
+                      <ShootingRangeCourt />
+                    </div>
+                    <span className="relative mt-3 flex min-h-12 items-center justify-between gap-3 rounded-xl bg-black px-4 py-2.5 text-left text-white transition group-hover:bg-zinc-900">
+                      <span><span className="block text-xs font-black uppercase tracking-[0.12em]">Preview the workout</span><span className="mt-0.5 block text-[9px] text-zinc-400">6 drills · 125 shots plus bonus work</span></span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-orange-400 transition group-hover:translate-x-1"><ChevronRight className="h-5 w-5" /></span>
                     </span>
                   </span>
                 </button>
@@ -1649,18 +1661,8 @@ export default function HubPage() {
                     </div>
                     <button type="button" onClick={() => setDayTwoWorkoutOpen(false)} aria-label="Close workout preview" className="rounded-full border border-zinc-300 bg-white p-2 text-zinc-500 hover:text-black"><X className="h-4 w-4" /></button>
                   </div>
-                  <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white p-2 shadow-[0_3px_12px_rgba(0,0,0,.07)] sm:p-3">
-                    <svg viewBox="0 0 600 220" role="img" aria-label="Workout range map from the basket to the three-point arc" className="h-auto w-full">
-                      <rect x="6" y="6" width="588" height="208" fill="#fbfbfa" stroke="#111" strokeWidth="5" />
-                      <path d="M160 214V136Q300 15 440 136V214M214 214V151H386V214M245 151V130H355V151M278 214V197a22 22 0 0 1 44 0v17M270 197a30 30 0 0 0 60 0M281 166a19 19 0 0 0 38 0" fill="none" stroke="#171717" strokeWidth="3" />
-                      <path d="M160 136Q300 15 440 136" fill="none" stroke="#a8a8a8" strokeWidth="2" strokeDasharray="6 6" />
-                      <path d="M245 151Q300 183 355 151" fill="none" stroke="#555" strokeWidth="2" strokeDasharray="5 5" />
-                      <path d="M300 194V43" stroke="#c2410c" strokeWidth="2.5" strokeDasharray="4 6" />
-                      {[{ y: 187, n: "1", r: 12 }, { y: 158, n: "2", r: 13 }, { y: 127, n: "3", r: 14 }, { y: 94, n: "4", r: 15 }, { y: 60, n: "5", r: 16 }].map((spot) => (
-                        <g key={spot.n}><circle cx="300" cy={spot.y} r={spot.r + 6} fill="#f97316" fillOpacity=".12" /><circle cx="300" cy={spot.y} r={spot.r} fill="white" stroke="#c2410c" strokeWidth="3" /><text x="300" y={spot.y + 4} textAnchor="middle" fontSize="12" fontWeight="900" fill="#111">{spot.n}</text></g>
-                      ))}
-                    </svg>
-                    <div className="mt-1 flex items-center justify-between px-1 text-[8px] font-black uppercase tracking-[0.14em] text-zinc-500 sm:text-[9px]"><span>Start close</span><span>Build your range</span><span>Step back</span></div>
+                  <div className="mt-4">
+                    <ShootingRangeCourt />
                   </div>
                   <div className="mt-4 space-y-2">
                     {dayTwoWorkoutQuery.isLoading && <div className="space-y-2 py-2" aria-label="Loading workout details">{[0, 1, 2].map((item) => <Skeleton key={item} className="h-24 rounded-xl bg-zinc-200" />)}</div>}
