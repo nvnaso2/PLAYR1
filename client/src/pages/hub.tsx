@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DrillCard } from "@/components/drill-card";
 import { apiRequest, getObjectUrl, nativeFetch, queryClient, statsUrl } from "@/lib/queryClient";
 import {
@@ -187,6 +188,10 @@ export default function HubPage() {
   const [activeProjectionType, setActiveProjectionType] = useState<PreviewShotKey | null>(null);
   const [scheduleEditing, setScheduleEditing] = useState(false);
   const [scheduleCalendarIndex, setScheduleCalendarIndex] = useState(0);
+  const [trainingCalendarOpen, setTrainingCalendarOpen] = useState(false);
+  const [scheduleDatePickerOpen, setScheduleDatePickerOpen] = useState(false);
+  const [trainingPlanOpen, setTrainingPlanOpen] = useState(false);
+  const [nextSessionOpen, setNextSessionOpen] = useState(false);
   const [previewDay, setPreviewDay] = useState(() => new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
   useEffect(() => {
     if (location.split("?")[0] === "/admin/onboarding-preview") {
@@ -991,25 +996,31 @@ export default function HubPage() {
                   </button>
                 ))}
               </div>
-              <Popover>
-                <PopoverTrigger asChild>
+              <Dialog open={trainingCalendarOpen} onOpenChange={(open) => {
+                setTrainingCalendarOpen(open);
+                if (!open) setScheduleDatePickerOpen(false);
+              }}>
+                <DialogTrigger asChild>
                   <button type="button" aria-label="Open your training calendar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/[0.05] hover:text-orange-300">
                     <CalendarDays className="h-4 w-4" />
                   </button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="max-h-[min(82dvh,700px)] w-[min(340px,calc(100vw-24px))] overflow-y-auto border-orange-400/20 bg-[#101010] p-3 text-white shadow-2xl">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Your training calendar</p>
+                </DialogTrigger>
+                <DialogContent className="max-h-[88dvh] w-[calc(100vw-24px)] max-w-[390px] gap-0 overflow-y-auto rounded-2xl border border-orange-400/20 bg-[#101010] p-4 text-white shadow-2xl">
+                  <DialogTitle className="pr-8 text-[11px] font-black uppercase tracking-[0.18em] text-orange-300">Your training calendar</DialogTitle>
                   <p className="mt-1 text-[10px] text-zinc-500">Select a session, then choose its date and time.</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 space-y-1.5">
                     {onboardingSchedule.map((date, index) => (
-                      <button key={index} type="button" onClick={() => setScheduleCalendarIndex(index)} aria-pressed={scheduleCalendarIndex === index} className={`min-w-0 rounded-lg border px-2.5 py-2 text-left transition ${scheduleCalendarIndex === index ? "border-orange-400/50 bg-orange-500/10" : "border-white/[0.06] bg-white/[0.03] hover:border-white/15"}`}>
-                        <span className={`block text-[9px] font-bold ${scheduleCalendarIndex === index ? "text-orange-200" : "text-zinc-400"}`}>Session {index + 1}</span>
-                        <span className="mt-0.5 block truncate text-[9px] text-zinc-300">{date.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                      <button key={index} type="button" onClick={() => {
+                        setScheduleCalendarIndex(index);
+                        setScheduleDatePickerOpen(true);
+                      }} aria-pressed={scheduleCalendarIndex === index} className={`flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition ${scheduleCalendarIndex === index ? "border-orange-400/50 bg-orange-500/10" : "border-white/[0.06] bg-white/[0.03] hover:border-white/15"}`}>
+                        <span className={`shrink-0 text-[10px] font-bold ${scheduleCalendarIndex === index ? "text-orange-200" : "text-zinc-400"}`}>Session {index + 1}</span>
+                        <span className="min-w-0 truncate text-right text-[10px] text-zinc-300">{date.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                       </button>
                     ))}
                   </div>
-                  <div className="mt-3 rounded-xl border border-white/10 bg-black/40 p-2">
-                    <p className="px-2 pt-1 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-300">Session {scheduleCalendarIndex + 1}</p>
+                  {scheduleDatePickerOpen && <div className="mt-3 rounded-xl border border-white/10 bg-black/40 p-2">
+                    <p className="px-2 pt-1 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-300">Edit session {scheduleCalendarIndex + 1}</p>
                     <Calendar
                       mode="single"
                       selected={onboardingSchedule[scheduleCalendarIndex]}
@@ -1031,9 +1042,9 @@ export default function HubPage() {
                       <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400"><Clock3 className="h-3.5 w-3.5 text-orange-400" />Time</span>
                       <input type="time" value={onboardingSchedule[scheduleCalendarIndex].toTimeString().slice(0, 5)} onChange={(event) => updateScheduleTime(scheduleCalendarIndex, event.currentTarget.value)} aria-label={`Session ${scheduleCalendarIndex + 1} time`} data-testid={`input-training-session-time-${scheduleCalendarIndex + 1}`} className="h-9 rounded-full border border-orange-500/25 bg-black px-3 text-sm text-white outline-none focus:border-orange-400" />
                     </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  </div>}
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         )}
@@ -1168,8 +1179,8 @@ export default function HubPage() {
                       const chartMin = Math.max(0, Math.floor(lowestProjection / 5) * 5);
                       const tickStep = highestProjection - chartMin <= 40 ? 5 : 10;
                       const chartMax = Math.min(100, Math.max(chartMin + tickStep, Math.ceil((highestProjection + 1) / tickStep) * tickStep));
-                      const xAt = (month: number) => 56 + month * (610 / 12);
-                      const yAt = (percent: number) => 340 - ((percent - chartMin) * 300) / (chartMax - chartMin);
+                      const xAt = (month: number) => 56 + month * (550 / 12);
+                      const yAt = (percent: number) => 390 - ((percent - chartMin) * 350) / (chartMax - chartMin);
                       const chartTicks = Array.from({ length: Math.floor((chartMax - chartMin) / tickStep) + 1 }, (_, index) => chartMin + index * tickStep);
                       const currentScheduleIndex = Math.min(previewDay - 1, onboardingSchedule.length - 1);
                       return (
@@ -1190,7 +1201,7 @@ export default function HubPage() {
                                 <span className="h-2.5 w-2.5 rounded-full border border-white bg-white/20 shadow-[0_0_8px_rgba(255,255,255,0.5)]" />You are here
                               </span>
                             </div>
-                           <svg id="onboarding-projection-chart" viewBox="0 0 680 400" role="img" aria-label="Illustrative shooting baseline and monthly projection ranges for three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
+                            <svg id="onboarding-projection-chart" viewBox="0 0 680 460" role="img" aria-label="Illustrative shooting baseline and monthly projection ranges for three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
                                   <feGaussianBlur stdDeviation="5" result="blur" />
@@ -1207,20 +1218,20 @@ export default function HubPage() {
                                 const y = yAt(tick);
                                  const majorTick = tick % 10 === 0;
                                 return <g key={tick}>
-                                  {tick !== chartMin && <line x1="56" x2="666" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.055)"} strokeDasharray="3 8" />}
-                                   <text x="46" y={y + 4} textAnchor="end" fill="#a1a7ae" fontSize="10" fontWeight="500">{tick}%</text>
+                                  {tick !== chartMin && <line x1="56" x2="606" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.055)"} strokeDasharray="3 8" />}
+                                    <text x="46" y={y + 4} textAnchor="end" fill="#a1a7ae" fontSize="12" fontWeight="500">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
                                 <g key={month}>
-                                   <text x={xAt(month)} y="385" textAnchor="middle" fill={month === 0 ? "#fff" : "#929ba5"} fontSize="11" fontWeight={month === 0 ? "800" : "400"}>{month === 0 ? "NOW" : `M${month}`}</text>
+                                    <text x={xAt(month)} y="438" textAnchor="middle" fill={month === 0 ? "#fff" : "#929ba5"} fontSize="12" fontWeight={month === 0 ? "800" : "400"}>{month === 0 ? "NOW" : `M${month}`}</text>
                                 </g>
                               ))}
                               {[3, 6, 9].map((month) => (
-                                 <line key={`month-grid-${month}`} x1={xAt(month)} x2={xAt(month)} y1="40" y2="340" stroke="rgba(255,255,255,0.055)" strokeDasharray="3 8" />
+                                  <line key={`month-grid-${month}`} x1={xAt(month)} x2={xAt(month)} y1="40" y2="390" stroke="rgba(255,255,255,0.055)" strokeDasharray="3 8" />
                               ))}
-                               <line x1="56" x2="56" y1="40" y2="340" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
-                               <line x1="56" x2="666" y1="340" y2="340" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
+                                <line x1="56" x2="56" y1="40" y2="390" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
+                                <line x1="56" x2="606" y1="390" y2="390" stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" />
                               {visibleSeries.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
@@ -1239,17 +1250,17 @@ export default function HubPage() {
                           <div className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 text-[9px] font-semibold text-zinc-300 sm:text-[11px]" data-testid="onboarding-session-summary">
                             <div className="flex items-center gap-2">
                               <span>{previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? 1} {previewProfile.frequencyUnit === "month" ? "per month" : "per week"}{previewProfile.sessionLength ? ` · ${previewProfile.sessionLength} min sessions` : ""}</span>
-                              <Popover>
-                                <PopoverTrigger asChild>
+                              <Dialog open={trainingPlanOpen} onOpenChange={setTrainingPlanOpen}>
+                                <DialogTrigger asChild>
                                   <button type="button" aria-label="Edit training frequency and session length" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/40 text-zinc-300 transition hover:border-orange-400/60 hover:text-orange-200">
                                     <Pencil className="h-3 w-3" />
                                   </button>
-                                </PopoverTrigger>
-                                <PopoverContent align="start" className="w-[min(330px,calc(100vw-24px))] space-y-3 border-orange-400/25 bg-[#101010] p-3 text-white shadow-2xl">
-                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Your training plan</p>
+                                </DialogTrigger>
+                                <DialogContent className="w-[calc(100vw-32px)] max-w-[360px] gap-3 rounded-2xl border border-orange-400/25 bg-[#101010] p-4 text-white shadow-2xl">
+                                  <DialogTitle className="pr-8 text-[10px] font-black uppercase tracking-[0.18em] text-orange-300">Your training plan</DialogTitle>
                                   <div>
                                     <label htmlFor="hub-training-frequency-summary" className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-zinc-400">How often do you train outside of practice?</label>
-                                    <div className="grid grid-cols-[0.7fr_1.3fr] gap-2">
+                                    <div className="grid grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] gap-2">
                                       <input
                                         id="hub-training-frequency-summary"
                                         type="number"
@@ -1264,7 +1275,7 @@ export default function HubPage() {
                                         className="input-no-spinner h-10 min-w-0 rounded-lg border border-white/10 bg-black px-3 text-sm text-white outline-none focus:border-orange-400"
                                       />
                                       <Select value={previewProfile.frequencyUnit ?? "week"} onValueChange={(value) => updatePreviewProfile({ frequencyUnit: value as "week" | "month" })}>
-                                        <SelectTrigger aria-label="Training frequency unit" className="h-10 rounded-lg border-white/10 bg-black px-3 text-xs text-white focus:ring-orange-400/40">
+                                        <SelectTrigger aria-label="Training frequency unit" className="h-10 w-full min-w-0 rounded-lg border-white/10 bg-black px-2 text-[11px] text-white focus:ring-orange-400/40">
                                           <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="border-orange-500/30 bg-[#111] text-zinc-100">
@@ -1277,7 +1288,7 @@ export default function HubPage() {
                                   <div>
                                     <label htmlFor="hub-session-length-summary" className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-zinc-400">How long do you usually train for?</label>
                                     <Select value={previewProfile.sessionLength ? String(previewProfile.sessionLength) : ""} onValueChange={(value) => updatePreviewProfile({ sessionLength: Number(value) })}>
-                                      <SelectTrigger id="hub-session-length-summary" className="h-10 rounded-lg border-white/10 bg-black px-3 text-xs text-white focus:ring-orange-400/40">
+                                      <SelectTrigger id="hub-session-length-summary" className="h-10 w-full min-w-0 rounded-lg border-white/10 bg-black px-3 text-xs text-white focus:ring-orange-400/40">
                                         <SelectValue placeholder="Choose session length" />
                                       </SelectTrigger>
                                       <SelectContent className="border-orange-500/30 bg-[#111] text-zinc-100">
@@ -1285,19 +1296,19 @@ export default function HubPage() {
                                       </SelectContent>
                                     </Select>
                                   </div>
-                                </PopoverContent>
-                              </Popover>
+                                </DialogContent>
+                              </Dialog>
                             </div>
-                            <Popover>
-                              <PopoverTrigger asChild>
+                            <Dialog open={nextSessionOpen} onOpenChange={setNextSessionOpen}>
+                              <DialogTrigger asChild>
                                 <button type="button" aria-label="Edit next session date and time" className="inline-flex items-center gap-1.5 rounded-md py-1 text-left text-orange-200 transition hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
                                   <CalendarDays className="h-3 w-3 shrink-0" />
                                   <span>Next session · {onboardingSchedule[Math.min(previewDay - 1, onboardingSchedule.length - 1)].toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                                   <Pencil className="h-3 w-3 shrink-0" />
                                 </button>
-                              </PopoverTrigger>
-                              <PopoverContent align="end" className="w-[min(320px,calc(100vw-24px))] space-y-3 border-orange-400/20 bg-[#101010] p-3 text-white shadow-2xl">
-                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-300">Edit next session</p>
+                              </DialogTrigger>
+                              <DialogContent className="w-[calc(100vw-24px)] max-w-[360px] gap-3 rounded-2xl border border-orange-400/20 bg-[#101010] p-4 text-white shadow-2xl">
+                                <DialogTitle className="pr-8 text-[10px] font-black uppercase tracking-[0.18em] text-orange-300">Edit next session</DialogTitle>
                                 <Calendar
                                   mode="single"
                                   selected={onboardingSchedule[currentScheduleIndex]}
@@ -1327,10 +1338,10 @@ export default function HubPage() {
                                   />
                                 </div>
                                 <p className="text-[10px] text-zinc-500">Changes also update the training calendar above.</p>
-                              </PopoverContent>
-                            </Popover>
+                              </DialogContent>
+                            </Dialog>
                           </div>
-                          <div className="mx-4 mt-4 grid grid-cols-1 gap-3" role="group" aria-label="Filter shooting projection by shot type">
+                          <div className="mx-4 mt-4 grid grid-cols-3 gap-2" role="group" aria-label="Filter shooting projection by shot type">
                             {series.map((line) => (
                               <button
                                 key={`${line.key}-summary`}
@@ -1338,7 +1349,7 @@ export default function HubPage() {
                                 aria-pressed={activeProjectionType === line.key}
                                 aria-label={activeProjectionType === line.key ? "Show all shot types" : `Show only ${line.label} projection`}
                                 onClick={() => setActiveProjectionType((current) => current === line.key ? null : line.key)}
-                                 className={`flex min-h-[52px] min-w-0 items-center justify-start gap-4 rounded-lg border px-3 py-2 text-left transition sm:px-4 ${
+                                  className={`flex min-h-[92px] min-w-0 flex-col items-stretch justify-center gap-2 rounded-lg border px-2 py-2 text-left transition sm:min-h-[100px] sm:px-3 ${
                                   activeProjectionType === line.key
                                     ? "border-white/40 bg-white/[0.09] shadow-[0_0_12px_rgba(255,255,255,0.12)]"
                                     : activeProjectionType
@@ -1347,14 +1358,15 @@ export default function HubPage() {
                                 }`}
                                 data-testid={`button-projection-filter-${line.key}`}
                               >
-                                <div className="flex w-14 shrink-0 items-center gap-1.5 text-[9px] font-black sm:text-[10px]" style={{ color: line.color }}>
-                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 6px ${line.color}` }} />
-                                  {line.label}
+                                <div className="flex min-w-0 items-center justify-between gap-1">
+                                  <span className="flex min-w-0 items-center gap-1 text-[8px] font-black sm:text-[10px]" style={{ color: line.color }}>
+                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 6px ${line.color}` }} />
+                                    <span className="truncate">{line.label}</span>
+                                  </span>
+                                  <span className="shrink-0 whitespace-nowrap text-[9px] font-black text-white sm:text-xs">{line.start}%</span>
                                 </div>
-                                <p className="whitespace-nowrap text-[9px] font-black text-white sm:text-xs">
-                                  {line.start}% <span className="text-[6px] font-bold uppercase text-zinc-500 sm:text-[8px]">now</span>
-                                </p>
-                                <p className="text-left text-[7px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
+                                <span className="text-[6px] font-bold uppercase tracking-wide text-zinc-500 sm:text-[8px]">Current baseline</span>
+                                <p className="text-[6px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
                                   Year range <span className="text-zinc-200">{Math.floor(line.lowValues[12])}–{Math.ceil(line.highValues[12])}%</span>
                                 </p>
                               </button>
