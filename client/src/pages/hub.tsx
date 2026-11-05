@@ -1149,10 +1149,23 @@ export default function HubPage() {
                         });
                         return { ...item, values };
                       });
-                      const xAt = (month: number) => 58 + month * 42.5;
+                      const xAt = (month: number) => 54 + month * (572 / 12);
                       const yAt = (percent: number) => 258 - percent * 1.95;
                       return (
                         <>
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <h3 className="whitespace-nowrap font-heading text-[11px] font-black leading-none tracking-tight text-white sm:text-base">Here's where your shooting could be</h3>
+                              <div className="mt-1.5 flex items-center gap-2 text-[8px] font-black tracking-wide sm:gap-3 sm:text-[10px]">
+                                {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5" style={{ color: line.color }}>
+                                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
+                                </span>)}
+                              </div>
+                            </div>
+                            <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-white/20 bg-white/[0.06] px-2 text-[7px] font-black uppercase tracking-wide text-white sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
+                              <Play className="h-3 w-3 fill-current text-orange-300" /> Baseline
+                            </button>
+                          </div>
                           <svg id="onboarding-projection-chart" viewBox="0 0 680 320" role="img" aria-label="Illustrative shooting growth chart with monthly three-point, mid-range, and free-throw percentages" className="mt-1 block h-auto w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -1176,7 +1189,7 @@ export default function HubPage() {
                                 const y = yAt(tick);
                                 return <g key={tick}>
                                   <line x1="54" x2="626" y1={y} y2={y} stroke="rgba(210,224,235,0.15)" strokeDasharray={tick === 20 ? undefined : "3 8"} />
-                                  <text x="43" y={y + 4} textAnchor="end" fill="#a0aab4" fontSize="14">{tick}%</text>
+                                  <text x="43" y={y + 4} textAnchor="end" fill="#818a94" fontSize="11" fontWeight="500">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
@@ -1199,19 +1212,6 @@ export default function HubPage() {
                                 </g>;
                               })}
                           </svg>
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <h3 className="whitespace-nowrap font-heading text-[11px] font-black leading-none tracking-tight text-white sm:text-base">Here's where your shooting could be</h3>
-                              <div className="mt-1.5 flex items-center gap-2 text-[8px] font-black tracking-wide sm:gap-3 sm:text-[10px]">
-                                {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5" style={{ color: line.color }}>
-                                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
-                                </span>)}
-                              </div>
-                            </div>
-                            <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-white/20 bg-white/[0.06] px-2 text-[7px] font-black uppercase tracking-wide text-white sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
-                              <Play className="h-3 w-3 fill-current text-orange-300" /> Baseline
-                            </button>
-                          </div>
                         </>
                       );
                     })()}
