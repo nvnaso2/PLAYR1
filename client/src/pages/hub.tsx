@@ -295,6 +295,8 @@ export default function HubPage() {
   const selectedBaseline = onboardingBaselines.find((option) => option.id === baselineId)!;
   const baselineTotal = selectedBaseline.threes + selectedBaseline.midrange + selectedBaseline.freeThrows;
   const frequency = Math.max(1, Number(previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? 1));
+  const trainingSessionsPerWeek = Math.min(7, frequency * (previewProfile.frequencyUnit === "month" ? 12 / 52 : 1));
+  const trainingDose = Math.pow(trainingSessionsPerWeek, 0.7);
   const sessionIntervalDays = (previewProfile.frequencyUnit === "month" ? 30 : 7) / frequency;
   const firstTrainingDate = previewProfile.nextSession && !Number.isNaN(new Date(previewProfile.nextSession).getTime())
     ? new Date(previewProfile.nextSession)
@@ -1134,23 +1136,51 @@ export default function HubPage() {
                   <div className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
                     {(() => {
                       const series = [
-                        { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, goal: 80, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
-                        { key: "midrange" as const, label: "MID", color: "#ff5364", start: 30, goal: 70, progress: [0, .13, .11, .23, .20, .34, .32, .47, .45, .64, .62, .81, 1] },
-                        { key: "freeThrows" as const, label: "FT", color: "#70f06a", start: 40, goal: 90, progress: [0, .11, .09, .22, .20, .35, .33, .49, .47, .66, .64, .82, 1] },
+                        { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, ceiling: 94, phase: 0.2 },
+                        { key: "midrange" as const, label: "MID", color: "#ff5364", start: 30, ceiling: 96, phase: 1.7 },
+                        { key: "freeThrows" as const, label: "FT", color: "#70f06a", start: 40, ceiling: 99, phase: 3.1 },
                       ].map((item) => {
                         const actualStart = baselineComplete
                           ? Math.max(0, Math.min(100, Math.round((Number(baselineResults[item.key]) / selectedBaseline[item.key]) * 100)))
                           : item.start;
-                        const volumeMultiplier = baselineId === "full" ? 1.08 : baselineId === "quick" ? 0.92 : 1;
-                        const goal = Math.max(actualStart, item.goal);
-                        const values = item.progress.map((progress) => {
-                          const adjustedProgress = Math.max(0, Math.min(1, progress + (volumeMultiplier - 1) * progress * (1 - progress)));
-                          return Math.round(actualStart + (goal - actualStart) * adjustedProgress);
+                        const ceiling = Math.max(actualStart, item.ceiling);
+                        const potential = ceiling - actualStart;
+                        const modeledGain = potential * (1 - Math.exp(-0.22 * trainingDose));
+                        const minimumUsefulGain = Math.min(potential, Math.max(2, 4 * Math.sqrt(trainingSessionsPerWeek)));
+                        const annualGain = Math.min(potential, Math.max(modeledGain, minimumUsefulGain));
+                        const projection = Array.from({ length: 13 }, (_, month) => {
+                          const progress = (1 - Math.exp(-2.8 * (month / 12))) / (1 - Math.exp(-2.8));
+                          const expected = actualStart + annualGain * progress;
+                          const wobble = Math.sin(month * 1.65 + item.phase) * (month / 12) * (1.2 + trainingDose * 0.25);
+                          const uncertainty = (month / 12) * (2.2 + trainingDose * 0.55);
+                          const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
+                          return {
+                            value: clampPercent(expected + wobble),
+                            low: clampPercent(expected - uncertainty),
+                            high: clampPercent(expected + uncertainty),
+                          };
                         });
-                        return { ...item, values };
+                        return {
+                          ...item,
+                          start: actualStart,
+                          ceiling,
+                          values: projection.map((point) => point.value),
+                          lowValues: projection.map((point) => point.low),
+                          highValues: projection.map((point) => point.high),
+                        };
                       });
+                      const lowestProjection = Math.min(...series.flatMap((line) => line.lowValues));
+                      const highestProjection = Math.max(...series.flatMap((line) => line.highValues));
+                      const chartMin = baselineComplete
+                        ? Math.max(0, Math.floor(lowestProjection / 5) * 5)
+                        : 20;
+                      const tickStep = baselineComplete && highestProjection - chartMin <= 40 ? 5 : 10;
+                      const chartMax = baselineComplete
+                        ? Math.min(100, Math.max(chartMin + tickStep, Math.ceil((highestProjection + 1) / tickStep) * tickStep))
+                        : 100;
                       const xAt = (month: number) => 56 + month * (610 / 12);
-                      const yAt = (percent: number) => 242 - ((percent - 20) * 220) / 80;
+                      const yAt = (percent: number) => 242 - ((percent - chartMin) * 220) / (chartMax - chartMin);
+                      const chartTicks = Array.from({ length: Math.floor((chartMax - chartMin) / tickStep) + 1 }, (_, index) => chartMin + index * tickStep);
                       return (
                         <>
                           <div className="mb-1.5 space-y-1.5">
@@ -1162,13 +1192,16 @@ export default function HubPage() {
                                 <Play className="h-3 w-3 fill-current text-orange-300" /> Set your baseline
                               </button>
                             </div>
-                            <div className="flex items-center gap-3">
+                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                               {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5 text-[9px] font-black tracking-wide sm:text-[10px]" style={{ color: line.color }}>
                                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
                               </span>)}
+                              <span className="inline-flex items-center gap-1.5 text-[8px] font-black uppercase tracking-wide text-white sm:text-[9px]">
+                                <span className="h-2.5 w-2.5 rounded-full border border-white bg-white/20 shadow-[0_0_8px_rgba(255,255,255,0.5)]" />You are here
+                              </span>
                             </div>
                           </div>
-                          <svg id="onboarding-projection-chart" viewBox="0 0 680 280" role="img" aria-label="Illustrative shooting growth chart with monthly three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
+                           <svg id="onboarding-projection-chart" viewBox="0 0 680 280" role="img" aria-label="Illustrative shooting baseline and monthly projection ranges for three-point, mid-range, and free-throw percentages" className="block h-auto w-full">
                               <defs>
                                 <filter id="shot-line-glow" x="-50%" y="-50%" width="200%" height="200%">
                                   <feGaussianBlur stdDeviation="5" result="blur" />
@@ -1179,25 +1212,19 @@ export default function HubPage() {
                                   <stop offset="48%" stopColor="#ffd84d" stopOpacity="0.025" />
                                   <stop offset="100%" stopColor="#ff5364" stopOpacity="0.05" />
                                 </linearGradient>
-                                {series.map((line) => (
-                                  <linearGradient key={`${line.key}-fill`} id={`shot-fill-${line.key}`} x1="0" x2="0" y1="0" y2="1">
-                                    <stop offset="0%" stopColor={line.color} stopOpacity="0.23" />
-                                    <stop offset="100%" stopColor={line.color} stopOpacity="0" />
-                                  </linearGradient>
-                                ))}
                               </defs>
-                              <rect width="680" height="280" fill="url(#shot-chart-wash)" />
-                              {Array.from({ length: 9 }, (_, index) => 20 + index * 10).map((tick) => {
+                               <rect width="680" height="280" fill="url(#shot-chart-wash)" />
+                               {chartTicks.map((tick) => {
                                 const y = yAt(tick);
-                                const majorTick = tick % 20 === 0;
+                                 const majorTick = tick % 10 === 0;
                                 return <g key={tick}>
-                                  {tick !== 20 && <line x1="56" x2="666" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.055)"} strokeDasharray="3 8" />}
+                                  {tick !== chartMin && <line x1="56" x2="666" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.055)"} strokeDasharray="3 8" />}
                                   <text x="46" y={y + 4} textAnchor="end" fill="#a1a7ae" fontSize="10" fontWeight="500">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
                                 <g key={month}>
-                                  <text x={xAt(month)} y="270" textAnchor="middle" fill="#929ba5" fontSize="11">{month === 0 ? "NOW" : `M${month}`}</text>
+                                  <text x={xAt(month)} y="270" textAnchor="middle" fill={month === 0 ? "#fff" : "#929ba5"} fontSize={month === 0 ? "11" : "11"} fontWeight={month === 0 ? "800" : "400"}>{month === 0 ? "NOW" : `M${month}`}</text>
                                 </g>
                               ))}
                               {[3, 6, 9].map((month) => (
@@ -1208,14 +1235,15 @@ export default function HubPage() {
                               {series.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
-                                const fillPath = `${linePath} L${xAt(12)},${yAt(20)} L${xAt(0)},${yAt(20)} Z`;
+                                const upperPoints = line.highValues.map((value, index) => `${xAt(index)},${yAt(value)}`);
+                                const lowerPoints = line.lowValues.map((value, index) => `${xAt(index)},${yAt(value)}`).reverse();
+                                const rangePath = `${upperPoints.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ")} ${lowerPoints.map((point) => `L${point}`).join(" ")} Z`;
+                                const currentY = yAt(line.start);
                                 return <g key={line.key}>
-                                  <path d={fillPath} fill={`url(#shot-fill-${line.key})`} />
-                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" opacity="0.16" filter="url(#shot-line-glow)" />
-                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                                  {line.values.map((value, index) => (
-                                    <circle key={index} cx={xAt(index)} cy={yAt(value)} r={index === 12 ? 4.5 : 2.5} fill={index === 12 ? line.color : "#101216"} stroke={line.color} strokeWidth={index === 12 ? 2 : 1.4} />
-                                  ))}
+                                  <path d={rangePath} fill={line.color} fillOpacity="0.10" />
+                                  <path d={linePath} fill="none" stroke={line.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="6 5" opacity="0.68" />
+                                  <circle cx={xAt(0)} cy={currentY} r="8" fill={line.color} fillOpacity="0.18" stroke="white" strokeWidth="1.5" />
+                                  <circle cx={xAt(0)} cy={currentY} r="4" fill={line.color} stroke="white" strokeWidth="1.5" />
                                 </g>;
                               })}
                           </svg>
@@ -1227,10 +1255,10 @@ export default function HubPage() {
                                   {line.label}
                                 </div>
                                 <p className="mt-0.5 whitespace-nowrap text-[8px] font-black text-white sm:text-xs">
-                                  {line.values[0]}% <span className="text-orange-400">→</span> {line.values[12]}%
+                                  <span className="text-white">{line.start}%</span> <span className="text-[6px] font-bold uppercase text-zinc-500 sm:text-[8px]">now</span>
                                 </p>
-                                <p className="text-[6px] font-medium uppercase tracking-wide text-zinc-500 sm:text-[8px]">
-                                  Projected +{line.values[12] - line.values[0]}%
+                                <p className="text-[6px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-[8px]">
+                                  Year range <span className="text-zinc-200">{Math.floor(line.lowValues[12])}–{Math.ceil(line.highValues[12])}%</span>
                                 </p>
                               </div>
                             ))}
@@ -1346,19 +1374,6 @@ export default function HubPage() {
                     </div>
                   )}
 
-                  {previewDay === 1 && baselineComplete && (
-                    <div className="mt-4 space-y-2.5">
-                      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] px-3 py-3">
-                        <p className="flex items-center gap-2 text-xs font-semibold text-emerald-200"><CheckCircle2 className="h-4 w-4 shrink-0" /> Baseline recorded · {baselineTotal} attempts</p>
-                        <button type="button" onClick={() => { setBaselineComplete(false); setBaselineLogging(true); }} className="shrink-0 text-[10px] font-bold text-zinc-400 underline underline-offset-4 hover:text-white">Edit results</button>
-                      </div>
-                      <div className="rounded-xl border border-orange-400/15 bg-[linear-gradient(100deg,rgba(249,115,22,0.09),rgba(10,10,10,0.92))] px-3 py-3">
-                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-orange-300">Next up</p>
-                        <p className="mt-1 text-xs font-bold text-white">The Handle &amp; Footwork Diagnostic</p>
-                        <p className="mt-1 text-[10px] text-zinc-500">Unlocks tomorrow. Keep your next session on the calendar.</p>
-                      </div>
-                    </div>
-                  )}
                 </section>
             </div>
 
