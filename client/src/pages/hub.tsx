@@ -1111,22 +1111,18 @@ export default function HubPage() {
                         : series;
                       const lowestProjection = Math.min(...visibleSeries.flatMap((line) => line.lowValues));
                       const highestProjection = Math.max(...visibleSeries.flatMap((line) => line.highValues));
-                      const chartMin = baselineComplete
-                        ? Math.max(0, Math.floor(lowestProjection / 5) * 5)
-                        : 20;
-                      const tickStep = baselineComplete && highestProjection - chartMin <= 40 ? 5 : 10;
-                      const chartMax = baselineComplete
-                        ? Math.min(100, Math.max(chartMin + tickStep, Math.ceil((highestProjection + 1) / tickStep) * tickStep))
-                        : 100;
+                      const chartMin = Math.max(0, Math.floor(lowestProjection / 5) * 5);
+                      const tickStep = highestProjection - chartMin <= 40 ? 5 : 10;
+                      const chartMax = Math.min(100, Math.max(chartMin + tickStep, Math.ceil((highestProjection + 1) / tickStep) * tickStep));
                       const xAt = (month: number) => 56 + month * (610 / 12);
                       const yAt = (percent: number) => 242 - ((percent - chartMin) * 220) / (chartMax - chartMin);
                       const chartTicks = Array.from({ length: Math.floor((chartMax - chartMin) / tickStep) + 1 }, (_, index) => chartMin + index * tickStep);
                       return (
                         <>
-                          <div className="mb-3 flex items-center justify-between gap-3 px-4">
-                            <div className="flex items-center justify-between gap-2">
-                              <h3 className="whitespace-nowrap font-heading text-xl font-black uppercase leading-tight tracking-wide text-white sm:text-2xl">Road to Elite Shooting</h3>
-                              <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-3 text-[10px] font-black tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-4 sm:text-xs" data-testid="button-open-baseline-picker">
+                          <div className="mb-3 flex items-center gap-3 px-4">
+                            <div className="flex w-full min-w-0 items-center gap-2">
+                              <h3 className="min-w-0 flex-1 truncate font-heading text-lg font-black uppercase leading-tight tracking-wide text-white sm:text-2xl">Road to Elite Shooting</h3>
+                              <button type="button" onClick={() => setBaselinePickerOpen(true)} className="ml-auto inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-3 text-[10px] font-black tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-4 sm:text-xs" data-testid="button-open-baseline-picker">
                                 <Play className="h-3 w-3 fill-current text-orange-300" /> SET YOUR BASELINE
                               </button>
                             </div>
