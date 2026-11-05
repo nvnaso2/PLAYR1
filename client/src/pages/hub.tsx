@@ -1058,13 +1058,8 @@ export default function HubPage() {
             </div>
 
             <div className="space-y-2" data-testid="card-day-one-trailer">
-              <button type="button" onClick={() => setTrailerPlaying(true)} className="group relative block aspect-video w-full overflow-hidden rounded-lg bg-black text-left" data-testid="button-play-onboarding-trailer" aria-label="Play the PLAYR1 trailer">
-                <img src="/images/playr1-trailer-thumbnail.jpg" alt="PLAYR1 trailer thumbnail" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]" />
-                <span className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
-                <span className="absolute left-1/2 top-1/2 flex h-12 w-[68px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl bg-[#ff0033] shadow-[0_2px_14px_rgba(0,0,0,0.45)] transition group-hover:scale-110 group-hover:bg-[#e6002e]">
-                  <Play className="ml-1 h-6 w-6 fill-white text-white" />
-                </span>
-                <span className="absolute bottom-2 right-2 rounded bg-black/85 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white">0:05</span>
+              <button type="button" onClick={() => setTrailerPlaying(true)} className="block aspect-video w-full overflow-hidden rounded-lg bg-black" data-testid="button-play-onboarding-trailer" aria-label="Play the PLAYR1 trailer">
+                <img src="/images/playr1-trailer-thumbnail.jpg" alt="PLAYR1 trailer thumbnail" className="h-full w-full object-cover" />
               </button>
               <div className="flex items-start gap-3 py-1">
                 {trailerCard.avatar ? (
