@@ -1131,7 +1131,7 @@ export default function HubPage() {
             </div>
 
                 <section className="space-y-2 pb-1" data-testid="hub-onboarding-baseline">
-                  <div className="overflow-hidden rounded-xl border border-orange-300/25 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[0_0_24px_rgba(249,115,22,0.08),inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
+                  <div className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(145deg,#101216,#050608_70%)] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-2xl sm:p-4" data-testid="card-onboarding-progress-projection">
                     {(() => {
                       const series = [
                         { key: "threes" as const, label: "3PT", color: "#ffd84d", start: 20, goal: 80, progress: [0, .12, .10, .20, .18, .31, .29, .44, .42, .61, .59, .78, 1] },
@@ -1156,15 +1156,15 @@ export default function HubPage() {
                           <div className="mb-1.5 space-y-1.5">
                             <div className="flex items-center justify-between gap-2">
                               <div className="min-w-0">
-                                <h3 className="whitespace-nowrap font-heading text-[13px] font-black uppercase leading-none tracking-wide text-white sm:text-lg">Your Shooting Potential</h3>
+                                <h3 className="whitespace-nowrap font-heading text-[13px] font-black uppercase leading-none tracking-wide text-white sm:text-lg">Road to Elite Shooting</h3>
                               </div>
                               <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-2 text-[8px] font-black tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
                                 <Play className="h-3 w-3 fill-current text-orange-300" /> Set your baseline
                               </button>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[8px] font-bold sm:text-[10px]" style={{ color: line.color }}>
-                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 7px ${line.color}` }} />{line.label}
+                            <div className="flex items-center gap-3">
+                              {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1.5 text-[9px] font-black tracking-wide sm:text-[10px]" style={{ color: line.color }}>
+                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}
                               </span>)}
                             </div>
                           </div>
