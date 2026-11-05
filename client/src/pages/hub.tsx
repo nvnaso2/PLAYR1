@@ -1156,14 +1156,12 @@ export default function HubPage() {
                           <div className="mb-1.5 space-y-1.5">
                             <div className="flex items-center justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="text-[7px] font-bold uppercase tracking-[0.2em] text-zinc-400 sm:text-[9px]">Set your baseline <span className="ml-1 inline-block w-5 align-middle border-t border-orange-400" /></p>
-                                <h3 className="mt-0.5 whitespace-nowrap font-heading text-[10px] font-black uppercase italic leading-none tracking-tight text-white sm:text-base">Here's where your shooting could be</h3>
+                                <h3 className="whitespace-nowrap font-heading text-[11px] font-black leading-none tracking-tight text-white sm:text-base">Your Shooting Potential.</h3>
                               </div>
-                              <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-2 text-[7px] font-black uppercase tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
-                                <Play className="h-3 w-3 fill-current text-orange-300" /> Baseline
+                              <button type="button" onClick={() => setBaselinePickerOpen(true)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-orange-400/70 bg-orange-500/[0.08] px-2 text-[8px] font-black tracking-wide text-white shadow-[0_0_12px_rgba(249,115,22,0.16)] sm:px-3 sm:text-[10px]" data-testid="button-open-baseline-picker">
+                                <Play className="h-3 w-3 fill-current text-orange-300" /> Set your baseline
                               </button>
                             </div>
-                            <p className="text-[8px] leading-tight text-zinc-400 sm:text-[10px]">Projected improvement through consistent training.</p>
                             <div className="flex items-center gap-1.5">
                               {series.map((line) => <span key={line.key} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[8px] font-bold sm:text-[10px]" style={{ color: line.color }}>
                                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 7px ${line.color}` }} />{line.label}
@@ -1192,16 +1190,17 @@ export default function HubPage() {
                               {[20, 40, 60, 80, 100].map((tick) => {
                                 const y = yAt(tick);
                                 return <g key={tick}>
-                                  <line x1="56" x2="622" y1={y} y2={y} stroke="rgba(210,224,235,0.17)" strokeDasharray={tick === 20 ? undefined : "3 8"} />
+                                  <line x1="56" x2="622" y1={y} y2={y} stroke={tick === 20 ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.24)"} strokeDasharray={tick === 20 ? undefined : "4 7"} />
                                   <text x="46" y={y + 4} textAnchor="end" fill="#a1a7ae" fontSize="10" fontWeight="500">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
                                 <g key={month}>
-                                  <line x1={xAt(month)} x2={xAt(month)} y1="35" y2="224" stroke="rgba(147,197,253,0.08)" strokeDasharray="2 9" />
+                                  <line x1={xAt(month)} x2={xAt(month)} y1="35" y2="224" stroke="rgba(255,255,255,0.16)" strokeDasharray="3 7" />
                                   <text x={xAt(month)} y="253" textAnchor="middle" fill="#929ba5" fontSize="11">{month === 0 ? "NOW" : `M${month}`}</text>
                                 </g>
                               ))}
+                              <rect x="56" y="35" width="566" height="189" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
                               {series.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
