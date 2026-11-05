@@ -1156,7 +1156,7 @@ export default function HubPage() {
                           const expected = actualStart + annualGain * progress;
                           const yearFraction = month / 12;
                           const wobble = Math.sin(month * 1.55 + item.phase) * yearFraction * (1 - yearFraction) * (8 + trainingDose * 2);
-                          const uncertainty = (month / 12) * (2.2 + trainingDose * 0.55);
+                          const uncertainty = (month / 12) * (2.6 + trainingDose * 0.65);
                           const clampPercent = (value: number) => Math.max(0, Math.min(ceiling, value));
                           return {
                             value: clampPercent(expected + wobble),
@@ -1181,7 +1181,7 @@ export default function HubPage() {
                       const chartMin = Math.max(0, Math.floor(lowestProjection / 5) * 5);
                       const tickStep = highestProjection - chartMin <= 40 ? 5 : 10;
                       const chartMax = Math.min(100, Math.max(chartMin + tickStep, Math.ceil((highestProjection + 1) / tickStep) * tickStep));
-                      const xAt = (month: number) => 50 + month * (590 / 12);
+                      const xAt = (month: number) => 68 + month * (590 / 12);
                       const yAt = (percent: number) => 470 - ((percent - chartMin) * 430) / (chartMax - chartMin);
                       const chartTicks = Array.from({ length: Math.floor((chartMax - chartMin) / tickStep) + 1 }, (_, index) => chartMin + index * tickStep);
                       const currentScheduleIndex = Math.min(previewDay - 1, onboardingSchedule.length - 1);
@@ -1220,8 +1220,8 @@ export default function HubPage() {
                                 const y = yAt(tick);
                                  const majorTick = tick % 10 === 0;
                                 return <g key={tick}>
-                                  {tick !== chartMin && <line x1="50" x2="640" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)"} strokeDasharray="3 7" />}
-                                    <text x="40" y={y + 5} textAnchor="end" fill="#c3c7cd" fontSize="18" fontWeight="700">{tick}%</text>
+                                  {tick !== chartMin && <line x1="68" x2="658" y1={y} y2={y} stroke={majorTick ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)"} strokeDasharray="3 7" />}
+                                    <text x="58" y={y + 5} textAnchor="end" fill="#c3c7cd" fontSize="18" fontWeight="700">{tick}%</text>
                                 </g>;
                               })}
                               {[0, 3, 6, 9, 12].map((month) => (
@@ -1232,8 +1232,8 @@ export default function HubPage() {
                               {[3, 6, 9].map((month) => (
                                   <line key={`month-grid-${month}`} x1={xAt(month)} x2={xAt(month)} y1="40" y2="470" stroke="rgba(255,255,255,0.07)" strokeDasharray="3 7" />
                               ))}
-                                <line x1="50" x2="50" y1="40" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
-                                <line x1="50" x2="640" y1="470" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
+                                <line x1="68" x2="68" y1="40" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
+                                <line x1="68" x2="658" y1="470" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
                               {visibleSeries.map((line) => {
                                 const points = line.values.map((value, index) => `${xAt(index)},${yAt(value)}`);
                                 const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
@@ -1242,7 +1242,7 @@ export default function HubPage() {
                                 const rangePath = `${upperPoints.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ")} ${lowerPoints.map((point) => `L${point}`).join(" ")} Z`;
                                 const currentY = yAt(line.start);
                                 return <g key={line.key}>
-                                  <path d={rangePath} fill={line.color} fillOpacity="0.10" />
+                                  <path d={rangePath} fill={line.color} fillOpacity="0.15" />
                                   <path d={linePath} fill="none" stroke={line.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="8 5" opacity="0.82" />
                                   <circle cx={xAt(0)} cy={currentY} r="10" fill={line.color} fillOpacity="0.2" stroke="white" strokeWidth="2" />
                                   <circle cx={xAt(0)} cy={currentY} r="5" fill={line.color} stroke="white" strokeWidth="2" />
