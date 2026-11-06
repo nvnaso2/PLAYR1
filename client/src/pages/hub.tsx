@@ -1624,22 +1624,22 @@ export default function HubPage() {
             )}
 
             {previewDay === 2 && (
-              <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-2 pb-2 pt-0" data-testid="card-day-two-mission">
-                <article className="shrink-0 px-1 py-1 text-white sm:px-2 sm:py-2" data-testid="day-two-coach-introduction">
-                  <div className="mb-2 flex items-center justify-center gap-2">
-                    <CoachPIcon size="sm" />
-                    <h3 className="font-heading text-xl font-black tracking-wide sm:text-2xl">Talk to Coach P</h3>
+              <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-3 pb-2 pt-0" data-testid="card-day-two-mission">
+                <article className="flex min-h-0 flex-1 flex-col justify-center px-1 py-2 text-white sm:px-2 sm:py-3" data-testid="day-two-coach-introduction">
+                  <div className="mb-4 flex items-center justify-center gap-3">
+                    <CoachPIcon size="lg" />
+                    <h3 className="font-heading text-2xl font-black tracking-wide sm:text-3xl">Talk to Coach P</h3>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <button
                       type="button"
                       onClick={startPlayerBlueprint}
-                      className="mx-auto flex min-h-9 w-[92%] max-w-[360px] items-center gap-2.5 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                      className="mx-auto flex min-h-12 w-[92%] max-w-[360px] items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                       data-testid="button-day-two-player-blueprint"
                     >
-                      <BasketballIcon className="h-4 w-4 shrink-0 text-orange-300 drop-shadow-[0_0_7px_rgba(251,146,60,0.7)]" />
-                      <span className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-200 sm:text-xs">Analyze My Profile</span>
-                      <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-zinc-600" />
+                      <BasketballIcon className="h-5 w-5 shrink-0 text-orange-300 drop-shadow-[0_0_7px_rgba(251,146,60,0.7)]" />
+                      <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-zinc-200 sm:text-sm">Analyze My Profile</span>
+                      <ArrowUp className="h-4 w-4 shrink-0 rotate-45 text-zinc-600" />
                     </button>
                   </div>
                   <form
@@ -1647,7 +1647,7 @@ export default function HubPage() {
                     onClick={(event) => {
                       if (!(event.target as HTMLElement).closest("button")) dayTwoCoachInputRef.current?.focus();
                     }}
-                    className="pointer-events-auto relative z-10 mt-2 flex min-h-10 w-full items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3.5 py-1.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-within:border-orange-400/60 focus-within:ring-2 focus-within:ring-orange-400/40"
+                    className="pointer-events-auto relative z-10 mt-4 flex min-h-12 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-within:border-orange-400/60 focus-within:ring-2 focus-within:ring-orange-400/40"
                     data-testid="form-day-two-coach-message"
                   >
                     <input
@@ -1662,14 +1662,14 @@ export default function HubPage() {
                       autoCapitalize="sentences"
                       autoCorrect="on"
                       enterKeyHint="send"
-                      className="pointer-events-auto relative z-10 block min-w-0 flex-1 cursor-text touch-auto select-text bg-transparent text-[13px] text-white caret-orange-400 outline-none placeholder:text-zinc-500"
+                      className="pointer-events-auto relative z-10 block min-w-0 flex-1 cursor-text touch-auto select-text bg-transparent text-sm text-white caret-orange-400 outline-none placeholder:text-zinc-500"
                       data-testid="input-day-two-coach-message"
                     />
                     <button
                       type="submit"
                       disabled={!dayTwoCoachDraft.trim()}
                       aria-label="Send message to Coach P"
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)] transition enabled:hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)] transition enabled:hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45"
                       data-testid="button-send-day-two-coach-message"
                     >
                       <ArrowUp className="h-4 w-4" />
