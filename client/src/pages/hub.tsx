@@ -267,7 +267,7 @@ export default function HubPage() {
     queryKey: ["/api/workouts", dayTwoWorkoutId],
     enabled: dayTwoWorkoutOpen,
     queryFn: async () => {
-      const response = await nativeFetch(`/api/workouts/${dayTwoWorkoutId}`);
+      const response = await nativeFetch(`/api/workouts/${dayTwoWorkoutId}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Could not load the workout.");
       return response.json();
     },

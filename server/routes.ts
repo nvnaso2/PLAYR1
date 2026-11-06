@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { spawn } from "child_process";
 import path from "path";
 import { storage } from "./storage";
+import { DAY_TWO_RANGE_WORKOUT_ID, ensureDayTwoRangeWorkout } from "./seed";
 import { FREE_SAVED_WORKOUT_LIMIT } from "@shared/workout-limits";
 import {
   buildWorkoutShareDrills,
@@ -54,6 +55,8 @@ import {
   type CoachPWorkoutAnswers,
   type CoachPWorkoutPreview,
 } from "./coach-p-workouts";
+
+let dayTwoRangeWorkoutEnsurePromise: Promise<void> | null = null;
 import {
   formatCoachPLeadMagnetResults,
   selectRelevantCoachPLeadMagnetResults,
@@ -3922,7 +3925,16 @@ ${JSON.stringify(catalogForPrompt)}
   // Get single workout with drills
   app.get("/api/workouts/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const result = await storage.getWorkoutWithDrills(req.params.id);
+      res.setHeader("Cache-Control", "no-store");
+      let result = await storage.getWorkoutWithDrills(req.params.id);
+      if (!result && req.params.id === DAY_TWO_RANGE_WORKOUT_ID) {
+        dayTwoRangeWorkoutEnsurePromise ??= ensureDayTwoRangeWorkout().catch((error) => {
+          dayTwoRangeWorkoutEnsurePromise = null;
+          throw error;
+        });
+        await dayTwoRangeWorkoutEnsurePromise;
+        result = await storage.getWorkoutWithDrills(req.params.id);
+      }
       if (!result) {
         return res.status(404).json({ message: "Workout not found" });
       }

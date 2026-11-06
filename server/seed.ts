@@ -368,9 +368,9 @@ const dayTwoRangeWorkoutDrills = [
   },
 ] as const;
 
-const dayTwoRangeWorkoutId = "playr1-onboarding-day2-find-your-shooting-range";
+export const DAY_TWO_RANGE_WORKOUT_ID = "playr1-onboarding-day2-find-your-shooting-range";
 
-async function ensureDayTwoRangeWorkout() {
+export async function ensureDayTwoRangeWorkout() {
   const savedDrills: Array<{ drill: Drill; reps: number; duration: number }> = [];
   for (const item of dayTwoRangeWorkoutDrills) {
     let [drill] = await db.select().from(drills).where(and(eq(drills.title, item.title), isNull(drills.userId))).limit(1);
@@ -391,10 +391,10 @@ async function ensureDayTwoRangeWorkout() {
     savedDrills.push({ drill, reps: item.reps, duration: Math.ceil(item.duration / 60) });
   }
 
-  const [existingWorkout] = await db.select().from(workouts).where(eq(workouts.id, dayTwoRangeWorkoutId)).limit(1);
+  const [existingWorkout] = await db.select().from(workouts).where(eq(workouts.id, DAY_TWO_RANGE_WORKOUT_ID)).limit(1);
   if (!existingWorkout) {
     await db.insert(workouts).values({
-      id: dayTwoRangeWorkoutId,
+      id: DAY_TWO_RANGE_WORKOUT_ID,
       name: "Find Your Shooting Range",
       description: "A 125-shot shooting session with 40 bonus layups and 5 cone sets. Discover your in-game range, build your mid-range game, and finish with your free-throw routine.",
       userId: null,
@@ -404,10 +404,10 @@ async function ensureDayTwoRangeWorkout() {
     });
   }
 
-  const existingLinks = await db.select({ id: workoutDrills.id }).from(workoutDrills).where(eq(workoutDrills.workoutId, dayTwoRangeWorkoutId)).limit(1);
+  const existingLinks = await db.select({ id: workoutDrills.id }).from(workoutDrills).where(eq(workoutDrills.workoutId, DAY_TWO_RANGE_WORKOUT_ID)).limit(1);
   if (existingLinks.length === 0) {
     await db.insert(workoutDrills).values(savedDrills.map(({ drill, reps, duration }, sortOrder) => ({
-      workoutId: dayTwoRangeWorkoutId,
+      workoutId: DAY_TWO_RANGE_WORKOUT_ID,
       drillId: drill.id,
       sortOrder,
       defaultDuration: duration,
