@@ -1680,18 +1680,18 @@ export default function HubPage() {
                 <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-two-workout">
                   <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 sm:px-6 sm:pt-5">
                     <span className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), repeating-linear-gradient(135deg, transparent 0 54px, rgba(0,0,0,.018) 55px 56px, transparent 57px 96px), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
-                    <div className="relative grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_96px] items-center gap-2 border-b-[3px] border-black pb-2 sm:grid-cols-[minmax(0,1fr)_144px] sm:gap-4">
-                      <span className="min-w-0 pr-1">
+                    <div className="relative grid min-h-[128px] flex-1 grid-cols-[minmax(0,1fr)_88px] items-center gap-3 border-b border-zinc-300 pb-2 sm:min-h-[140px] sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-4">
+                      <span className="min-w-0 pr-2">
                         <span className="block font-heading text-2xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#2</span></span>
                         <span className="mt-2 block font-heading text-sm font-black uppercase leading-tight sm:text-lg">Find Your Shooting Range</span>
                         <span className="mt-1 block text-[9px] font-semibold text-zinc-600 sm:text-xs">125 shots · 40 bonus layups · 5 cone sets</span>
                       </span>
-                      <div className="flex h-full flex-col items-end justify-center gap-2 pt-9 sm:pt-10">
-                        <span className="absolute right-0 top-0 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm sm:h-10 sm:w-10"><Dumbbell className="h-4 w-4 sm:h-5 sm:w-5" /></span>
-                        <div className="flex h-20 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-1 ring-1 ring-zinc-200 shadow-sm sm:h-28 sm:w-32 sm:rounded-xl sm:p-1.5">
+                      <div className="flex h-full items-center justify-center pt-3 sm:pt-5">
+                        <div className="flex h-16 w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/80 p-1 sm:h-[72px] sm:w-[80px] sm:rounded-xl sm:p-1.5">
                           <img src={dayTwoCourtImage} alt="Basketball half court with shooting positions numbered one through eight" className="block h-full w-full object-contain" />
                         </div>
                       </div>
+                      <span className="absolute right-0 top-0 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm sm:h-10 sm:w-10"><Dumbbell className="h-4 w-4 sm:h-5 sm:w-5" /></span>
                     </div>
                     <span className="relative mt-2 flex min-h-10 shrink-0 items-center justify-between gap-3 rounded-xl bg-black px-3 py-1.5 text-left text-white shadow-[0_12px_22px_rgba(0,0,0,0.35)] transition group-hover:bg-zinc-900 group-hover:shadow-[0_14px_26px_rgba(0,0,0,0.42)] sm:min-h-12 sm:px-4 sm:py-2.5">
                       <span><span className="block text-[11px] font-black uppercase tracking-[0.12em] sm:text-xs">Preview the workout</span><span className="mt-0.5 block text-[8px] text-zinc-400 sm:text-[9px]">6 drills · 125 shots plus bonus work</span></span>
