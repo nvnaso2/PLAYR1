@@ -1477,13 +1477,27 @@ Start now with a warm one-line greeting that briefly references something specif
         welcomeWorkout: z.boolean().optional(),
         profileInsight: z.boolean().optional(),
         profileInsightContext: z.object({
-          profile: z.record(z.string(), z.unknown()).optional(),
+          profile: z.object({
+            currentSituation: z.string().max(120),
+            primaryGoal: z.string().max(160),
+            positions: z.array(z.string().max(20)).max(5),
+            experienceYears: z.string().max(40),
+            skillRankings: z.object({
+              best: z.string().max(80),
+              secondBest: z.string().max(80),
+              worst: z.string().max(80),
+              improveMost: z.string().max(80),
+            }).strict(),
+            trainingDaysPerPeriod: z.number().int().min(0).max(31).nullable(),
+            frequencyUnit: z.enum(["week", "month"]),
+            sessionLengthMinutes: z.number().int().min(1).max(240).nullable(),
+          }).strict().optional(),
           baseline: z.object({
             completed: z.boolean(),
             threes: z.object({ makes: z.number().int().min(0).max(100), attempts: z.number().int().min(1).max(100) }).optional(),
             midrange: z.object({ makes: z.number().int().min(0).max(100), attempts: z.number().int().min(1).max(100) }).optional(),
             freeThrows: z.object({ makes: z.number().int().min(0).max(100), attempts: z.number().int().min(1).max(100) }).optional(),
-          }).optional(),
+          }).strict().optional(),
         }).optional(),
         workoutAnswers: z.object({
           durationMinutes: z.coerce.number().int(),
@@ -1820,23 +1834,24 @@ Start now with a warm one-line greeting that briefly references something specif
       requestContextMode = contextMode;
       sendSse("status", { stage: "Checking your player profile..." });
       const isJournalCoach = !!journalEntry;
-      const needsTraining = ["training", "workout", "game", "goal", "opportunity", "training-review", "profile-insight"].includes(contextMode)
+      const isProfileInsight = contextMode === "profile-insight";
+      const needsTraining = ["training", "workout", "game", "goal", "opportunity", "training-review"].includes(contextMode)
         || isJournalCoach
         || isWelcomeWorkoutConversation;
       const needsWorkoutCatalog = ["workout", "opportunity", "training-review"].includes(contextMode) || isJournalCoach;
-      const needsGameData = ["game", "workout", "opportunity", "training-review", "profile-insight"].includes(contextMode)
+      const needsGameData = ["game", "workout", "opportunity", "training-review"].includes(contextMode)
         || !!journalEntry?.gameId
         || isWelcomeWorkoutConversation;
       const needsJournal = contextMode === "goal" || isJournalCoach;
-      const needsAssessmentAnswers = ["profile", "profile-insight", "goal", "opportunity", "workout"].includes(contextMode)
+      const needsAssessmentAnswers = ["profile", "goal", "opportunity", "workout"].includes(contextMode)
         || isJournalCoach
         || isWelcomeWorkoutConversation;
       const needsPrograms = contextMode === "workout" || isJournalCoach;
-      const needsLeadMagnetResults = contextMode !== "general" || isJournalCoach || isWelcomeWorkoutConversation;
-      const needsPlayerSetupAnswers = ["workout", "profile-insight"].includes(contextMode) || isWelcomeWorkoutConversation;
+      const needsLeadMagnetResults = (contextMode !== "general" && !isProfileInsight) || isJournalCoach || isWelcomeWorkoutConversation;
+      const needsPlayerSetupAnswers = contextMode === "workout" || isWelcomeWorkoutConversation;
       const contextStartedAt = Date.now();
       const [userProfile, playerSetupAnswers, career, playerProfile, userArchetypes, activeGoal, journalEntries, trainingLogs, principles, userStats, weeklyStats, categoryStats, dashboardStats, progressTrends, shotStats, careerStats, drillProgress, availableDrills, availablePrograms, activeEnrollments, playerLeadMagnetSubmissions] = await Promise.all([
-        storage.getUserProfile(userId),
+        isProfileInsight ? Promise.resolve(null) : storage.getUserProfile(userId),
         needsPlayerSetupAnswers
           ? db.select({ answers: playerSetupProfiles.answers })
               .from(playerSetupProfiles)
@@ -1844,10 +1859,10 @@ Start now with a warm one-line greeting that briefly references something specif
               .limit(1)
               .then((rows) => rows[0]?.answers ?? null)
           : Promise.resolve(null),
-        storage.getCareerProfile(userId),
-        storage.getPlayerProfile(userId),
-        storage.getUserArchetypes(userId),
-        storage.getActiveGoal(userId),
+        isProfileInsight ? Promise.resolve(null) : storage.getCareerProfile(userId),
+        isProfileInsight ? Promise.resolve(null) : storage.getPlayerProfile(userId),
+        isProfileInsight ? Promise.resolve([]) : storage.getUserArchetypes(userId),
+        isProfileInsight ? Promise.resolve(null) : storage.getActiveGoal(userId),
         needsJournal ? storage.getJournalEntries(userId) : Promise.resolve([]),
         needsTraining ? storage.getTrainingLogs(userId) : Promise.resolve([]),
         getCoachPCached("principles", 60_000, () => storage.getBrandPrinciples()),
@@ -2060,7 +2075,10 @@ Start now with a warm one-line greeting that briefly references something specif
       timings.prompt = Date.now() - promptStartedAt;
       sendSse("status", { stage: "Preparing your personalized coaching response..." });
 
-      const playerContext = `
+      const playerContext = isProfileInsight
+        ? `ONBOARDING PREVIEW DATA — THE ONLY PLAYER-SPECIFIC SOURCE
+${profileInsightContext ? JSON.stringify(profileInsightContext).slice(0, 5000) : "No onboarding preview data was attached. Do not substitute saved account profile, assessment, or activity data."}`
+        : `
 PLAYER IDENTITY
 - Name: ${userProfile?.displayName || "Player"}
 - Age: ${userProfile?.age ?? "not specified"}
@@ -2257,17 +2275,17 @@ PLAYER PROFILE DETAILS
       const flowInstructions = isProfileInsightConversation
         ? `
 PLAYER PROFILE INSIGHT FLOW
-This is a conversational coaching assessment, not a workout-building request. The player wants fresh insights that connect the evidence in their profile, setup answers, baseline shooting results, training history, progress, and saved assessment/quiz context. Do not recite their attributes or ask them to repeat information already available.
-Use a clear reasoning chain in the visible answer: identify a meaningful pattern across at least two pieces of evidence, explain what it could mean in a real basketball situation, and distinguish measured results from self-reported answers or hypotheses. Only make claims supported by the data; explicitly say when a conclusion is tentative or the sample is too small. Give the player a useful, potentially surprising takeaway—not generic praise and not a training plan.
+This is a conversational coaching assessment, not a workout-building request. Use ONLY the attached onboarding preview data: initial training frequency and session length, the Day 1 shooting baseline, and the Day 2 answers (basketball situation, goal, positions, ranked skills, and years played). Do not use or infer anything from stored account profile, career or assessment records, quizzes, training history, games, stats, journals, or other player data.
+Build useful basketball insight by connecting at least two allowed signals. In particular, compare self-ranked skills with measured shooting results, interpret both against the player's role and current situation, and judge whether their goal and available training frequency/session length are aligned. Explain the likely development lever that could help most, but do not turn it into a workout or prescribed plan. Distinguish measured baseline results from self-reported rankings and state uncertainty; a shooting baseline is not a measure of every basketball skill.
 Question phase: ${profileInsightAssistantTurns} prior Coach P insight replies.
 ${
   profileInsightAssistantTurns === 0
-    ? "First reply: open with 2–3 specific, connected insights (use a short heading and compact paragraphs). Then ask exactly one high-value, open-ended question as question 1 of 3. Choose a question that could change or sharpen your interpretation, not a question whose answer is already in the profile."
+    ? "First reply: give 2–3 concise, specific insights, then ask exactly one dynamic, open-ended question in chat as question 1 of 3. Choose the most important unknown in the allowed onboarding data that could materially change your read. Never ask for information already supplied."
     : profileInsightAssistantTurns < 3
-      ? `Follow-up reply: use the player's latest answer to refine your understanding. Briefly reflect what it reveals and add one specific insight that connects it to existing evidence. Then ask exactly one distinct, high-value question, question ${profileInsightAssistantTurns + 1} of 3. Do not repeat an earlier question or switch to building a workout.`
-      : "Final reply after question 3 has been answered: synthesize the updated player model into 2–3 concise insights, explain how the three answers changed or sharpened your read, and identify the most useful thing to watch for next. Do not ask another question and do not propose a workout."
+      ? `Follow-up reply: use the latest answer to sharpen or revise your interpretation. Briefly reflect what it reveals, connect it to the allowed onboarding evidence, then ask exactly one new dynamic question, question ${profileInsightAssistantTurns + 1} of 3. Each question must follow from the player's answers and target a different meaningful uncertainty. Do not repeat questions or switch to workout intake.`
+      : "Final reply after question 3 has been answered: synthesize 2–3 concise insights, explain how the answers changed or sharpened your read, and name the most promising development lever based only on the allowed onboarding evidence. Do not ask another question or prescribe a workout."
 }
-Do not claim to permanently train or update the underlying AI model. You may say that you are refining your understanding within this conversation.
+Do not claim to permanently train or update the underlying AI model. The questions refine your read within this conversation only.
 `
         : contextMode === "opportunity"
         ? `

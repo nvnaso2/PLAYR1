@@ -111,9 +111,9 @@ type CoachPProfileInsightContext = {
     positions: string[];
     experienceYears: string;
     skillRankings: Record<string, string>;
-    trainingFrequency: string;
+    trainingDaysPerPeriod: number | null;
     frequencyUnit: string;
-    sessionLength: string;
+    sessionLengthMinutes: number | null;
   };
   baseline: {
     completed: boolean;
@@ -655,6 +655,7 @@ export default function CoachPPage() {
   const [projectPrompt, setProjectPrompt] = useState<ProjectBuilderPrompt | null>(null);
   const [workoutBuilderMode, setWorkoutBuilderMode] = useState(false);
   const [profileInsightMode, setProfileInsightMode] = useState(false);
+  const [activeProfileInsightContext, setActiveProfileInsightContext] = useState<CoachPProfileInsightContext | null>(null);
   const [welcomeWorkoutMode, setWelcomeWorkoutMode] = useState(false);
   const [workoutIntake, setWorkoutIntake] = useState<CoachPWorkoutIntake | null>(null);
   const [workoutAnswers, setWorkoutAnswers] = useState<CoachPWorkoutAnswers | null>(null);
@@ -836,7 +837,16 @@ export default function CoachPPage() {
     onSuccess: (data) => {
       setUsage(data.coachP);
       setConversationId(data.conversationId);
-      setProfileInsightMode((current) => current && data.message.trim().endsWith("?"));
+      const profileInsightContinues = data.message.trim().endsWith("?");
+      setProfileInsightMode((current) => current && profileInsightContinues);
+      if (!profileInsightContinues) {
+        setActiveProfileInsightContext(null);
+        try {
+          sessionStorage.removeItem("playr1-coach-player-blueprint-context");
+        } catch {
+          // The completed conversation no longer needs its temporary onboarding snapshot.
+        }
+      }
       if (data.projectReady) {
         setProjectBuilderMode(false);
         setProjectPrompt(null);
@@ -964,7 +974,8 @@ export default function CoachPPage() {
       welcomeWorkout: options?.welcomeWorkout,
       workoutAnswers: options?.workoutAnswers,
       profileInsight: options?.profileInsight,
-      profileInsightContext: options?.profileInsightContext,
+      profileInsightContext: options?.profileInsightContext
+        ?? (profileInsightMode ? activeProfileInsightContext ?? undefined : undefined),
     });
     requestAnimationFrame(() => scrollToBottom("smooth"));
   };
@@ -998,6 +1009,7 @@ export default function CoachPPage() {
     setProjectPrompt(null);
     setWorkoutBuilderMode(false);
     setProfileInsightMode(false);
+    setActiveProfileInsightContext(null);
     setWelcomeWorkoutMode(false);
     setWorkoutIntake(null);
     setWorkoutAnswers(null);
@@ -1016,11 +1028,21 @@ export default function CoachPPage() {
       setMessages(data.messages);
       const insightReplies = data.messages.filter((message) => message.role === "assistant");
       const lastInsightReply = insightReplies[insightReplies.length - 1];
-      setProfileInsightMode(
+      const profileInsightContinues =
         data.conversation.title === "My player profile insights"
         && insightReplies.length <= 3
-        && !!lastInsightReply?.content.trim().endsWith("?"),
-      );
+        && !!lastInsightReply?.content.trim().endsWith("?");
+      setProfileInsightMode(profileInsightContinues);
+      let savedInsightContext: CoachPProfileInsightContext | null = null;
+      if (profileInsightContinues) {
+        try {
+          const saved = sessionStorage.getItem("playr1-coach-player-blueprint-context");
+          if (saved) savedInsightContext = JSON.parse(saved) as CoachPProfileInsightContext;
+        } catch {
+          // Continue with the evidence already discussed if no temporary snapshot remains.
+        }
+      }
+      setActiveProfileInsightContext(savedInsightContext);
       const isProjectConversation = data.conversation.title === "Build my PLAYR1 Project";
       const savedProjectReady = isProjectConversation && data.messages.some((message) => message.content.includes("Your PLAYR1 Project is ready"));
       setProjectBuilderMode(isProjectConversation && !savedProjectReady);
@@ -1111,12 +1133,12 @@ export default function CoachPPage() {
       try {
         const savedContext = sessionStorage.getItem("playr1-coach-player-blueprint-context");
         if (savedContext) profileInsightContext = JSON.parse(savedContext) as CoachPProfileInsightContext;
-        sessionStorage.removeItem("playr1-coach-player-blueprint-context");
       } catch {
-        // The server can still use the saved account profile and assessment.
+        // Coach P will not fall back to the player's stored account data.
       }
+      setActiveProfileInsightContext(profileInsightContext ?? null);
       sendMessage(
-        "Connect my profile, shooting baseline, assessment, and training history into useful insights. Explain what the evidence suggests and what is still uncertain. Do not build a workout. Then ask me one personalized question at a time, three questions total, to sharpen your understanding of my game.",
+        "Use only the onboarding preview information attached to this request: my initial training frequency and session length, Day 1 shooting baseline, and Day 2 answers. Find meaningful connections between my basketball situation, goal, position, ranked skills, experience, baseline performance, and realistic training schedule. Give me specific insights, not a recap or workout. Then ask one dynamic, personalized question in chat at a time, choosing each next question based on my answer, for three questions total.",
         {
           profileInsight: true,
           profileInsightContext,

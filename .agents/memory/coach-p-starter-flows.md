@@ -11,8 +11,8 @@ Coach P's starter set is ordered with Build my next workout in the top-left, fol
 
 ## Guided profile insights
 
-Analyze My Profile is a conversation, not a workout request or a list of profile attributes. Connect measured shooting baseline, assessment, setup answers, training history, and saved diagnostics into evidence-based insights; state uncertainty and ask three distinct, high-value questions one at a time. Refine the read after each answer, then end with a concise synthesis. The whole flow uses one Coach P credit.
+Analyze My Profile is a conversation, not a workout request or a list of profile attributes. Use only the onboarding preview's initial training frequency/session length, Day 1 shooting baseline, and Day 2 answers (situation, goal, positions, ranked skills, years played). Exclude richer account profiles, assessments, quizzes, training history, games, and other stats. Connect allowed evidence into useful basketball insights, then ask three adaptive chat questions one at a time and synthesize the answers. The whole flow uses one Coach P credit.
 
-**Why:** The user wants a world-class coach who connects information the player may not have noticed, then learns more through three questions without pushing a workout.
+**Why:** The onboarding preview includes richer test-account data than a typical player will have, so Coach P must reflect only the information the real onboarding collects.
 
-**How to apply:** Keep the insight flow separate from workout intake and the opportunity flow. Use one Coach P credit for the complete exchange, and do not claim that the underlying model permanently learns from the conversation.
+**How to apply:** Pass only the three approved onboarding sources into the insight flow and suppress all other player-specific sources server-side. Use one Coach P credit for the complete exchange, do not create a workout, and do not claim permanent model training.

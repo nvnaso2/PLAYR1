@@ -790,18 +790,15 @@ export default function HubPage() {
     : null;
   const coachPrompt = getDailyCoachPrompt(improvementFocus, localDateKey(new Date()));
   const startPlayerBlueprint = () => {
-    const savedAnswers = setupData?.answers ?? {};
     const profileAnswers = {
-      currentSituation: dayTwoAnswers.currentSituation || savedAnswers.currentSituation || "Not provided",
-      primaryGoal: dayTwoAnswers.primaryGoal || savedAnswers.primaryGoal || "Not provided",
-      positions: dayTwoAnswers.positions.length ? dayTwoAnswers.positions : savedAnswers.positions ?? careerData?.positions ?? [],
-      experienceYears: dayTwoAnswers.experienceYears || savedAnswers.experienceYears || "Not provided",
-      skillRankings: Object.values(dayTwoAnswers.skillRankings).some(Boolean)
-        ? dayTwoAnswers.skillRankings
-        : savedAnswers.skillRankings ?? {},
-      trainingFrequency: previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? savedAnswers.trainingFrequency ?? savedAnswers.trainingDays ?? "Not provided",
-      frequencyUnit: previewProfile.frequencyUnit ?? savedAnswers.frequencyUnit ?? "week",
-      sessionLength: previewProfile.sessionLength ?? savedAnswers.sessionLength ?? "Not provided",
+      currentSituation: dayTwoAnswers.currentSituation || "Not provided",
+      primaryGoal: dayTwoAnswers.primaryGoal || "Not provided",
+      positions: dayTwoAnswers.positions,
+      experienceYears: dayTwoAnswers.experienceYears || "Not provided",
+      skillRankings: dayTwoAnswers.skillRankings,
+      trainingDaysPerPeriod: previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? null,
+      frequencyUnit: previewProfile.frequencyUnit ?? "week",
+      sessionLengthMinutes: previewProfile.sessionLength ?? null,
     };
     const profileInsightContext = {
       profile: profileAnswers,
