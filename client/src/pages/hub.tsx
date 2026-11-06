@@ -19,7 +19,7 @@ import {
   type HubStatKey,
   type HubStatOrder,
 } from "@/lib/dashboard-stats";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   CalendarDays,
   Pencil,
@@ -100,23 +100,9 @@ const previewShotTypes: Array<{ key: PreviewShotKey; label: string; color: strin
 ];
 const dayTwoWorkoutId = "playr1-onboarding-day2-find-your-shooting-range";
 
-function BasketballPlayerIcon({ className = "" }: { className?: string }) {
+function BasketballIcon({ className = "" }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="11.5" cy="3.7" r="2" />
-      <path d="m10.4 6.3-1.8 5.2 4.1 2 3-3.2 2.2 2.1M10 7.4 5.7 9 4 6.9M8.9 11.5l-3.8 6M12.7 13.5l4.5 4.4" />
-      <circle cx="19" cy="13.4" r="2.2" />
-      <path d="M17.2 12.2c1.1.4 1.7 1.3 1.8 3.3m1.8-3.1c-1.1.5-1.7 1.4-1.8 3.2" />
-    </svg>
+    <span aria-hidden="true" className={`inline-flex items-center justify-center text-[18px] leading-none ${className}`}>🏀</span>
   );
 }
 
@@ -251,6 +237,7 @@ export default function HubPage() {
   const fitOnboardingHub = onboardingPreview && previewDay === 1 && !dayTwoProfileStep;
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
   const [dayTwoCoachDraft, setDayTwoCoachDraft] = useState("");
+  const dayTwoCoachInputRef = useRef<HTMLInputElement>(null);
   const [dayTwoSaving, setDayTwoSaving] = useState(false);
   const [dayTwoError, setDayTwoError] = useState("");
   const [dayTwoAnswers, setDayTwoAnswers] = useState<{
@@ -1645,22 +1632,32 @@ export default function HubPage() {
                       className="flex min-h-10 w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                       data-testid="button-day-two-player-blueprint"
                     >
-                      <BasketballPlayerIcon className="h-4 w-4 shrink-0 text-orange-300 drop-shadow-[0_0_7px_rgba(251,146,60,0.7)]" />
+                      <BasketballIcon className="h-4 w-4 shrink-0 text-orange-300 drop-shadow-[0_0_7px_rgba(251,146,60,0.7)]" />
                       <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-zinc-200 sm:text-sm">Analyze My Profile</span>
                       <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-zinc-600" />
                     </button>
                   </div>
                   <form
                     onSubmit={sendDayTwoCoachMessage}
-                    className="mt-4 flex min-h-12 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    onClick={(event) => {
+                      if (!(event.target as HTMLElement).closest("button")) dayTwoCoachInputRef.current?.focus();
+                    }}
+                    className="pointer-events-auto relative z-10 mt-4 flex min-h-12 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-within:border-orange-400/60 focus-within:ring-2 focus-within:ring-orange-400/40"
                     data-testid="form-day-two-coach-message"
                   >
                     <input
+                      ref={dayTwoCoachInputRef}
+                      type="text"
                       value={dayTwoCoachDraft}
                       onChange={(event) => setDayTwoCoachDraft(event.currentTarget.value)}
                       placeholder="Ask Coach P anything about your game..."
                       aria-label="Message Coach P"
-                      className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
+                      readOnly={false}
+                      autoComplete="off"
+                      autoCapitalize="sentences"
+                      autoCorrect="on"
+                      enterKeyHint="send"
+                      className="pointer-events-auto relative z-10 block min-w-0 flex-1 cursor-text touch-auto select-text bg-transparent text-sm text-white caret-orange-400 outline-none placeholder:text-zinc-500"
                       data-testid="input-day-two-coach-message"
                     />
                     <button
