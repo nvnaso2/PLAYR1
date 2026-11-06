@@ -14,7 +14,7 @@ Keep the supplied court artwork large on the right side of the workout card and 
 
 **Why:** the user rejected tiny boxed court thumbnails, overlap with the workout icon, and cramped prompt styling.
 
-**How to apply:** preserve the original supplied image for workout details and its numbered locations; use a cropped copy for the card composition with clear spacing around the title, shot details, divider, and preview action.
+**How to apply:** preserve the original supplied image for workout details and its numbered locations; use a cropped copy for the card composition. Keep the title and shot details at the upper-left, constrain text so it never overlaps the court artwork, and keep clear spacing around the divider and preview action.
 
 **Why:** the user wants the Hub journey to reveal useful actions in stages, while keeping the familiar Hub shell and a consistent player identity.
 
