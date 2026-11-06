@@ -81,6 +81,7 @@ import {
   Upload,
   Video,
   Star,
+  BookMarked,
   Heart,
   Search,
   Loader2,
@@ -203,6 +204,7 @@ export default function TrainingLogPage() {
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
   const [showFavoriteDialog, setShowFavoriteDialog] = useState(false);
   const [postJournalPrompt, setPostJournalPrompt] = useState<{ type: "post-workout"; trainingLogId: string } | null>(null);
+  const [completedWorkoutEntries, setCompletedWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
   const [shareSessionId, setShareSessionId] = useState<string | null>(null);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showCreateWorkoutMode, setShowCreateWorkoutMode] = useState(false);
@@ -1474,6 +1476,7 @@ export default function TrainingLogPage() {
 
       // Snapshot pending program completion before we clear state below
       const programCompletion = pendingProgramCompletion;
+      setCompletedWorkoutEntries(entriesToSave);
 
       // Single bulk request + challenge updates all in parallel
       const challengeRequests = Object.entries(challengeUpdates).map(async ([userChallengeId, addedValue]) => {
@@ -1518,17 +1521,14 @@ export default function TrainingLogPage() {
         setMetricInputDrafts({});
         setWorkoutMode("track");
         setShareSessionId(bulkRes?.ok ? sessionId : null);
-        setShowFavoriteDialog(activeWorkoutTemplateId !== DAY_THREE_VOLUME_WORKOUT_ID);
+        setShowFavoriteDialog(true);
       });
 
       // Show streak celebration if daily challenge was auto-completed
       const bulkData = bulkRes?.ok ? await bulkRes.json().catch(() => null) : null;
       const streakResult = bulkData?.streakResult;
       const firstLogId = Array.isArray(bulkData?.logs) && bulkData.logs[0]?.id ? bulkData.logs[0].id : undefined;
-      if (bulkRes?.ok && firstLogId && activeWorkoutTemplateId === DAY_THREE_VOLUME_WORKOUT_ID) {
-        setPostJournalPrompt(null);
-        setLocation(`/dashboard?day3TrainingLogId=${encodeURIComponent(firstLogId)}`);
-      } else if (bulkRes?.ok && firstLogId) {
+      if (bulkRes?.ok && firstLogId) {
         setPostJournalPrompt({ type: "post-workout", trainingLogId: firstLogId });
       }
       if (bulkRes?.ok) {
@@ -1761,6 +1761,7 @@ export default function TrainingLogPage() {
     const { entry, index } = selectedRow;
     const madeMetric = metricColumns.find((metric) => /made/i.test(`${metric.template.name} ${metric.template.label}`));
     const attemptsMetric = metricColumns.find((metric) => /attempt/i.test(`${metric.template.name} ${metric.template.label}`));
+    const additionalMetrics = metricColumns.filter((metric) => metric !== madeMetric && metric !== attemptsMetric);
     const locationLabel = (row: typeof rows[number], roundIndex: number) => {
       if (!row.entry.shotLocation) return `Round ${roundIndex + 1}`;
       return getLocationLabel(row.entry.shotLocation)
@@ -1807,6 +1808,21 @@ export default function TrainingLogPage() {
               <span className="font-heading text-base font-black text-orange-600">/</span>
               <label className="sr-only" htmlFor={`track-attempts-${index}`}>Attempts</label>
               <Input id={`track-attempts-${index}`} type="text" inputMode="numeric" placeholder="A" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} attempts`} value={getMetricInputValue(index, attemptsMetric.metricTemplateId, entry.metrics[attemptsMetric.metricTemplateId])} onFocus={(event) => event.currentTarget.select()} onChange={(event) => handleMetricInputChange(index, attemptsMetric.metricTemplateId, event.target.value)} className="h-8 w-[39px] border-zinc-200 bg-white px-1 text-center font-mono text-sm font-bold tabular-nums text-zinc-950 placeholder:text-[9px] placeholder:text-zinc-400 sm:w-[44px]" data-testid={`track-attempts-input-${index}`} />
+              {additionalMetrics.map((metric) => (
+                <label key={metric.metricTemplateId} className="min-w-0">
+                  <span className="sr-only">{metric.template.label}</span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={metric.template.label}
+                    value={getMetricInputValue(index, metric.metricTemplateId, entry.metrics[metric.metricTemplateId])}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => handleMetricInputChange(index, metric.metricTemplateId, event.target.value)}
+                    className="h-8 w-[42px] border-zinc-200 bg-white px-1 text-center font-mono text-xs font-bold tabular-nums text-zinc-950"
+                    data-testid={`input-metric-${index}-${metric.metricTemplateId}`}
+                  />
+                </label>
+              ))}
           </div>
         ) : (
           <div className="grid shrink-0 grid-cols-1 gap-1">
@@ -2971,88 +2987,81 @@ export default function TrainingLogPage() {
 
       {/* Save as Favorite Dialog (after completing workout) */}
       <Dialog open={showFavoriteDialog} onOpenChange={(open) => {
+        setShowFavoriteDialog(open);
         if (!open) {
-          setShowFavoriteDialog(false);
           setWorkoutEntries([]);
+          setCompletedWorkoutEntries([]);
           setSelectedDrillIds(new Set());
+          setPostJournalPrompt(null);
           setActiveView("library");
         }
       }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-500" />
-              Save as Favorite?
-            </DialogTitle>
-            <DialogDescription>
-              {workoutEntries.length === 1
-                ? "Would you like to save this drill as a favorite for quick access?"
-                : "Would you like to save this workout as a favorite for quick access?"}
-            </DialogDescription>
+        <DialogContent className="max-w-md overflow-hidden border border-white/10 bg-[#080808] p-0 text-white shadow-[0_28px_100px_rgba(0,0,0,.9)] sm:rounded-[28px]" data-testid="dialog-workout-complete">
+          <div className="relative overflow-hidden px-5 pb-5 pt-7 sm:px-7 sm:pb-7 sm:pt-9">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(249,115,22,.18),transparent_55%)]" />
+            <DialogHeader className="relative items-center text-center">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[.28em] text-orange-400">Session complete</p>
+              <DialogTitle className="mt-2 font-heading text-3xl font-black uppercase leading-none tracking-tight text-white sm:text-4xl">
+                Let&apos;s dive into this training session.
+              </DialogTitle>
+            </DialogHeader>
+
             {postJournalPrompt && (
-              <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-2 text-left">
-                <p className="text-sm font-medium">Want to capture what you learned?</p>
-                <p className="text-xs text-muted-foreground">Start a post-workout Journal entry while the session is fresh.</p>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => {
-                    setPostJournalPrompt(null);
+              <button
+                type="button"
+                onClick={() => {
+                  const target = `/journal?type=post-workout&trainingLogId=${encodeURIComponent(postJournalPrompt.trainingLogId)}`;
+                  setShowFavoriteDialog(false);
+                  setLocation(target);
+                }}
+                className="group relative mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-2xl border border-orange-400/25 bg-[#111] px-5 py-7 text-center shadow-[0_0_40px_rgba(249,115,22,.12)] transition hover:border-orange-400/60 hover:bg-[#151515] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                data-testid="button-reflect-after-workout"
+              >
+                <span className="relative flex h-20 w-20 items-center justify-center rounded-[22px] border border-[#f2e6cc] bg-gradient-to-br from-[#eee1c4] to-[#c9b894] shadow-[0_0_30px_rgba(249,115,22,.2)]">
+                  <span className="absolute inset-y-2 left-3 w-px bg-[#9c8765]/60" />
+                  <BookMarked className="h-10 w-10 text-[#423727]" strokeWidth={1.8} />
+                  <span className="absolute right-4 top-0 h-5 w-2 rounded-b-sm bg-orange-600" />
+                </span>
+                <span className="font-heading text-xl font-black uppercase tracking-wide text-white sm:text-2xl">Open your journal</span>
+                <span className="rounded-lg bg-orange-500 px-6 py-3 font-mono text-xs font-extrabold uppercase tracking-[.16em] text-black shadow-[0_3px_0_#a93c0d] transition group-hover:bg-orange-400">Reflect now</span>
+              </button>
+            )}
+
+            <div className="relative mt-4 grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (completedWorkoutEntries.length === 1) {
+                    favoriteDrillMutation.mutate(completedWorkoutEntries[0].drillId);
+                    toast({ title: "Saved as favorite" });
                     setShowFavoriteDialog(false);
-                    setLocation(`/journal?type=post-workout&trainingLogId=${postJournalPrompt.trainingLogId}`);
-                  }} data-testid="button-reflect-after-workout">Reflect now</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setPostJournalPrompt(null)} data-testid="button-dismiss-workout-reflection">Later</Button>
-                </div>
-              </div>
-            )}
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            {workoutEntries.map(entry => (
-              <div key={entry.drillId} className="flex items-center gap-2 p-2 rounded border">
-                <Dumbbell className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm font-medium">{entry.drill.title}</span>
-                <Badge variant="outline" className="text-xs ml-auto">{formatCategory(entry.drill.category)}</Badge>
-              </div>
-            ))}
+                  } else {
+                    setSelectedDrillIds(new Set(completedWorkoutEntries.map((entry) => entry.drillId)));
+                    setShowFavoriteDialog(false);
+                    setIsSaveWorkoutOpen(true);
+                  }
+                }}
+                className="h-12 border-white/15 bg-[#111] text-xs font-bold uppercase tracking-wide text-white hover:border-orange-400/50 hover:bg-[#181818] hover:text-white"
+                data-testid="button-save-favorite"
+              >
+                <Star className="mr-2 h-4 w-4 text-orange-400" />
+                Save as favorite
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!shareSessionId}
+                onClick={() => {
+                  setShowFavoriteDialog(false);
+                  setShowShareDialog(true);
+                }}
+                className="h-12 border-white/15 bg-[#111] text-xs font-bold uppercase tracking-wide text-white hover:border-orange-400/50 hover:bg-[#181818] hover:text-white disabled:opacity-40"
+                data-testid="button-share-workout"
+              >
+                <Share2 className="mr-2 h-4 w-4 text-orange-400" />
+                Share workout
+              </Button>
+            </div>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => {
-              setShowFavoriteDialog(false);
-              setWorkoutEntries([]);
-              setSelectedDrillIds(new Set());
-              setActiveView("library");
-            }} data-testid="button-skip-favorite">
-              Skip
-            </Button>
-            {shareSessionId && (
-              <Button variant="outline" onClick={() => {
-                setShowFavoriteDialog(false);
-                setShowShareDialog(true);
-              }} className="gap-2" data-testid="button-share-workout">
-                <Share2 className="w-4 h-4" />
-                Share Workout
-              </Button>
-            )}
-            {workoutEntries.length === 1 ? (
-              <Button onClick={() => {
-                favoriteDrillMutation.mutate(workoutEntries[0].drillId);
-                toast({ title: "Drill saved as favorite!" });
-                setShowFavoriteDialog(false);
-                setWorkoutEntries([]);
-                setSelectedDrillIds(new Set());
-                setActiveView("library");
-              }} className="gap-2" data-testid="button-save-favorite">
-                <Star className="w-4 h-4" />
-                Save as Favorite Drill
-              </Button>
-            ) : (
-              <Button onClick={() => {
-                setShowFavoriteDialog(false);
-                setIsSaveWorkoutOpen(true);
-              }} className="gap-2" data-testid="button-save-favorite">
-                <Star className="w-4 h-4" />
-                Save as Favorite Workout
-              </Button>
-            )}
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

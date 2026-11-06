@@ -374,13 +374,18 @@ export async function ensureDayTwoRangeWorkout() {
   const metricRows = await db.select().from(metricTemplates);
   const makesId = metricRows.find((metric) => metric.name === "shots-made")?.id;
   const attemptsId = metricRows.find((metric) => metric.name === "shot-attempts")?.id;
-  if (!makesId || !attemptsId) throw new Error("Day 2 shooting metric templates are missing");
+  const coneSetsId = metricRows.find((metric) => metric.name === "cone-sets")?.id;
+  if (!makesId || !attemptsId || !coneSetsId) throw new Error("Day 2 workout metric templates are missing");
   const spotRounds: Record<string, Array<[string | undefined, number]>> = {
     "find-range": [[undefined, 30]],
     "elbow-jumpers": [["left-elbow", 10], ["right-elbow", 10]],
     "mid-range-pull-ups": [["left-corner-mid-range", 8], ["wing-left-mid-range", 8], ["top-of-key-3-point", 8], ["wing-right-mid-range", 8], ["right-corner-mid-range", 8]],
     "catch-shoot-threes": [["corner-left", 5], ["wing-left", 5], ["top-of-key", 5], ["wing-right", 5], ["corner-right", 5]],
     "game-free-throws": [["free-throw", 10]],
+    "finishing-ball-handling": [[undefined, 40]],
+  };
+  const extraPresetMetrics: Record<string, Record<string, number>> = {
+    "finishing-ball-handling": { [coneSetsId]: 5 },
   };
   const savedDrills: Array<{ drill: Drill; reps: number; duration: number }> = [];
   const metricAssociations: Array<{ drillId: string; metricTemplateId: string; isRequired: boolean; sortOrder: number }> = [];
@@ -388,7 +393,7 @@ export async function ensureDayTwoRangeWorkout() {
     const rounds = spotRounds[item.key];
     const presetRounds = rounds?.map(([shotLocation, attempts]) => ({
       ...(shotLocation ? { shotLocation } : {}),
-      metricValues: { [makesId]: 0, [attemptsId]: attempts },
+      metricValues: { [makesId]: 0, [attemptsId]: attempts, ...(extraPresetMetrics[item.key] ?? {}) },
     }));
     let [drill] = await db.select().from(drills).where(and(eq(drills.title, item.title), isNull(drills.userId))).limit(1);
     if (!drill) {
@@ -401,7 +406,7 @@ export async function ensureDayTwoRangeWorkout() {
         equipment: [...item.equipment],
         tips: [...item.tips],
         isFeatured: false,
-        trackShots: item.trackShots,
+        trackShots: Boolean(rounds),
         ...(presetRounds ? { presetRounds } : {}),
         userId: null,
       }).returning();
@@ -409,16 +414,19 @@ export async function ensureDayTwoRangeWorkout() {
       [drill] = await db.update(drills).set({
         description: item.description,
         duration: item.duration,
-        trackShots: item.trackShots,
+        trackShots: Boolean(rounds),
         ...(presetRounds ? { presetRounds } : {}),
       }).where(eq(drills.id, drill.id)).returning();
     }
     savedDrills.push({ drill, reps: item.reps, duration: Math.ceil(item.duration / 60) });
     if (rounds) {
       metricAssociations.push(
-        { drillId: drill.id, metricTemplateId: makesId, isRequired: true, sortOrder: 0 },
+        { drillId: drill.id, metricTemplateId: makesId, isRequired: false, sortOrder: 0 },
         { drillId: drill.id, metricTemplateId: attemptsId, isRequired: true, sortOrder: 1 },
       );
+      if (extraPresetMetrics[item.key]) {
+        metricAssociations.push({ drillId: drill.id, metricTemplateId: coneSetsId, isRequired: true, sortOrder: 2 });
+      }
     }
   }
 
@@ -1788,8 +1796,6 @@ export async function seedDatabase() {
     } else {
       console.log("Drills already exist, skipping seed");
     }
-    await ensureDayTwoRangeWorkout();
-
     // Check if benchmarks already exist
     const existingBenchmarks = await db.select().from(benchmarks).limit(1);
     
@@ -1882,20 +1888,16 @@ export async function seedDatabase() {
       { name: "shots-made",    label: "Shots Made",      type: "number" as const, unit: "shots"    },
       { name: "shot-attempts", label: "Shot Attempts",   type: "number" as const, unit: "shots"    },
       { name: "time",          label: "Time",            type: "timer"  as const, unit: "seconds"  },
+      { name: "cone-sets",     label: "Cone Sets",       type: "number" as const, unit: "sets"     },
     ];
     const canonicalMetricNames = canonicalMetrics.map(m => m.name);
     const existingMetrics = await db.select().from(metricTemplates);
-    const existingNames = existingMetrics.map(m => m.name).sort().join(",");
-    const expectedNames = [...canonicalMetricNames].sort().join(",");
-    if (existingNames !== expectedNames) {
-      console.log("Syncing metric templates...");
-      await db.delete(drillMetrics);
-      await db.delete(metricTemplates);
-      await db.insert(metricTemplates).values(canonicalMetrics as any);
-      console.log("Metric templates synced");
-    } else {
-      console.log("Metric templates already synced");
-    }
+    const existingMetricNames = new Set(existingMetrics.map((metric) => metric.name));
+    const missingMetrics = canonicalMetrics.filter((metric) => !existingMetricNames.has(metric.name));
+    if (missingMetrics.length) {
+      console.log(`Adding ${missingMetrics.length} missing metric templates...`);
+      await db.insert(metricTemplates).values(missingMetrics as any).onConflictDoNothing();
+    } else console.log("Metric templates already synced");
 
     // Always ensure drill-metric associations exist for admin (system) drills
     const existingDrillMetrics = await db.select().from(drillMetrics).limit(1);
@@ -1955,6 +1957,9 @@ export async function seedDatabase() {
       console.log("Drill-metric associations already exist");
     }
     await ensureDayThreeVolumeWorkout();
+    // Day 2 presets depend on canonical shot-location and metric-template rows,
+    // so seed them only after those shared tables have been synchronized.
+    await ensureDayTwoRangeWorkout();
 
     const existingTeams = await db.select().from(teamClubs).limit(1);
     if (existingTeams.length === 0) {
