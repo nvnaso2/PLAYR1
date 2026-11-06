@@ -419,29 +419,49 @@ export async function ensureDayTwoRangeWorkout() {
 }
 
 const dayThreeVolumeDrills = [
-  { title: "Catch & Shoot 3's", description: "Take 20 shots from each of the 5 spots around the court. Use a rebounder for catch-and-shoot reps, or take stationary shots if training alone.", reps: 100, duration: 900 },
-  { title: "Mid Range Pull-ups", description: "Take 8 shots from each of the 5 spots around the court. Start behind the 3-point line and take 4 shots dribbling left and 4 dribbling right.", reps: 40, duration: 720 },
-  { title: "Free Throws", description: "Take 25 free throws, practicing as if you were in a game and following your regular free-throw routine.", reps: 25, duration: 420 },
-  { title: "Elbow Jumpers", description: "Take 10 shots at each elbow. Start at the block and spin the ball out to the elbow. Plant your inside foot as you catch, then turn, square your shoulders, and shoot.", reps: 20, duration: 480 },
-  { title: "Curling Wing 3's", description: "Take 10 shots at each wing. Start at the top of the key and spin the ball out to a wing. Plant your inside foot as you catch, then turn, square your shoulders, and shoot.", reps: 20, duration: 600 },
-  { title: "Make X 3's in a Row", description: "Pick 1 of the 5 spots on the court and set a target goal. Keep shooting from that spot until you make X 3-pointers in a row or reach your 5- or 10-minute limit. Starting at 3–5 is fine.", reps: 10, duration: 600 },
+  { title: "Catch & Shoot 3's", description: "Shoot 20 catch-and-shoot threes from each of the five spots: both corners, both wings, and the top of the key. Use a rebounder, or shoot stationary when training alone.", duration: 900, rounds: [["corner-left", 20], ["wing-left", 20], ["top-of-key", 20], ["wing-right", 20], ["corner-right", 20]] },
+  { title: "Mid Range Pull-ups", description: "At each of five mid-range spots, take four pull-ups off a left-hand dribble and four off a right-hand dribble.", duration: 720, rounds: [["left-corner-mid-range", 8], ["wing-left-mid-range", 8], ["top-of-key-3-point", 8], ["wing-right-mid-range", 8], ["right-corner-mid-range", 8]] },
+  { title: "Free Throws", description: "Take 25 free throws, practicing as if you were in a game and following your regular free-throw routine.", duration: 420, rounds: [["free-throw", 25]] },
+  { title: "Elbow Jumpers", description: "Take 10 shots at each elbow. Start at the block, spin the ball out to the elbow, plant your inside foot, square your shoulders, and shoot.", duration: 480, rounds: [["elbow-left", 10], ["elbow-right", 10]] },
+  { title: "Curling Wing 3's", description: "Take 10 shots at each wing. Start at the top of the key, spin the ball to a wing, plant your inside foot, square your shoulders, and shoot.", duration: 600, rounds: [["wing-left", 10], ["wing-right", 10]] },
+  { title: "Make X 3's in a Row", description: "Choose one of the five three-point spots and set your X target (3–5 is a good start). Track every attempt until you make X in a row or reach your 5- or 10-minute limit.", duration: 600, rounds: [[undefined, undefined]] },
 ] as const;
 
 export const DAY_THREE_VOLUME_WORKOUT_ID = "playr1-onboarding-day3-volume-workout";
 
 async function ensureDayThreeVolumeWorkout() {
+  const metricRows = await db.select().from(metricTemplates);
+  const makesId = metricRows.find((metric) => metric.name === "shots-made")?.id;
+  const attemptsId = metricRows.find((metric) => metric.name === "shot-attempts")?.id;
+  if (!makesId || !attemptsId) throw new Error("Day 3 shooting metric templates are missing");
   const savedDrills: Array<{ drill: Drill; reps: number; duration: number }> = [];
+  const metricAssociations: Array<{ drillId: string; metricTemplateId: string; isRequired: boolean; sortOrder: number }> = [];
   for (const item of dayThreeVolumeDrills) {
     let [drill] = await db.select().from(drills).where(and(eq(drills.title, item.title), isNull(drills.userId))).limit(1);
+    const presetRounds = item.rounds.map(([shotLocation, attempts]) => ({
+      ...(shotLocation ? { shotLocation } : {}),
+      metricValues: { [makesId]: 0, [attemptsId]: attempts ?? 0 },
+    }));
     if (!drill) {
       [drill] = await db.insert(drills).values({
         title: item.title, description: item.description, category: "shooting", difficulty: "intermediate",
         duration: item.duration, equipment: ["Basketball", "Hoop"], tips: [],
-        isFeatured: false, trackShots: true, userId: null,
+        isFeatured: false, trackShots: true, presetRounds, userId: null,
       }).returning();
+    } else {
+      [drill] = await db.update(drills).set({
+        description: item.description, duration: item.duration, trackShots: true, presetRounds,
+      }).where(eq(drills.id, drill.id)).returning();
     }
-    savedDrills.push({ drill, reps: item.reps, duration: Math.ceil(item.duration / 60) });
+    const totalReps = item.rounds.reduce((total, [, attempts]) => total + (attempts ?? 0), 0);
+    savedDrills.push({ drill, reps: totalReps, duration: Math.ceil(item.duration / 60) });
+    metricAssociations.push(
+      { drillId: drill.id, metricTemplateId: makesId, isRequired: true, sortOrder: 0 },
+      { drillId: drill.id, metricTemplateId: attemptsId, isRequired: true, sortOrder: 1 },
+    );
   }
+  await db.delete(drillMetrics).where(inArray(drillMetrics.drillId, savedDrills.map(({ drill }) => drill.id)));
+  await db.insert(drillMetrics).values(metricAssociations as any);
   const [existing] = await db.select().from(workouts).where(eq(workouts.id, DAY_THREE_VOLUME_WORKOUT_ID)).limit(1);
   if (!existing) await db.insert(workouts).values({
     id: DAY_THREE_VOLUME_WORKOUT_ID, name: "Volume Workout",
@@ -1736,7 +1756,6 @@ export async function seedDatabase() {
       console.log("Drills already exist, skipping seed");
     }
     await ensureDayTwoRangeWorkout();
-    await ensureDayThreeVolumeWorkout();
 
     // Check if benchmarks already exist
     const existingBenchmarks = await db.select().from(benchmarks).limit(1);
@@ -1790,6 +1809,8 @@ export async function seedDatabase() {
       { slug: "form-shots-1st-hash",   label: "Form Shots 1st Hash",  classification: "2-pointer",  sortOrder: 17 },
       { slug: "left-hand-layup",       label: "Left Hand Layup",      classification: "2-pointer",  sortOrder: 18 },
       { slug: "right-hand-layup",      label: "Right Hand Layup",     classification: "2-pointer",  sortOrder: 19 },
+      { slug: "elbow-left",            label: "Left Elbow",            classification: "2-pointer",  sortOrder: 20 },
+      { slug: "elbow-right",           label: "Right Elbow",           classification: "2-pointer",  sortOrder: 21 },
     ];
     const canonicalSlugs = canonicalShotLocations.map(l => l.slug);
     for (const loc of canonicalShotLocations) {
@@ -1900,6 +1921,7 @@ export async function seedDatabase() {
     } else {
       console.log("Drill-metric associations already exist");
     }
+    await ensureDayThreeVolumeWorkout();
 
     const existingTeams = await db.select().from(teamClubs).limit(1);
     if (existingTeams.length === 0) {

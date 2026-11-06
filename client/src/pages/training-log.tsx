@@ -223,7 +223,6 @@ export default function TrainingLogPage() {
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [, setWorkoutTimerTick] = useState(0);
   // Manual duration override — user can type in actual minutes if timer was inaccurate
-  const [manualDurationMinutes, setManualDurationMinutes] = useState<string>("");
   // drillId → timestamp (ms) when that drill was first added to the session
   const [drillStartTimes, setDrillStartTimes] = useState<Record<string, number>>({});
 
@@ -1247,15 +1246,6 @@ export default function TrainingLogPage() {
     });
   };
 
-  // Apply a challenge to all rounds of a specific drill
-  const applyChallengeToAllRounds = (drillId: string, challengeId: string) => {
-    setWorkoutEntries(prev => prev.map(e =>
-      e.drillId === drillId
-        ? { ...e, trackToChallengeIds: challengeId === 'none' ? [] : [challengeId] }
-        : e
-    ));
-  };
-
   // Apply a challenge to ALL entries in the workout whose category matches
   const applyChallengeToDrillCategory = (category: string, challengeId: string) => {
     setWorkoutEntries(prev => prev.map(e =>
@@ -1389,10 +1379,7 @@ export default function TrainingLogPage() {
       // total so old behavior is preserved for ad-hoc logs.
       const saveNow = Date.now();
       const totalElapsedMs = workoutStartTime ? (saveNow - workoutStartTime) : 0;
-      const manualOverride = manualDurationMinutes ? parseInt(manualDurationMinutes, 10) : NaN;
-      const totalSessionMinutes = !isNaN(manualOverride) && manualOverride > 0
-        ? manualOverride
-        : workoutStartTime
+      const totalSessionMinutes = workoutStartTime
           ? Math.max(0, Math.round(totalElapsedMs / 60000))
           : workoutEntries.reduce((s, e) => s + (e.duration || 0), 0);
 
@@ -1519,7 +1506,6 @@ export default function TrainingLogPage() {
         setActiveWorkoutName("Training session");
         setWorkoutStartTime(null);
         setDrillStartTimes({});
-        setManualDurationMinutes("");
         setQuickCompletedDrillIds(new Set());
         setWorkoutMode("track");
         setShareSessionId(bulkRes?.ok ? sessionId : null);
@@ -1626,7 +1612,6 @@ export default function TrainingLogPage() {
     setWorkoutEntries([]);
     setWorkoutStartTime(null);
     setDrillStartTimes({});
-    setManualDurationMinutes("");
     setQuickCompletedDrillIds(new Set());
     setWorkoutMode("track");
     setActiveWorkoutTemplateId(null);
@@ -1728,16 +1713,6 @@ export default function TrainingLogPage() {
   const sessionDrillCount = new Set(workoutEntries.map((entry) => entry.drillId)).size;
   const completedDrillCount = quickCompletedDrillIds.size;
   const isDayThreeWorkout = activeWorkoutTemplateId === DAY_THREE_VOLUME_WORKOUT_ID;
-  const trackedDrillCount = new Set(
-    workoutEntries
-      .filter((entry) =>
-        (entry.shotsAttempted || 0) > 0 ||
-        (entry.shotsMade || 0) > 0 ||
-        Object.values(entry.metrics).some((value) => Number(value) > 0)
-      )
-      .map((entry) => entry.drillId)
-  ).size;
-  const trackProgress = sessionDrillCount ? Math.round((trackedDrillCount / sessionDrillCount) * 100) : 0;
   const isDayTwoWorkout = activeWorkoutTemplateId === DAY_TWO_RANGE_WORKOUT_ID;
   const quickCompleteDrills = quickWorkoutEntries.map((entry, index) => ({
     id: entry.drillId,
@@ -1748,7 +1723,7 @@ export default function TrainingLogPage() {
       ? dayTwoWorkoutTotals[index] ?? `${entry.plannedReps ?? ""} reps`
       : `${formatCategory(entry.drill.category || "")} · ${entry.drill.difficulty}`,
     complete: quickCompletedDrillIds.has(entry.drillId),
-    image: isDayTwoWorkout ? dayTwoWorkoutArt[index] : undefined,
+    image: isDayTwoWorkout ? dayTwoWorkoutArt[index] : isDayThreeWorkout ? volumeWorkoutArt[index] : undefined,
   }));
 
   // Render drill selection list
@@ -3139,20 +3114,6 @@ export default function TrainingLogPage() {
                     Track Stats
                   </Button>
                 </div>
-                {/* Manual override — lets user correct the time if timer was started late */}
-                <div className="flex items-center gap-1.5" title="Override session duration if timer was inaccurate">
-                  <input
-                    type="number"
-                    min="1"
-                    max="600"
-                    placeholder="Override min"
-                    value={manualDurationMinutes}
-                    onChange={e => setManualDurationMinutes(e.target.value)}
-                    className="h-9 w-24 rounded-lg border border-black/10 bg-white px-2 text-sm tabular-nums text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-400/50"
-                    data-testid="input-manual-duration"
-                  />
-                  <span className="text-xs text-zinc-500">min</span>
-                </div>
               <div className="flex flex-wrap justify-end gap-2 border-t border-black/10 pt-3">
                 {workoutEntries.length >= 2 && savedWorkoutLimitReached && (
                   <Button
@@ -3249,18 +3210,6 @@ export default function TrainingLogPage() {
               </div>
             </div>
           </CardHeader>
-          <section className="rounded-2xl border border-black/10 bg-white/95 p-4 shadow-[0_8px_24px_rgba(0,0,0,.05)] sm:p-5" aria-label="Tracking progress" data-testid="track-stats-progress">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-zinc-500">Stats entered</p>
-                <p className="mt-1 font-heading text-2xl font-black uppercase">{trackedDrillCount}<span className="mx-1 text-orange-500">/</span>{sessionDrillCount} drills tracked</p>
-              </div>
-              <p className="pb-1 text-right text-xs text-zinc-500">Add your results as you go.<br className="sm:hidden" /> You can edit each round.</p>
-            </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
-              <div className="h-full rounded-full bg-orange-500 transition-[width] duration-300" style={{ width: `${trackProgress}%` }} />
-            </div>
-          </section>
           <CardContent className="p-0">
             {workoutMode === "complete" ? (
               <div className="space-y-4" data-testid="quick-complete-checklist">
@@ -3325,47 +3274,6 @@ export default function TrainingLogPage() {
               </div>
             ) : (
             <div className="space-y-6">
-              {/* Global challenge quick-apply — visible when the user has active challenges */}
-              {activeChallenges && activeChallenges.filter(uc => !uc.isCompleted).length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2">
-                  <Target className="h-4 w-4 shrink-0 text-orange-600" />
-                  <span className="shrink-0 text-sm text-zinc-600">Apply challenge to all drills:</span>
-                  <Select
-                    onValueChange={(challengeId) => {
-                      if (challengeId === 'none') {
-                        // Clear challenge from all entries
-                        setWorkoutEntries(prev => prev.map(e => ({ ...e, trackToChallengeIds: [] })));
-                      } else {
-                        // Only apply to entries whose drill category matches this challenge
-                        setWorkoutEntries(prev => prev.map(e => {
-                          const matches = getMatchingChallenges(e.drill.category || '').some(uc => uc.id === challengeId);
-                          return matches ? { ...e, trackToChallengeIds: [challengeId] } : e;
-                        }));
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-9 min-w-[160px] max-w-xs flex-1 border-orange-200 bg-white text-xs" data-testid="select-global-challenge">
-                      <SelectValue placeholder="Pick a challenge…" />
-                    </SelectTrigger>
-                      <SelectContent position="popper" sideOffset={4} className="border-black/10 bg-white text-zinc-900">
-                      <SelectItem value="none">
-                        <span className="text-muted-foreground">Clear all</span>
-                      </SelectItem>
-                      {activeChallenges.filter(uc => !uc.isCompleted).map(uc => (
-                        <SelectItem key={uc.id} value={uc.id}>
-                          <span className="flex items-center gap-2">
-                            <span>{uc.challenge.name}</span>
-                            <Badge variant="outline" className="text-[10px] px-1 py-0">
-                              {uc.currentValue || 0}/{uc.challenge.targetValue}
-                            </Badge>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
               {/* Group entries by drill for table display */}
               {(() => {
                 const drillGroups = new Map<string, { drill: Drill; entries: Array<{ entry: WorkoutDrillEntry; index: number }> }>();
@@ -3392,30 +3300,7 @@ export default function TrainingLogPage() {
                   // Only show these when drills were added at meaningfully different times
                   // (i.e. mid-workout adds > 60 s apart from each other).  When all drills
                   // were pre-selected they share the same stamp, so we skip the display.
-                  const allStamps = Object.values(drillStartTimes).filter((v): v is number => !!v);
-                  const earliestStamp = allStamps.length ? Math.min(...allStamps) : null;
-                  const drillStartedMs = drillStartTimes[drillId];
-                  const nextDrillId = drillIds[drillIdx + 1];
-                  const drillEndedMs = nextDrillId ? drillStartTimes[nextDrillId] : null;
-                  // Only meaningful if this drill was added > 60 s after the first drill
-                  const showTimestamps = workoutStartTime && drillStartedMs && earliestStamp != null
-                    && (drillStartedMs - earliestStamp) > 60000;
                   const estMinutes = firstEntry.duration || (group.drill.duration ? Math.round(group.drill.duration / 60) : null);
-                  const challengeOptions = getMatchingChallenges(group.drill.category || '');
-                  const attemptsMetric = metricColumns.find((metric) =>
-                    `${metric.template.name} ${metric.template.label}`.toLowerCase().includes('attempt')
-                  );
-                  const makesMetric = metricColumns.find((metric) => {
-                    const label = `${metric.template.name} ${metric.template.label}`.toLowerCase();
-                    return label.includes('made') || label.includes('make');
-                  });
-                  const totalAttempts = attemptsMetric
-                    ? group.entries.reduce((total, { entry }) => total + (entry.metrics[attemptsMetric.metricTemplateId] || 0), 0)
-                    : 0;
-                  const totalMakes = makesMetric
-                    ? group.entries.reduce((total, { entry }) => total + (entry.metrics[makesMetric.metricTemplateId] || 0), 0)
-                    : 0;
-                  const shootingAccuracy = totalAttempts > 0 ? Math.round((totalMakes / totalAttempts) * 100) : null;
                   
                   const drillArt = isDayTwoWorkout ? dayTwoWorkoutArt[drillIdx] : isDayThreeWorkout ? volumeWorkoutArt[drillIdx] : undefined;
                   return (
@@ -3448,16 +3333,6 @@ export default function TrainingLogPage() {
                               </span>
                             </div>
                             <h2 className="font-heading text-lg font-black uppercase leading-tight text-zinc-950 sm:text-2xl">{group.drill.title}</h2>
-                            {firstEntry.coachingNotes && (
-                              <p className="max-w-3xl text-sm leading-5 text-zinc-600">{firstEntry.coachingNotes}</p>
-                            )}
-                            {showTimestamps && (
-                              <p className="flex items-center gap-1.5 text-xs text-zinc-500">
-                                <Clock className="h-3.5 w-3.5 shrink-0 text-orange-600" />
-                                Started {relativeTime(drillStartedMs!)}
-                                {drillEndedMs ? ` · Ended ${relativeTime(drillEndedMs)}` : ''}
-                              </p>
-                            )}
                             </div>
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
@@ -3487,144 +3362,67 @@ export default function TrainingLogPage() {
                           </div>
                         </div>
 
-                        {shootingAccuracy !== null && (
-                          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
-                            <div>
-                              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Shooting accuracy</p>
-                              <p className="mt-1 text-xs text-zinc-600">{totalMakes} makes from {totalAttempts} attempts</p>
-                            </div>
-                            <p className="font-heading text-3xl leading-none text-orange-600">{shootingAccuracy}%</p>
-                          </div>
-                        )}
-
-                        {challengeOptions.length > 0 && group.entries.length > 1 && (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Target className="h-4 w-4 text-orange-600" />
-                            <span className="text-xs text-zinc-600">Set a challenge for every round</span>
-                            <Select onValueChange={(value) => applyChallengeToAllRounds(drillId, value)}>
-                              <SelectTrigger className="h-9 w-full border-black/10 bg-white text-xs sm:w-52" data-testid={`select-challenge-all-${drillId}`}>
-                                <SelectValue placeholder="Apply to all rounds…" />
-                              </SelectTrigger>
-                              <SelectContent position="popper" sideOffset={4} className="border-black/10 bg-white text-zinc-900">
-                                <SelectItem value="none">Clear all rounds</SelectItem>
-                                {challengeOptions.map((challenge) => (
-                                  <SelectItem key={challenge.id} value={challenge.id}>{challenge.challenge.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
                       </div>
 
-                      <div className="space-y-3 p-3 sm:p-4">
-                        {group.entries.map(({ entry, index }, roundIdx) => {
-                          const roundAttempts = attemptsMetric ? entry.metrics[attemptsMetric.metricTemplateId] || 0 : 0;
-                          const roundMakes = makesMetric ? entry.metrics[makesMetric.metricTemplateId] || 0 : 0;
-                          const roundAccuracy = roundAttempts > 0 ? Math.round((roundMakes / roundAttempts) * 100) : null;
-
-                          return (
-                            <section
-                              key={index}
-                              className="space-y-4 rounded-2xl border border-black/10 bg-[#f7f6f3] p-3.5 sm:p-4"
-                              data-testid={`workout-row-${index}`}
-                              aria-label={`Round ${roundIdx + 1} of ${group.drill.title}`}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                  <span className="rounded-full bg-white px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700 shadow-sm">
-                                    Round {String(roundIdx + 1).padStart(2, '0')}
-                                  </span>
-                                  {roundAccuracy !== null && (
-                                    <span className="text-xs font-semibold text-orange-700">{roundMakes}/{roundAttempts} · {roundAccuracy}%</span>
-                                  )}
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9 shrink-0 text-zinc-500 hover:bg-red-50 hover:text-red-600"
-                                  onClick={() => removeFromWorkout(index)}
-                                  data-testid={`button-remove-${index}`}
-                                  aria-label={`Remove round ${roundIdx + 1} of ${group.drill.title}`}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
+                      <div className="space-y-2 p-2 sm:p-3">
+                        {group.entries.map(({ entry, index }, roundIdx) => (
+                          <section
+                            key={index}
+                            className="grid items-end gap-1.5 rounded-xl border border-black/[0.08] bg-[#f7f6f3] px-2 py-2 sm:gap-2 sm:px-3"
+                            style={{
+                              gridTemplateColumns: `34px ${isShootingDrill ? "minmax(88px,1.25fr)" : ""} repeat(${metricColumns.length}, minmax(52px,.75fr)) 26px`,
+                            }}
+                            data-testid={`workout-row-${index}`}
+                            aria-label={`Round ${roundIdx + 1} of ${group.drill.title}`}
+                          >
+                            <span className="flex h-9 items-center justify-center rounded-lg bg-white font-mono text-[10px] font-bold text-zinc-600">
+                              {String(roundIdx + 1).padStart(2, "0")}
+                            </span>
+                            {isShootingDrill && (
+                              <div className="min-w-0">
+                                <label className="mb-1 block truncate text-[8px] font-bold uppercase tracking-wider text-zinc-500" htmlFor={`select-location-${index}`}>Shot spot</label>
+                                <Select value={entry.shotLocation || ""} onValueChange={(value) => updateEntry(index, "shotLocation", value)}>
+                                  <SelectTrigger id={`select-location-${index}`} className="h-9 min-w-0 border-black/10 bg-white px-2 text-[10px]" data-testid={`select-location-${index}`}>
+                                    <SelectValue placeholder="Choose spot" />
+                                  </SelectTrigger>
+                                  <SelectContent position="popper" sideOffset={4} className="max-h-[50vh] overflow-y-auto border-black/10 bg-white text-zinc-900">
+                                    {(shotLocationOptions || []).map((location) => (
+                                      <SelectItem key={location.slug} value={location.slug}>
+                                        <span className="flex items-center gap-2">{location.label}<Badge variant="outline" className="px-1 py-0 text-[9px]">{location.classification === "free-throw" ? "FT" : location.classification === "2-pointer" ? "2PT" : "3PT"}</Badge></span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
-
-                              {isShootingDrill && (
-                                <div className="max-w-sm space-y-1.5">
-                                  <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600" htmlFor={`select-location-${index}`}>
-                                    Shot location
-                                  </label>
-                                  <Select
-                                    value={entry.shotLocation || ''}
-                                    onValueChange={(value) => updateEntry(index, 'shotLocation', value)}
-                                  >
-                                    <SelectTrigger id={`select-location-${index}`} className="h-11 w-full border-black/10 bg-white text-sm" data-testid={`select-location-${index}`}>
-                                      <SelectValue placeholder="Choose location" />
-                                    </SelectTrigger>
-                                    <SelectContent position="popper" sideOffset={4} className="max-h-[50vh] overflow-y-auto border-black/10 bg-white text-zinc-900">
-                                      {(shotLocationOptions || []).map((location) => (
-                                        <SelectItem key={location.slug} value={location.slug}>
-                                          <span className="flex items-center gap-2">
-                                            {location.label}
-                                            <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                              {location.classification === 'free-throw' ? 'FT' :
-                                                location.classification === '2-pointer' ? '2PT' : '3PT'}
-                                            </Badge>
-                                          </span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              )}
-
-                              {metricColumns.length > 0 ? (
-                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                  {metricColumns.map((metric) => (
-                                    <div key={metric.metricTemplateId} className="rounded-xl border border-black/[0.08] bg-white p-3">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-600">
-                                          {(metric.template.type as string) === 'timer' && <Timer className="h-3.5 w-3.5 shrink-0 text-orange-600" />}
-                                          <span className="truncate">{metric.template.label}</span>
-                                          {metric.isRequired && <span className="text-destructive">*</span>}
-                                        </span>
-                                        {metric.isRequired && <span className="shrink-0 text-[9px] text-zinc-500">Required</span>}
-                                      </div>
-                                      {(metric.template.type as string) === 'timer' ? (
-                                        <div className="mt-2">
-                                          <DrillTimer
-                                            value={entry.metrics[metric.metricTemplateId] || 0}
-                                            onChange={(seconds) => updateMetricValue(index, metric.metricTemplateId, seconds)}
-                                            data-testid={`timer-metric-${index}-${metric.metricTemplateId}`}
-                                          />
-                                        </div>
-                                      ) : (
-                                        <Input
-                                          type="text"
-                                          inputMode="numeric"
-                                          pattern="[0-9]*"
-                                          aria-label={`${metric.template.label} for round ${roundIdx + 1}`}
-                                          value={entry.metrics[metric.metricTemplateId] || ''}
-                                          onChange={(event) => updateMetricValue(index, metric.metricTemplateId, parseFloat(event.target.value) || 0)}
-                                          className="mt-2 h-12 border-black/10 bg-[#f7f6f3] text-center font-mono text-xl font-bold tabular-nums text-zinc-950 placeholder:text-zinc-400 focus-visible:ring-orange-400"
-                                          placeholder="0"
-                                          data-testid={`input-metric-${index}-${metric.metricTemplateId}`}
-                                        />
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="rounded-xl border border-dashed border-black/15 px-3 py-4 text-sm text-zinc-500">
-                                  No performance metrics are configured for this drill yet.
-                                </p>
-                              )}
-
-                            </section>
-                          );
-                        })}
+                            )}
+                            {metricColumns.map((metric) => (
+                              <div key={metric.metricTemplateId} className="min-w-0">
+                                <label className="mb-1 block truncate text-[8px] font-bold uppercase tracking-wider text-zinc-500" htmlFor={`metric-${index}-${metric.metricTemplateId}`}>
+                                  {metric.template.label.replace(/^Shots?\s*/i, "")}
+                                </label>
+                                {(metric.template.type as string) === "timer" ? (
+                                  <DrillTimer value={entry.metrics[metric.metricTemplateId] || 0} onChange={(seconds) => updateMetricValue(index, metric.metricTemplateId, seconds)} data-testid={`timer-metric-${index}-${metric.metricTemplateId}`} />
+                                ) : (
+                                  <Input
+                                    id={`metric-${index}-${metric.metricTemplateId}`}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    aria-label={`${metric.template.label} for round ${roundIdx + 1}`}
+                                    value={entry.metrics[metric.metricTemplateId] || ""}
+                                    onChange={(event) => updateMetricValue(index, metric.metricTemplateId, parseFloat(event.target.value) || 0)}
+                                    className="h-9 border-black/10 bg-white px-1 text-center font-mono text-sm font-bold tabular-nums text-zinc-950"
+                                    placeholder="0"
+                                    data-testid={`input-metric-${index}-${metric.metricTemplateId}`}
+                                  />
+                                )}
+                              </div>
+                            ))}
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-6 text-zinc-400 hover:bg-red-50 hover:text-red-600" onClick={() => removeFromWorkout(index)} aria-label={`Remove round ${roundIdx + 1} of ${group.drill.title}`} data-testid={`button-remove-${index}`}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </section>
+                        ))}
                       </div>
                     </article>
                   );

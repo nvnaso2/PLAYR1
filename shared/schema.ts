@@ -456,6 +456,8 @@ export const SHOT_LOCATIONS = [
   "3rd-hash-right",
   "block-left",
   "block-right",
+  "elbow-left",
+  "elbow-right",
   "mid-range-left",
   "mid-range-right"
 ] as const;
@@ -470,6 +472,8 @@ export const LOCATION_CLASSIFICATIONS: Record<ShotLocation, ShotClassification> 
   "free-throw": "free-throw",
   "block-left": "2-pointer",
   "block-right": "2-pointer",
+  "elbow-left": "2-pointer",
+  "elbow-right": "2-pointer",
   "mid-range-left": "2-pointer",
   "mid-range-right": "2-pointer",
   "1st-hash-left": "2-pointer",
