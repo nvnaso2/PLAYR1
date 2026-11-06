@@ -4497,30 +4497,10 @@ ${JSON.stringify(catalogForPrompt)}
         return log;
       }));
 
-      // Auto-complete daily challenge if any logged drill matches today's challenge
-      let streakResult: any = null;
-      try {
-        const todayStr = new Date().toISOString().split("T")[0];
-        const challengeData = await storage.getDailyChallenge(todayStr);
-        if (challengeData) {
-          const alreadyDone = await storage.getTodayCompletion(userId, todayStr);
-          if (!alreadyDone) {
-            const matchingLog = logs.find(l => l.drillId === challengeData.drill.id);
-            if (matchingLog) {
-              streakResult = await storage.completeDailyChallenge(userId, challengeData.drill.id, todayStr, matchingLog.id);
-            }
-          }
-        }
-        if (!streakResult) {
-          const activityStreak = await storage.recordTrainingStreakActivity(userId, todayStr);
-          streakResult = { ...activityStreak, activityOnly: true };
-        }
-      } catch (e) { /* non-fatal */ }
-
-      res.status(201).json({ logs, streakResult });
+      res.status(201).json({ logs, streakResult: null });
       // PR checks and assignment bookkeeping are useful follow-up work, but the
       // saved logs and metrics are already durable. Do not hold the completion
-      // screen open for these per-drill queries.
+      // screen open for these per-drill queries or streak bookkeeping.
       void (async () => {
         await Promise.all(nonBlockingLogWork.map(async ({ log, prMetrics }) => {
           if (log.drillId && prMetrics.length) {
@@ -4536,6 +4516,19 @@ ${JSON.stringify(catalogForPrompt)}
         if (typeof workoutId === "string") {
           try { await storage.completeCustomWorkoutAssignment(userId, workoutId); } catch (error) { console.error("Custom workout completion error:", error); }
         }
+        try {
+          const todayStr = new Date().toISOString().split("T")[0];
+          const challengeData = await storage.getDailyChallenge(todayStr);
+          let streakResult: any = null;
+          if (challengeData) {
+            const alreadyDone = await storage.getTodayCompletion(userId, todayStr);
+            if (!alreadyDone) {
+              const matchingLog = logs.find((log) => log.drillId === challengeData.drill.id);
+              if (matchingLog) streakResult = await storage.completeDailyChallenge(userId, challengeData.drill.id, todayStr, matchingLog.id);
+            }
+          }
+          if (!streakResult) await storage.recordTrainingStreakActivity(userId, todayStr);
+        } catch {}
       })();
       // Friend activity — fire-and-forget
       ;(async () => {

@@ -1605,6 +1605,8 @@ export default function TrainingLogPage() {
         queryClient.invalidateQueries({ queryKey: ['/api/stats/shots'] });
         queryClient.invalidateQueries({ queryKey: ['/api/stats/shot-heatmap-baselines'] });
         queryClient.invalidateQueries({ queryKey: ['/api/stats/dashboard-training'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/daily-challenge'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/streak/me'] });
       }, 1600);
     } catch (error) {
       console.error("Error saving workout:", error);
