@@ -1,5 +1,5 @@
 import { X, ChevronRight } from "lucide-react";
-import { volumeWorkoutArt, volumeWorkoutDrills } from "@/lib/day-three-workout-art";
+import { volumeWorkoutArt, volumeWorkoutCardArt, volumeWorkoutDrills } from "@/lib/day-three-workout-art";
 
 export function VolumeWorkoutPreview({ onClose, onLogWorkout }: { onClose: () => void; onLogWorkout: () => void }) {
   return (
@@ -14,7 +14,7 @@ export function VolumeWorkoutPreview({ onClose, onLogWorkout }: { onClose: () =>
       <div className="max-h-[55dvh] space-y-3 overflow-y-auto p-4 sm:p-6">
         {volumeWorkoutDrills.map((drill, index) => (
           <article key={drill.title} className="grid grid-cols-[112px_1fr] gap-3 rounded-xl bg-white p-3 shadow-md sm:grid-cols-[165px_1fr] sm:gap-5 sm:p-4">
-            <img src={volumeWorkoutArt[index]} alt="" className="w-full self-center object-contain" />
+            <img src={index === 5 ? volumeWorkoutCardArt : volumeWorkoutArt[index]} alt="" className="w-full self-center object-contain" />
             <div className="self-center">
               <p className="font-mono text-[10px] font-black uppercase tracking-widest text-orange-600">{index === 5 ? "Streak Challenge" : `Drill #${index + 1}`}</p>
               <h3 className="font-heading text-xl font-black uppercase">{drill.title}</h3>

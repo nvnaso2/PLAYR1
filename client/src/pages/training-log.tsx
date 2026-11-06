@@ -101,7 +101,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
 import { DAY_TWO_RANGE_WORKOUT_ID, dayTwoWorkoutArt, dayTwoWorkoutTotals } from "@/lib/day-two-workout-art";
-import { DAY_THREE_VOLUME_WORKOUT_ID, volumeWorkoutArt, volumeWorkoutDrills } from "@/lib/day-three-workout-art";
+import { DAY_THREE_VOLUME_WORKOUT_ID, volumeWorkoutArt, volumeWorkoutCardArt, volumeWorkoutDrills } from "@/lib/day-three-workout-art";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 
@@ -1101,6 +1101,7 @@ export default function TrainingLogPage() {
     setActiveWorkoutName(drill.title);
     setWorkoutMode("track");
     setQuickCompletedDrillIds(new Set());
+    setTrackedEntryIndexes(new Set());
     setWorkoutEntries(entries);
     setWorkoutInProgress(true);
     setActiveView("workout");
@@ -1496,6 +1497,7 @@ export default function TrainingLogPage() {
         setWorkoutStartTime(null);
         setDrillStartTimes({});
         setQuickCompletedDrillIds(new Set());
+        setTrackedEntryIndexes(new Set());
         setWorkoutMode("track");
         setShareSessionId(bulkRes?.ok ? sessionId : null);
         setShowFavoriteDialog(activeWorkoutTemplateId !== DAY_THREE_VOLUME_WORKOUT_ID);
@@ -1602,6 +1604,7 @@ export default function TrainingLogPage() {
     setWorkoutStartTime(null);
     setDrillStartTimes({});
     setQuickCompletedDrillIds(new Set());
+    setTrackedEntryIndexes(new Set());
     setWorkoutMode("track");
     setActiveWorkoutTemplateId(null);
     setActiveWorkoutName("Training session");
@@ -1719,7 +1722,7 @@ export default function TrainingLogPage() {
         ? volumeWorkoutDrills[index]?.total ?? `${entry.plannedReps ?? ""} shots`
         : `${formatCategory(entry.drill.category || "")} · ${entry.drill.difficulty}`,
     complete: workoutMode === "track" ? trackedDrillIds.has(entry.drillId) : quickCompletedDrillIds.has(entry.drillId),
-    image: isDayTwoWorkout ? dayTwoWorkoutArt[index] : isDayThreeWorkout ? volumeWorkoutArt[index] : undefined,
+    image: isDayTwoWorkout ? dayTwoWorkoutArt[index] : isDayThreeWorkout ? index === 5 ? volumeWorkoutCardArt : volumeWorkoutArt[index] : undefined,
   }));
   const renderTrackControls = (drillId: string) => {
     const rows = workoutEntries
@@ -3062,12 +3065,13 @@ export default function TrainingLogPage() {
       </Dialog>
 
       {/* Active Workout View — full screen takeover */}
-      {activeView === "workout" && workoutInProgress && workoutMode === "complete" && (
+      {activeView === "workout" && workoutInProgress && (
         <QuickCompleteWorkout
           workoutName={activeWorkoutName}
           drills={quickCompleteDrills}
           elapsed={workoutElapsed}
           saving={isSavingWorkout}
+          mode={workoutMode}
           isDayTwo={isDayTwoWorkout}
           onCancel={cancelWorkout}
           onToggle={(drillId) => {
@@ -3082,11 +3086,14 @@ export default function TrainingLogPage() {
             const drill = quickWorkoutEntries.find((entry) => entry.drillId === drillId)?.drill;
             if (drill) setDrillInfoOpen(drill);
           }}
+          onQuickComplete={() => setWorkoutMode("complete")}
           onTrackStats={() => setWorkoutMode("track")}
           onSave={saveWorkout}
+          canSave={workoutMode === "track" ? workoutEntries.length > 0 : quickCompletedDrillIds.size > 0}
+          renderTrackControls={renderTrackControls}
         />
       )}
-      {activeView === "workout" && workoutInProgress && isTrackingWorkoutMode(workoutMode) && (
+      {false && activeView === "workout" && workoutInProgress && isTrackingWorkoutMode(workoutMode) && (
         <div className="fixed inset-0 z-40 overflow-y-auto bg-[#f5f4f0] text-[#181818]" data-testid="workout-fullscreen" data-workout-mode="track">
           <div className="pointer-events-none fixed inset-0 opacity-[0.16]" aria-hidden="true">
             <svg className="h-full w-full" viewBox="0 0 560 1100" preserveAspectRatio="none">

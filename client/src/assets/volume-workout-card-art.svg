@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 450" fill="none">
+  <g stroke="#111" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 18H482M18 18V432M482 18V432M18 432H482" stroke-width="7"/>
+    <path d="M188 18a62 62 0 0 0 124 0M78 432V340a172 172 0 0 1 344 0v92" stroke-width="7"/>
+    <path d="M165 432V256H335V432M193 432V280H307V432" stroke-width="7"/>
+    <path d="M250 256a78 78 0 0 0-78 78M250 256a78 78 0 0 1 78 78" stroke-width="7"/>
+    <path d="M181 279a68 68 0 0 0 138 0" stroke-width="7" stroke-dasharray="15 16"/>
+    <path d="M215 392a35 35 0 0 1 70 0M215 392h70M222 409h56" stroke-width="7"/>
+    <circle cx="250" cy="399" r="16" stroke-width="7"/>
+    <path d="M18 163h25M457 163h25M18 248h15M467 248h15" stroke-width="7"/>
+  </g>
+  <g fill="#111" stroke="#ed6b59" stroke-width="6">
+    <circle cx="250" cy="142" r="23"/>
+    <circle cx="78" cy="210" r="23"/>
+    <circle cx="422" cy="210" r="23"/>
+    <circle cx="42" cy="410" r="23"/>
+    <circle cx="458" cy="410" r="23"/>
+  </g>
+  <g fill="#fff" font-family="Arial, sans-serif" font-size="28" font-weight="900" text-anchor="middle" dominant-baseline="central">
+    <text x="250" y="142">X</text>
+    <text x="78" y="210">X</text>
+    <text x="422" y="210">X</text>
+    <text x="42" y="410">X</text>
+    <text x="458" y="410">X</text>
+  </g>
+</svg>
