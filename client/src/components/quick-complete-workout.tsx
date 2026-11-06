@@ -76,10 +76,22 @@ export function QuickCompleteWorkout({
                 <span>{drills.length} drills</span>
               </div>
             </div>
-            <button type="button" onClick={onCancel} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-black/10 px-3 text-xs font-bold uppercase tracking-wide text-zinc-600 transition hover:border-black/25 hover:text-black" data-testid="button-cancel-workout">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Exit</span>
-            </button>
+            <div className="flex w-[132px] shrink-0 flex-col items-stretch gap-2">
+              <button type="button" onClick={onCancel} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-black/10 px-3 text-xs font-bold uppercase tracking-wide text-zinc-600 transition hover:border-black/25 hover:text-black" data-testid="button-cancel-workout">
+                <ArrowLeft className="h-4 w-4" />
+                Exit
+              </button>
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving || !canSave}
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-orange-500 px-2 font-mono text-[9px] font-extrabold uppercase tracking-[.08em] text-black shadow-[0_3px_0_#a93c0d] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45"
+                data-testid="button-complete-workout-header"
+              >
+                <Check className="h-4 w-4" />
+                {saving ? "Saving…" : "Complete Workout"}
+              </button>
+            </div>
           </div>
 
           <div className={`mt-5 flex w-full items-center rounded-xl p-1 ${tracking ? "border border-zinc-200 bg-white" : "bg-zinc-100"}`} aria-label="Workout logging mode">
@@ -179,7 +191,7 @@ export function QuickCompleteWorkout({
             className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 font-mono text-[10px] font-extrabold uppercase tracking-[.12em] text-black shadow-[0_3px_0_#a93c0d] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45 sm:px-6 sm:text-xs"
             data-testid="button-finish-workout"
           >
-            {saving ? "Saving…" : tracking ? "Save stats" : "Save completed"}
+            {saving ? "Saving…" : "Complete Workout"}
           </button>
         </div>
       </div>
