@@ -47,7 +47,6 @@ import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations
 import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
-import { STARTER_PROMPTS } from "@/lib/coach-p-starter-prompts";
 import {
   PLAYER_SETUP_GOALS,
   PLAYER_SETUP_SITUATIONS,
@@ -778,6 +777,40 @@ export default function HubPage() {
     ? setupData.answers.skillRankings.improveMost
     : null;
   const coachPrompt = getDailyCoachPrompt(improvementFocus, localDateKey(new Date()));
+  const startPlayerBlueprint = () => {
+    const savedAnswers = setupData?.answers ?? {};
+    const profileAnswers = {
+      currentSituation: dayTwoAnswers.currentSituation || savedAnswers.currentSituation || "Not provided",
+      primaryGoal: dayTwoAnswers.primaryGoal || savedAnswers.primaryGoal || "Not provided",
+      positions: dayTwoAnswers.positions.length ? dayTwoAnswers.positions : savedAnswers.positions ?? careerData?.positions ?? [],
+      experienceYears: dayTwoAnswers.experienceYears || savedAnswers.experienceYears || "Not provided",
+      skillRankings: Object.values(dayTwoAnswers.skillRankings).some(Boolean)
+        ? dayTwoAnswers.skillRankings
+        : savedAnswers.skillRankings ?? {},
+      trainingFrequency: previewProfile.trainingFrequency ?? previewProfile.trainingDays ?? savedAnswers.trainingFrequency ?? savedAnswers.trainingDays ?? "Not provided",
+      frequencyUnit: previewProfile.frequencyUnit ?? savedAnswers.frequencyUnit ?? "week",
+      sessionLength: previewProfile.sessionLength ?? savedAnswers.sessionLength ?? "Not provided",
+    };
+    const baseline = baselineComplete
+      ? Object.fromEntries(previewShotTypes.map(({ key, label }) => [
+          label,
+          `${Math.round((Number(baselineResults[key]) / selectedBaseline[key]) * 100)}% (${baselineResults[key]} makes out of ${selectedBaseline[key]} attempts)`,
+        ]))
+      : "Day 1 shooting baseline has not been recorded yet. Do not invent shooting percentages; ask for them if needed.";
+    const prompt = [
+      "Build my PLAYR1 Player Blueprint using the onboarding information and Day 1 shooting baseline below.",
+      "Give me a specific, encouraging breakdown: what I already do well, my highest-value growth opportunities, and a practical path toward my stated basketball goal. Explain how my training frequency and session length affect the plan. Be honest and realistic—do not promise outcomes or call me unstoppable as a guarantee.",
+      "Then start a short, personalized three-question coaching quiz in chat. Ask only question 1 now, wait for my answer, then ask questions 2 and 3 one at a time. Make each question about my profile, choices, or goals, and use my answers to refine the recommendations.",
+      `Player profile: ${JSON.stringify(profileAnswers)}`,
+      `Day 1 shooting baseline: ${typeof baseline === "string" ? baseline : JSON.stringify(baseline)}`,
+    ].join("\n\n");
+    try {
+      sessionStorage.setItem("playr1-coach-player-blueprint-prompt", prompt);
+    } catch {
+      // Continue into Coach P; the page will request profile details if storage is unavailable.
+    }
+    navigate("/coach-p?onboardingBlueprint=1");
+  };
 
   const customDrillsSection = (
     <section
@@ -1566,45 +1599,38 @@ export default function HubPage() {
             )}
 
             {previewDay === 2 && (
-              <section className="mx-auto w-full max-w-2xl space-y-4 pb-5 pt-2 sm:space-y-5" data-testid="card-day-two-mission">
-                <article className="relative flex min-h-[42dvh] flex-col justify-center px-1 py-4 text-white sm:px-2 sm:py-5" data-testid="day-two-coach-introduction">
-                  <div className="mb-4 flex items-center justify-center gap-3">
-                    <CoachPIcon size="lg" />
-                    <h3 className="font-heading text-2xl font-black tracking-wide sm:text-3xl">Talk to Coach P</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {STARTER_PROMPTS.map(({ label, prompt, icon: Icon }) => (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => navigate(`/coach-p?prompt=${encodeURIComponent(prompt)}`)}
-                        className="flex min-h-10 w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                        data-testid={`button-day-two-coach-prompt-${label.toLowerCase().replace(/\s+/g, "-")}`}
-                      >
-                        <Icon className={`h-4 w-4 shrink-0 ${label === "Build my next workout" ? "text-orange-400" : "text-zinc-500"}`} />
-                        <span className="min-w-0 flex-1 text-xs text-zinc-200 sm:text-sm">{label}</span>
-                        <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-zinc-600" />
-                      </button>
-                    ))}
+              <section className="mx-auto w-full max-w-2xl space-y-3 pb-5 pt-2 sm:space-y-4" data-testid="card-day-two-mission">
+                <article className="px-1 py-2 text-white sm:px-2 sm:py-3" data-testid="day-two-coach-introduction">
+                  <div className="mb-3 flex items-center gap-3">
+                    <CoachPIcon size="sm" />
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">Talk to Coach P</p>
+                      <h3 className="mt-0.5 font-heading text-lg font-black tracking-wide sm:text-xl">Find your edge. Build your next level.</h3>
+                    </div>
                   </div>
                   <button
                     type="button"
+                    onClick={startPlayerBlueprint}
+                    className="group flex min-h-[66px] w-full items-center gap-3 rounded-2xl border border-orange-400/35 bg-gradient-to-r from-orange-500/[0.12] via-zinc-950/80 to-zinc-950/55 px-4 py-3 text-left shadow-[0_8px_26px_rgba(249,115,22,0.08)] transition hover:border-orange-300/65 hover:from-orange-500/[0.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    data-testid="button-day-two-player-blueprint"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-orange-300/35 bg-orange-400/10 text-orange-300"><Target className="h-4 w-4" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-black uppercase tracking-[0.12em] text-white sm:text-sm">Reveal my player blueprint</span>
+                      <span className="mt-1 block text-[10px] leading-snug text-zinc-400 sm:text-xs">Connect your profile and shooting baseline to your biggest next step.</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-orange-300 transition group-hover:translate-x-0.5" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => navigate("/coach-p")}
-                    className="mt-4 flex min-h-12 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    className="mt-2.5 flex min-h-11 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2 text-left transition-colors hover:border-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                     data-testid="button-open-day-two-coach"
                   >
-                    <span className="min-w-0 flex-1 text-sm text-zinc-500">Ask Coach P anything about your game...</span>
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)]"><ArrowUp className="h-4 w-4" /></span>
+                    <MessageCircle className="h-4 w-4 shrink-0 text-zinc-500" />
+                    <span className="min-w-0 flex-1 text-xs text-zinc-500 sm:text-sm">Or ask Coach P anything about your game...</span>
+                    <ArrowUp className="h-4 w-4 shrink-0 text-zinc-500" />
                   </button>
-                  <div className="pointer-events-none absolute right-5 top-5 flex h-7 items-center gap-[3px] opacity-70" aria-hidden="true">
-                    {[8, 14, 10, 19, 12, 16, 7].map((height, index) => (
-                      <span
-                        key={index}
-                        className="coach-voice-bar w-[2px] rounded-full bg-orange-300"
-                        style={{ height, animationDelay: `${index * 120}ms` }}
-                      />
-                    ))}
-                  </div>
                 </article>
 
                 <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group block w-full overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-two-workout">

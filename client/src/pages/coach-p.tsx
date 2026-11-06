@@ -1041,9 +1041,12 @@ export default function CoachPPage() {
     const params = new URLSearchParams(search);
     const conversationId = params.get("conversationId");
     const prompt = params.get("prompt");
+    const onboardingBlueprint = params.get("onboardingBlueprint") === "1";
     const welcomeWorkout = params.get("welcomeWorkout") === "1";
     const linkKey = conversationId
       ? `conversation:${conversationId}`
+      : onboardingBlueprint
+        ? "onboarding-blueprint"
       : welcomeWorkout
         ? "welcome-workout"
         : prompt
@@ -1053,6 +1056,19 @@ export default function CoachPPage() {
     handledDeepLinkRef.current = linkKey;
     if (conversationId) {
       void openConversation(conversationId);
+    } else if (onboardingBlueprint) {
+      startNewConversation();
+      let blueprintPrompt = "";
+      try {
+        blueprintPrompt = sessionStorage.getItem("playr1-coach-player-blueprint-prompt") || "";
+        sessionStorage.removeItem("playr1-coach-player-blueprint-prompt");
+      } catch {
+        // Coach P can still start by asking the player what they have shared so far.
+      }
+      sendMessage(
+        blueprintPrompt || "Review my player profile and shooting baseline. Ask me for any information you need, then give me a realistic breakdown of my strengths, biggest growth opportunities, and next steps toward my goal. Start a personalized three-question quiz, one question at a time.",
+        { displayContent: "Reveal my player blueprint" },
+      );
     } else if (welcomeWorkout) {
       startNewConversation();
       setWelcomeWorkoutMode(true);
