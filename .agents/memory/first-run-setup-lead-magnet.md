@@ -10,11 +10,11 @@ Day 2 keeps the same scheduled-day header, marks Day 1 complete, highlights Day 
 
 ### Day 2 workout-card composition
 
-Keep the supplied court artwork large on the right side of the workout card and blend it into the off-white card background instead of placing it in a separate white tile. Keep the workout icon separate at the top-right, to the right of the artwork; retain the bold divider and bottom preview action. The Coach P starter prompt should have a clean, unboxed basketball icon.
+Keep the supplied court artwork large on the right side of the workout card and blend it into the off-white card background instead of placing it in a separate white tile. Crop away its thick perimeter border for the card thumbnail, and render it about 1.5 times larger than the original small thumbnail. Keep the workout icon separate at the top-right, to the right of the artwork; retain the bold divider and bottom preview action. The Coach P starter prompt should have a clean, unboxed basketball icon.
 
 **Why:** the user rejected tiny boxed court thumbnails, overlap with the workout icon, and cramped prompt styling.
 
-**How to apply:** preserve the supplied image and its numbered locations; compose it with clear spacing around the title, shot details, divider, and preview action.
+**How to apply:** preserve the original supplied image for workout details and its numbered locations; use a cropped copy for the card composition with clear spacing around the title, shot details, divider, and preview action.
 
 **Why:** the user wants the Hub journey to reveal useful actions in stages, while keeping the familiar Hub shell and a consistent player identity.
 

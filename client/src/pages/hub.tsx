@@ -3,6 +3,7 @@ import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import dayTwoCourtImage from "@/assets/day2-shooting-court.png";
+import dayTwoCourtImageCropped from "@/assets/day2-shooting-court-cropped.png";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1680,14 +1681,19 @@ export default function HubPage() {
                 <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group flex min-h-0 w-full flex-[1.18] flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-two-workout">
                   <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 sm:px-6 sm:pt-5">
                     <span className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), repeating-linear-gradient(135deg, transparent 0 54px, rgba(0,0,0,.018) 55px 56px, transparent 57px 96px), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
-                    <div className="relative grid min-h-[168px] flex-1 grid-cols-[minmax(0,1fr)_140px_32px] items-center gap-2 border-b-[3px] border-black pb-3 sm:min-h-[184px] sm:grid-cols-[minmax(0,1fr)_160px_40px] sm:gap-3 sm:pb-4">
-                      <span className="min-w-0 pr-2">
+                    <div className="relative grid min-h-[190px] flex-1 grid-cols-[minmax(0,1fr)_32px] items-center gap-2 border-b-[3px] border-black pb-3 sm:min-h-[216px] sm:grid-cols-[minmax(0,1fr)_40px] sm:gap-3 sm:pb-4">
+                      <img
+                        src={dayTwoCourtImageCropped}
+                        alt="Basketball half court with shooting positions numbered one through eight"
+                        className="pointer-events-none absolute right-8 top-1/2 z-0 h-[185px] w-[210px] -translate-y-1/2 object-contain opacity-75 mix-blend-multiply sm:right-10 sm:h-[210px] sm:w-[240px]"
+                        style={{ maskImage: "linear-gradient(to right, transparent 0%, black 32%)", WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 32%)" }}
+                      />
+                      <span className="relative z-10 max-w-[68%] min-w-0 pr-2">
                         <span className="block font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#2</span></span>
                         <span className="mt-2 block font-heading text-base font-black uppercase leading-tight sm:text-lg">Find Your Shooting Range</span>
                         <span className="mt-1.5 block text-xs font-semibold text-zinc-600 sm:text-sm">125 shots · 40 bonus layups · 5 cone sets</span>
                       </span>
-                      <img src={dayTwoCourtImage} alt="Basketball half court with shooting positions numbered one through eight" className="block h-[132px] w-full object-contain mix-blend-multiply sm:h-[150px]" />
-                      <span className="flex h-8 w-8 self-start items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm sm:h-10 sm:w-10"><Dumbbell className="h-4 w-4 sm:h-5 sm:w-5" /></span>
+                      <span className="relative z-10 flex h-8 w-8 self-start items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm sm:h-10 sm:w-10"><Dumbbell className="h-4 w-4 sm:h-5 sm:w-5" /></span>
                     </div>
                     <span className="relative mt-2 flex min-h-12 shrink-0 items-center justify-between gap-3 rounded-xl bg-black px-4 py-2 text-left text-white shadow-[0_12px_22px_rgba(0,0,0,0.35)] transition group-hover:bg-zinc-900 group-hover:shadow-[0_14px_26px_rgba(0,0,0,0.42)]">
                       <span><span className="block text-xs font-black uppercase tracking-[0.12em] sm:text-sm">Preview the workout</span><span className="mt-0.5 block text-[10px] text-zinc-400">6 drills · 125 shots plus bonus work</span></span>
