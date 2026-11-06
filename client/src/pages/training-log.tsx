@@ -101,7 +101,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
 import { DAY_TWO_RANGE_WORKOUT_ID, dayTwoWorkoutArt, dayTwoWorkoutTotals } from "@/lib/day-two-workout-art";
-import { DAY_THREE_VOLUME_WORKOUT_ID, volumeWorkoutArt } from "@/lib/day-three-workout-art";
+import { DAY_THREE_VOLUME_WORKOUT_ID, volumeWorkoutArt, volumeWorkoutDrills } from "@/lib/day-three-workout-art";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 
@@ -167,6 +167,7 @@ export default function TrainingLogPage() {
   const [activeWorkoutTemplateId, setActiveWorkoutTemplateId] = useState<string | null>(null);
   const [activeWorkoutName, setActiveWorkoutName] = useState("Training session");
   const [quickCompletedDrillIds, setQuickCompletedDrillIds] = useState<Set<string>>(new Set());
+  const [trackedEntryIndexes, setTrackedEntryIndexes] = useState<Set<number>>(new Set());
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(() => {
     return new URLSearchParams(searchParams).get('create') === '1';
   });
@@ -1115,36 +1116,23 @@ export default function TrainingLogPage() {
       if (!response.ok) throw new Error("Failed to fetch workout");
       const data: WorkoutWithDrills = await response.json();
 
-      const drillIds = data.drills.map(wd => wd.drillId);
-      track("workout_started", { workoutId, drillCount: drillIds.length });
-      const metricsPromises = drillIds.map(id => fetchDrillMetrics(id));
-      const metricsResults = await Promise.all(metricsPromises);
-
-      const entries: WorkoutDrillEntry[] = [];
-      data.drills.forEach((wd, index) => {
-        const drillMetrics = metricsResults[index] || [];
-        const metricValues: Record<string, number> = {};
-        drillMetrics.forEach(dm => {
-          metricValues[dm.metricTemplateId] = 0;
-        });
-        
-        entries.push({
-          drillId: wd.drillId,
-          drill: wd.drill,
-          duration: wd.defaultDuration || Math.round((wd.drill.duration || 300) / 60),
+      track("workout_started", { workoutId, drillCount: data.drills.length });
+      const entries = (await Promise.all(data.drills.map(async (wd) => {
+        const rounds = await buildDrillEntries(wd.drillId, wd.drill);
+        return rounds.map((entry) => ({
+          ...entry,
+          duration: wd.defaultDuration || entry.duration,
           plannedSets: wd.defaultSets,
           plannedReps: wd.defaultReps,
           coachingNotes: wd.coachingNotes,
-          notes: "",
-          metrics: metricValues,
-          drillMetrics,
-        });
-      });
+        }));
+      }))).flat();
 
       setWorkoutMode(workoutId === DAY_TWO_RANGE_WORKOUT_ID ? "complete" : "track");
       setActiveWorkoutTemplateId(workoutId);
       setActiveWorkoutName(data.workout.name);
       setQuickCompletedDrillIds(new Set());
+      setTrackedEntryIndexes(new Set());
       setWorkoutEntries(entries);
       setWorkoutInProgress(true);
       setActiveView("workout");
@@ -1257,6 +1245,7 @@ export default function TrainingLogPage() {
 
   // Update metric value for a workout entry
   const updateMetricValue = (entryIndex: number, metricTemplateId: string, value: number) => {
+    setTrackedEntryIndexes((current) => new Set(current).add(entryIndex));
     setWorkoutEntries(prev => {
       const next = [...prev];
       const entry = next[entryIndex];
@@ -1714,6 +1703,11 @@ export default function TrainingLogPage() {
   const completedDrillCount = quickCompletedDrillIds.size;
   const isDayThreeWorkout = activeWorkoutTemplateId === DAY_THREE_VOLUME_WORKOUT_ID;
   const isDayTwoWorkout = activeWorkoutTemplateId === DAY_TWO_RANGE_WORKOUT_ID;
+  const trackedDrillIds = new Set(
+    quickWorkoutEntries
+      .filter((entry) => workoutEntries.every((candidate, index) => candidate.drillId !== entry.drillId || trackedEntryIndexes.has(index)))
+      .map((entry) => entry.drillId)
+  );
   const quickCompleteDrills = quickWorkoutEntries.map((entry, index) => ({
     id: entry.drillId,
     title: entry.drill.title,
@@ -1721,10 +1715,47 @@ export default function TrainingLogPage() {
     description: entry.drill.description || "",
     summary: isDayTwoWorkout
       ? dayTwoWorkoutTotals[index] ?? `${entry.plannedReps ?? ""} reps`
-      : `${formatCategory(entry.drill.category || "")} · ${entry.drill.difficulty}`,
-    complete: quickCompletedDrillIds.has(entry.drillId),
+      : isDayThreeWorkout
+        ? volumeWorkoutDrills[index]?.total ?? `${entry.plannedReps ?? ""} shots`
+        : `${formatCategory(entry.drill.category || "")} · ${entry.drill.difficulty}`,
+    complete: workoutMode === "track" ? trackedDrillIds.has(entry.drillId) : quickCompletedDrillIds.has(entry.drillId),
     image: isDayTwoWorkout ? dayTwoWorkoutArt[index] : isDayThreeWorkout ? volumeWorkoutArt[index] : undefined,
   }));
+  const renderTrackControls = (drillId: string) => {
+    const rows = workoutEntries
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => entry.drillId === drillId);
+    if (!rows.length) return null;
+    const metricColumns = rows[0].entry.drillMetrics
+      .filter((metric) => (metric.template.type as string) !== "calculated" && ((metric.template.type as string) !== "timer" || metric.isRequired))
+      .sort((a, b) => Number(/attempt/i.test(`${a.template.name} ${a.template.label}`)) - Number(/attempt/i.test(`${b.template.name} ${b.template.label}`)));
+    return (
+      <div className="mt-3 space-y-2">
+        {rows.map(({ entry, index }, roundIndex) => (
+          <div key={index} className="grid items-end gap-1.5 rounded-xl border border-black/10 bg-[#f7f6f3] p-2 sm:gap-2" style={{ gridTemplateColumns: `32px ${entry.drill.trackShots ? "minmax(92px,1.2fr)" : ""} repeat(${metricColumns.length},minmax(56px,.8fr))` }} data-testid={`workout-row-${index}`}>
+            <span className="flex h-10 items-center justify-center rounded-lg bg-white font-mono text-xs font-bold text-zinc-600">R{String(roundIndex + 1).padStart(2, "0")}</span>
+            {entry.drill.trackShots && (
+              <div className="min-w-0">
+                <label htmlFor={`select-location-${index}`} className="mb-1 block truncate text-[9px] font-bold uppercase tracking-wide text-zinc-600">Shot spot</label>
+                <Select value={entry.shotLocation || ""} onValueChange={(value) => updateEntry(index, "shotLocation", value)}>
+                  <SelectTrigger id={`select-location-${index}`} className="h-10 min-w-0 border-black/10 bg-white px-2 text-xs" data-testid={`select-location-${index}`}><SelectValue placeholder="Choose spot" /></SelectTrigger>
+                  <SelectContent position="popper" sideOffset={4} className="max-h-[50vh] overflow-y-auto border-black/10 bg-white text-zinc-900">
+                    {(shotLocationOptions || []).map((location) => <SelectItem key={location.slug} value={location.slug}>{location.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {metricColumns.map((metric) => (
+              <div key={metric.metricTemplateId} className="min-w-0">
+                <label htmlFor={`metric-${index}-${metric.metricTemplateId}`} className="mb-1 block truncate text-[9px] font-bold uppercase tracking-wide text-zinc-600">{metric.template.label.replace(/^Shots?\s*/i, "")}</label>
+                <Input id={`metric-${index}-${metric.metricTemplateId}`} type="number" min="0" inputMode="numeric" aria-label={`${metric.template.label} round ${roundIndex + 1}`} value={entry.metrics[metric.metricTemplateId] ?? ""} onChange={(event) => updateMetricValue(index, metric.metricTemplateId, Number(event.target.value) || 0)} className="h-10 border-black/10 bg-white text-center font-mono text-base font-bold tabular-nums text-zinc-950" data-testid={`input-metric-${index}-${metric.metricTemplateId}`} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // Render drill selection list
   return (

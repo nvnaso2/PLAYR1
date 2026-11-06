@@ -1,4 +1,5 @@
-import { ArrowLeft, Check, Clock3, Info, Target } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowLeft, BarChart3, Check, Clock3, Info } from "lucide-react";
 import { dayTwoWorkoutArt } from "@/lib/day-two-workout-art";
 
 export type QuickCompleteDrill = {
@@ -16,12 +17,16 @@ type QuickCompleteWorkoutProps = {
   drills: QuickCompleteDrill[];
   elapsed: string;
   saving: boolean;
+  mode: "complete" | "track";
   isDayTwo: boolean;
   onCancel: () => void;
   onToggle: (drillId: string) => void;
   onShowInfo: (drillId: string) => void;
+  onQuickComplete: () => void;
   onTrackStats: () => void;
   onSave: () => void;
+  canSave: boolean;
+  renderTrackControls?: (drillId: string) => ReactNode;
 };
 
 export function QuickCompleteWorkout({
@@ -29,15 +34,20 @@ export function QuickCompleteWorkout({
   drills,
   elapsed,
   saving,
+  mode,
   isDayTwo,
   onCancel,
   onToggle,
   onShowInfo,
+  onQuickComplete,
   onTrackStats,
   onSave,
+  canSave,
+  renderTrackControls,
 }: QuickCompleteWorkoutProps) {
   const completedCount = drills.filter((drill) => drill.complete).length;
   const progress = drills.length > 0 ? (completedCount / drills.length) * 100 : 0;
+  const tracking = mode === "track";
 
   return (
     <main
@@ -73,12 +83,12 @@ export function QuickCompleteWorkout({
           </div>
 
           <div className="mt-5 flex w-full items-center rounded-xl bg-zinc-100 p-1" aria-label="Workout logging mode">
-            <button type="button" aria-pressed="true" className="flex-1 rounded-lg bg-[#111] px-3 py-2.5 text-xs font-extrabold uppercase tracking-[.12em] text-white shadow-sm">
+            <button type="button" onClick={onQuickComplete} aria-pressed={!tracking} className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-extrabold uppercase tracking-[.12em] shadow-sm transition ${!tracking ? "bg-[#111] text-white" : "text-zinc-500 hover:text-black"}`}>
               <Check className="mr-1.5 inline h-4 w-4 text-orange-400" />
               Quick Complete
             </button>
-            <button type="button" onClick={onTrackStats} aria-pressed="false" className="flex-1 rounded-lg px-3 py-2.5 text-xs font-extrabold uppercase tracking-[.12em] text-zinc-500 transition hover:text-black">
-              <Target className="mr-1.5 inline h-4 w-4" />
+            <button type="button" onClick={onTrackStats} aria-pressed={tracking} className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-extrabold uppercase tracking-[.12em] shadow-sm transition ${tracking ? "bg-[#111] text-white" : "text-zinc-500 hover:text-black"}`}>
+              <BarChart3 className="mr-1.5 inline h-4 w-4" />
               Track Stats
             </button>
           </div>
@@ -88,9 +98,9 @@ export function QuickCompleteWorkout({
           <div className="flex items-end justify-between gap-3">
             <div>
               <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-zinc-500">Your progress</p>
-              <p className="mt-1 font-heading text-2xl font-black uppercase">{completedCount}<span className="mx-1 text-orange-500">/</span>{drills.length} complete</p>
+              <p className="mt-1 font-heading text-2xl font-black uppercase">{completedCount}<span className="mx-1 text-orange-500">/</span>{drills.length} {tracking ? "tracked" : "complete"}</p>
             </div>
-            <p className="pb-1 text-right text-xs text-zinc-500">Tap each drill as you finish.<br className="sm:hidden" /> No stats needed.</p>
+            <p className="pb-1 text-right text-xs text-zinc-500">{tracking ? "Enter results for each round." : <>Tap each drill as you finish.<br className="sm:hidden" /> No stats needed.</>}</p>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
             <div className="h-full rounded-full bg-orange-500 transition-[width] duration-300" style={{ width: `${progress}%` }} />
@@ -98,22 +108,11 @@ export function QuickCompleteWorkout({
         </section>
 
         <section className="mt-4 space-y-3" aria-label="Workout drills">
-          {drills.map((drill, index) => (
-            <article
-              key={drill.id}
-              className={`flex items-center gap-2 rounded-2xl border bg-white/95 p-2 shadow-[0_8px_24px_rgba(0,0,0,.05)] transition sm:gap-3 sm:p-3 ${
-                drill.complete ? "border-orange-400/70 ring-1 ring-orange-400/30" : "border-black/10 hover:border-black/25"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => onToggle(drill.id)}
-                aria-pressed={drill.complete}
-                data-testid={`quick-complete-drill-${drill.id}`}
-                className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:gap-5 sm:p-2"
-              >
+          {drills.map((drill, index) => {
+            const content = (
+              <>
                 {drill.image ? (
-                  <span className="flex h-[88px] w-[104px] shrink-0 items-center justify-center overflow-hidden sm:h-[110px] sm:w-[132px]">
+                  <span className="flex h-[88px] w-[104px] shrink-0 items-center justify-center sm:h-[110px] sm:w-[132px]">
                     <img src={drill.image} alt="" className="max-h-full max-w-full object-contain" />
                   </span>
                 ) : (
@@ -130,11 +129,28 @@ export function QuickCompleteWorkout({
                   <span className="mt-1.5 block font-heading text-sm font-black uppercase text-zinc-900">{drill.summary}</span>
                 </span>
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition ${
-                  drill.complete ? "border-orange-500 bg-orange-500 text-black" : "border-zinc-300 text-transparent group-hover:border-orange-400"
+                  drill.complete ? "border-orange-500 bg-orange-500 text-black" : "border-zinc-300 text-transparent"
                 }`}>
                   <Check className="h-5 w-5" strokeWidth={3} />
                 </span>
-              </button>
+              </>
+            );
+            return (
+            <article key={drill.id} className={`flex items-center gap-2 rounded-2xl border bg-white/95 p-2 shadow-[0_8px_24px_rgba(0,0,0,.05)] transition sm:gap-3 sm:p-3 ${
+              drill.complete ? "border-orange-400/70 ring-1 ring-orange-400/30" : "border-black/10 hover:border-black/25"
+            }`}>
+              {tracking ? (
+                <div className="min-w-0 flex-1">
+                  <div className="group flex min-w-0 items-center gap-3 rounded-xl p-1 text-left sm:gap-5 sm:p-2" data-testid={`quick-complete-drill-${drill.id}`}>
+                    {content}
+                  </div>
+                  {renderTrackControls?.(drill.id)}
+                </div>
+              ) : (
+                <button type="button" onClick={() => onToggle(drill.id)} aria-pressed={drill.complete} data-testid={`quick-complete-drill-${drill.id}`} className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:gap-5 sm:p-2">
+                  {content}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onShowInfo(drill.id)}
@@ -146,24 +162,24 @@ export function QuickCompleteWorkout({
                 <Info className="h-5 w-5" />
               </button>
             </article>
-          ))}
+          );})}
         </section>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-7">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-heading text-xl font-black uppercase">{completedCount} of {drills.length} selected</p>
-            <p className="truncate text-[11px] text-zinc-500">{completedCount ? "Only completed drills are saved." : "Check off at least one drill to save."}</p>
+            <p className="font-heading text-xl font-black uppercase">{completedCount} of {drills.length} {tracking ? "tracked" : "selected"}</p>
+            <p className="truncate text-[11px] text-zinc-500">{tracking ? "Your round stats will be saved to Training History." : completedCount ? "Only completed drills are saved." : "Check off at least one drill to save."}</p>
           </div>
           <button
             type="button"
             onClick={onSave}
-            disabled={saving || completedCount === 0}
+            disabled={saving || !canSave}
             className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 font-mono text-[10px] font-extrabold uppercase tracking-[.12em] text-black shadow-[0_3px_0_#a93c0d] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45 sm:px-6 sm:text-xs"
             data-testid="button-finish-workout"
           >
-            {saving ? "Saving…" : "Save completed"}
+            {saving ? "Saving…" : tracking ? "Save stats" : "Save completed"}
           </button>
         </div>
       </div>
