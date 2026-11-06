@@ -1041,10 +1041,13 @@ export default function CoachPPage() {
     const params = new URLSearchParams(search);
     const conversationId = params.get("conversationId");
     const prompt = params.get("prompt");
+    const onboardingMessage = params.get("onboardingMessage") === "1";
     const onboardingBlueprint = params.get("onboardingBlueprint") === "1";
     const welcomeWorkout = params.get("welcomeWorkout") === "1";
     const linkKey = conversationId
       ? `conversation:${conversationId}`
+      : onboardingMessage
+        ? "onboarding-message"
       : onboardingBlueprint
         ? "onboarding-blueprint"
       : welcomeWorkout
@@ -1056,6 +1059,16 @@ export default function CoachPPage() {
     handledDeepLinkRef.current = linkKey;
     if (conversationId) {
       void openConversation(conversationId);
+    } else if (onboardingMessage) {
+      startNewConversation();
+      let message = params.get("message") || "";
+      try {
+        message = sessionStorage.getItem("playr1-onboarding-coach-message") || message;
+        sessionStorage.removeItem("playr1-onboarding-coach-message");
+      } catch {
+        // The message query parameter is a fallback when session storage is unavailable.
+      }
+      if (message.trim()) sendMessage(message.trim(), { displayContent: message.trim() });
     } else if (onboardingBlueprint) {
       startNewConversation();
       let blueprintPrompt = "";

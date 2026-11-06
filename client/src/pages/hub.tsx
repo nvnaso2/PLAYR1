@@ -19,7 +19,7 @@ import {
   type HubStatKey,
   type HubStatOrder,
 } from "@/lib/dashboard-stats";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   CalendarDays,
   Pencil,
@@ -29,7 +29,6 @@ import {
   ChevronLeft,
   ArrowUp,
   Target,
-  Sparkles,
   Dumbbell,
   Clock3,
   X,
@@ -100,6 +99,26 @@ const previewShotTypes: Array<{ key: PreviewShotKey; label: string; color: strin
   { key: "freeThrows", label: "Free throws", color: "#70f06a" },
 ];
 const dayTwoWorkoutId = "playr1-onboarding-day2-find-your-shooting-range";
+
+function BasketballPlayerIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11.5" cy="3.7" r="2" />
+      <path d="m10.4 6.3-1.8 5.2 4.1 2 3-3.2 2.2 2.1M10 7.4 5.7 9 4 6.9M8.9 11.5l-3.8 6M12.7 13.5l4.5 4.4" />
+      <circle cx="19" cy="13.4" r="2.2" />
+      <path d="M17.2 12.2c1.1.4 1.7 1.3 1.8 3.3m1.8-3.1c-1.1.5-1.7 1.4-1.8 3.2" />
+    </svg>
+  );
+}
 
 const HUB_STAT_GLOW_COLORS: Partial<Record<HubStatKey, string>> = {
   totalDrills: "#38bdf8",
@@ -231,6 +250,7 @@ export default function HubPage() {
   }, [location, previewPage]);
   const fitOnboardingHub = onboardingPreview && previewDay === 1 && !dayTwoProfileStep;
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
+  const [dayTwoCoachDraft, setDayTwoCoachDraft] = useState("");
   const [dayTwoSaving, setDayTwoSaving] = useState(false);
   const [dayTwoError, setDayTwoError] = useState("");
   const [dayTwoAnswers, setDayTwoAnswers] = useState<{
@@ -811,6 +831,18 @@ export default function HubPage() {
       // Continue into Coach P; the page will request profile details if storage is unavailable.
     }
     navigate("/coach-p?onboardingBlueprint=1");
+  };
+  const sendDayTwoCoachMessage = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const message = dayTwoCoachDraft.trim();
+    if (!message) return;
+    try {
+      sessionStorage.setItem("playr1-onboarding-coach-message", message);
+      navigate("/coach-p?onboardingMessage=1");
+    } catch {
+      navigate(`/coach-p?onboardingMessage=1&message=${encodeURIComponent(message)}`);
+    }
+    setDayTwoCoachDraft("");
   };
 
   const customDrillsSection = (
@@ -1613,20 +1645,34 @@ export default function HubPage() {
                       className="flex min-h-10 w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                       data-testid="button-day-two-player-blueprint"
                     >
-                      <Sparkles className="h-4 w-4 shrink-0 text-orange-300 drop-shadow-[0_0_7px_rgba(251,146,60,0.7)]" />
+                      <BasketballPlayerIcon className="h-4 w-4 shrink-0 text-orange-300 drop-shadow-[0_0_7px_rgba(251,146,60,0.7)]" />
                       <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-zinc-200 sm:text-sm">Analyze My Profile</span>
                       <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-zinc-600" />
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/coach-p")}
+                  <form
+                    onSubmit={sendDayTwoCoachMessage}
                     className="mt-4 flex min-h-12 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                    data-testid="button-open-day-two-coach"
+                    data-testid="form-day-two-coach-message"
                   >
-                    <span className="min-w-0 flex-1 text-sm text-zinc-500">Ask Coach P anything about your game...</span>
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)]"><ArrowUp className="h-4 w-4" /></span>
-                  </button>
+                    <input
+                      value={dayTwoCoachDraft}
+                      onChange={(event) => setDayTwoCoachDraft(event.currentTarget.value)}
+                      placeholder="Ask Coach P anything about your game..."
+                      aria-label="Message Coach P"
+                      className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
+                      data-testid="input-day-two-coach-message"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!dayTwoCoachDraft.trim()}
+                      aria-label="Send message to Coach P"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)] transition enabled:hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45"
+                      data-testid="button-send-day-two-coach-message"
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </button>
+                  </form>
                 </article>
 
                 <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group block w-full overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-two-workout">
