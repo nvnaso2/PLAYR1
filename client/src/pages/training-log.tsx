@@ -169,6 +169,7 @@ export default function TrainingLogPage() {
   const [quickCompletedDrillIds, setQuickCompletedDrillIds] = useState<Set<string>>(new Set());
   const [trackedEntryIndexes, setTrackedEntryIndexes] = useState<Set<number>>(new Set());
   const [selectedTrackRoundByDrill, setSelectedTrackRoundByDrill] = useState<Record<string, number>>({});
+  const [metricInputDrafts, setMetricInputDrafts] = useState<Record<string, string>>({});
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(() => {
     return new URLSearchParams(searchParams).get('create') === '1';
   });
@@ -1104,6 +1105,7 @@ export default function TrainingLogPage() {
     setQuickCompletedDrillIds(new Set());
     setTrackedEntryIndexes(new Set());
     setSelectedTrackRoundByDrill({});
+    setMetricInputDrafts({});
     setWorkoutEntries(entries);
     setWorkoutInProgress(true);
     setActiveView("workout");
@@ -1137,6 +1139,7 @@ export default function TrainingLogPage() {
       setQuickCompletedDrillIds(new Set());
       setTrackedEntryIndexes(new Set());
       setSelectedTrackRoundByDrill({});
+      setMetricInputDrafts({});
       setWorkoutEntries(entries);
       setWorkoutInProgress(true);
       setActiveView("workout");
@@ -1256,6 +1259,18 @@ export default function TrainingLogPage() {
       next[entryIndex] = { ...entry, metrics: { ...entry.metrics, [metricTemplateId]: value } };
       return next;
     });
+  };
+
+  const metricDraftKey = (entryIndex: number, metricTemplateId: string) => `${entryIndex}:${metricTemplateId}`;
+  const getMetricInputValue = (entryIndex: number, metricTemplateId: string, value: number | string | undefined) => {
+    const key = metricDraftKey(entryIndex, metricTemplateId);
+    if (Object.prototype.hasOwnProperty.call(metricInputDrafts, key)) return metricInputDrafts[key];
+    return Number(value) > 0 ? String(value) : "";
+  };
+  const handleMetricInputChange = (entryIndex: number, metricTemplateId: string, rawValue: string) => {
+    const value = rawValue.replace(/\D/g, "");
+    setMetricInputDrafts((current) => ({ ...current, [metricDraftKey(entryIndex, metricTemplateId)]: value }));
+    updateMetricValue(entryIndex, metricTemplateId, Number(value) || 0);
   };
 
   // Remove drill from workout
@@ -1502,6 +1517,7 @@ export default function TrainingLogPage() {
         setQuickCompletedDrillIds(new Set());
         setTrackedEntryIndexes(new Set());
         setSelectedTrackRoundByDrill({});
+        setMetricInputDrafts({});
         setWorkoutMode("track");
         setShareSessionId(bulkRes?.ok ? sessionId : null);
         setShowFavoriteDialog(activeWorkoutTemplateId !== DAY_THREE_VOLUME_WORKOUT_ID);
@@ -1610,6 +1626,7 @@ export default function TrainingLogPage() {
     setQuickCompletedDrillIds(new Set());
     setTrackedEntryIndexes(new Set());
     setSelectedTrackRoundByDrill({});
+    setMetricInputDrafts({});
     setWorkoutMode("track");
     setActiveWorkoutTemplateId(null);
     setActiveWorkoutName("Training session");
@@ -1786,17 +1803,17 @@ export default function TrainingLogPage() {
         {madeMetric && attemptsMetric ? (
           <div className="flex shrink-0 items-center gap-0.5">
               <label className="sr-only" htmlFor={`track-made-${index}`}>Makes</label>
-              <Input id={`track-made-${index}`} type="text" inputMode="numeric" pattern="[0-9]*" placeholder="M" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} makes`} value={entry.metrics[madeMetric.metricTemplateId] ? entry.metrics[madeMetric.metricTemplateId] : ""} onChange={(event) => updateMetricValue(index, madeMetric.metricTemplateId, Number(event.target.value.replace(/\D/g, "")) || 0)} className="h-8 w-[39px] border-zinc-200 bg-white px-1 text-center font-mono text-sm font-bold tabular-nums text-zinc-950 placeholder:text-[9px] placeholder:text-zinc-400 sm:w-[44px]" data-testid={`track-made-input-${index}`} />
+              <Input id={`track-made-${index}`} type="text" inputMode="numeric" placeholder="M" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} makes`} value={getMetricInputValue(index, madeMetric.metricTemplateId, entry.metrics[madeMetric.metricTemplateId])} onFocus={(event) => event.currentTarget.select()} onChange={(event) => handleMetricInputChange(index, madeMetric.metricTemplateId, event.target.value)} className="h-8 w-[39px] border-zinc-200 bg-white px-1 text-center font-mono text-sm font-bold tabular-nums text-zinc-950 placeholder:text-[9px] placeholder:text-zinc-400 sm:w-[44px]" data-testid={`track-made-input-${index}`} />
               <span className="font-heading text-base font-black text-orange-600">/</span>
               <label className="sr-only" htmlFor={`track-attempts-${index}`}>Attempts</label>
-              <Input id={`track-attempts-${index}`} type="text" inputMode="numeric" pattern="[0-9]*" placeholder="A" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} attempts`} value={entry.metrics[attemptsMetric.metricTemplateId] ? entry.metrics[attemptsMetric.metricTemplateId] : ""} onChange={(event) => updateMetricValue(index, attemptsMetric.metricTemplateId, Number(event.target.value.replace(/\D/g, "")) || 0)} className="h-8 w-[39px] border-zinc-200 bg-white px-1 text-center font-mono text-sm font-bold tabular-nums text-zinc-950 placeholder:text-[9px] placeholder:text-zinc-400 sm:w-[44px]" data-testid={`track-attempts-input-${index}`} />
+              <Input id={`track-attempts-${index}`} type="text" inputMode="numeric" placeholder="A" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} attempts`} value={getMetricInputValue(index, attemptsMetric.metricTemplateId, entry.metrics[attemptsMetric.metricTemplateId])} onFocus={(event) => event.currentTarget.select()} onChange={(event) => handleMetricInputChange(index, attemptsMetric.metricTemplateId, event.target.value)} className="h-8 w-[39px] border-zinc-200 bg-white px-1 text-center font-mono text-sm font-bold tabular-nums text-zinc-950 placeholder:text-[9px] placeholder:text-zinc-400 sm:w-[44px]" data-testid={`track-attempts-input-${index}`} />
           </div>
         ) : (
           <div className="grid shrink-0 grid-cols-1 gap-1">
             {metricColumns.map((metric) => (
               <label key={metric.metricTemplateId} className="min-w-0">
                 <span className="sr-only">{metric.template.label}</span>
-                <Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder={metric.template.label.slice(0, 1)} value={entry.metrics[metric.metricTemplateId] ?? ""} onChange={(event) => updateMetricValue(index, metric.metricTemplateId, Number(event.target.value.replace(/\D/g, "")) || 0)} className="h-8 w-[44px] border-zinc-200 bg-white text-center font-mono text-sm font-bold tabular-nums text-zinc-950" data-testid={`input-metric-${index}-${metric.metricTemplateId}`} />
+                <Input type="text" inputMode="numeric" placeholder={metric.template.label.slice(0, 1)} value={getMetricInputValue(index, metric.metricTemplateId, entry.metrics[metric.metricTemplateId])} onFocus={(event) => event.currentTarget.select()} onChange={(event) => handleMetricInputChange(index, metric.metricTemplateId, event.target.value)} className="h-8 w-[44px] border-zinc-200 bg-white text-center font-mono text-sm font-bold tabular-nums text-zinc-950" data-testid={`input-metric-${index}-${metric.metricTemplateId}`} />
               </label>
             ))}
           </div>
