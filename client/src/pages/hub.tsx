@@ -29,6 +29,7 @@ import {
   ChevronLeft,
   ArrowUp,
   Target,
+  Sparkles,
   Dumbbell,
   Clock3,
   X,
@@ -1612,8 +1613,8 @@ export default function HubPage() {
                       className="flex min-h-10 w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                       data-testid="button-day-two-player-blueprint"
                     >
-                      <Target className="h-4 w-4 shrink-0 text-orange-400" />
-                      <span className="min-w-0 flex-1 text-xs text-zinc-200 sm:text-sm">Analyze my profile and show me my edge</span>
+                      <Sparkles className="h-4 w-4 shrink-0 text-orange-300 drop-shadow-[0_0_7px_rgba(251,146,60,0.7)]" />
+                      <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-zinc-200 sm:text-sm">Analyze My Profile</span>
                       <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-zinc-600" />
                     </button>
                   </div>
