@@ -1599,37 +1599,32 @@ export default function HubPage() {
             )}
 
             {previewDay === 2 && (
-              <section className="mx-auto w-full max-w-2xl space-y-3 pb-5 pt-2 sm:space-y-4" data-testid="card-day-two-mission">
-                <article className="px-1 py-2 text-white sm:px-2 sm:py-3" data-testid="day-two-coach-introduction">
-                  <div className="mb-3 flex items-center gap-3">
-                    <CoachPIcon size="sm" />
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-300">Talk to Coach P</p>
-                      <h3 className="mt-0.5 font-heading text-lg font-black tracking-wide sm:text-xl">Find your edge. Build your next level.</h3>
-                    </div>
+              <section className="mx-auto w-full max-w-2xl space-y-4 pb-5 pt-2 sm:space-y-5" data-testid="card-day-two-mission">
+                <article className="relative flex flex-col justify-center px-1 py-4 text-white sm:px-2 sm:py-5" data-testid="day-two-coach-introduction">
+                  <div className="mb-4 flex items-center justify-center gap-3">
+                    <CoachPIcon size="lg" />
+                    <h3 className="font-heading text-2xl font-black tracking-wide sm:text-3xl">Talk to Coach P</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={startPlayerBlueprint}
+                      className="flex min-h-10 w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                      data-testid="button-day-two-player-blueprint"
+                    >
+                      <Target className="h-4 w-4 shrink-0 text-orange-400" />
+                      <span className="min-w-0 flex-1 text-xs text-zinc-200 sm:text-sm">Analyze my profile and show me my edge</span>
+                      <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-zinc-600" />
+                    </button>
                   </div>
                   <button
                     type="button"
-                    onClick={startPlayerBlueprint}
-                    className="group flex min-h-[66px] w-full items-center gap-3 rounded-2xl border border-orange-400/35 bg-gradient-to-r from-orange-500/[0.12] via-zinc-950/80 to-zinc-950/55 px-4 py-3 text-left shadow-[0_8px_26px_rgba(249,115,22,0.08)] transition hover:border-orange-300/65 hover:from-orange-500/[0.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                    data-testid="button-day-two-player-blueprint"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-orange-300/35 bg-orange-400/10 text-orange-300"><Target className="h-4 w-4" /></span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-xs font-black uppercase tracking-[0.12em] text-white sm:text-sm">Reveal my player blueprint</span>
-                      <span className="mt-1 block text-[10px] leading-snug text-zinc-400 sm:text-xs">Connect your profile and shooting baseline to your biggest next step.</span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-orange-300 transition group-hover:translate-x-0.5" />
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => navigate("/coach-p")}
-                    className="mt-2.5 flex min-h-11 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2 text-left transition-colors hover:border-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    className="mt-4 flex min-h-12 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                     data-testid="button-open-day-two-coach"
                   >
-                    <MessageCircle className="h-4 w-4 shrink-0 text-zinc-500" />
-                    <span className="min-w-0 flex-1 text-xs text-zinc-500 sm:text-sm">Or ask Coach P anything about your game...</span>
-                    <ArrowUp className="h-4 w-4 shrink-0 text-zinc-500" />
+                    <span className="min-w-0 flex-1 text-sm text-zinc-500">Ask Coach P anything about your game...</span>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)]"><ArrowUp className="h-4 w-4" /></span>
                   </button>
                 </article>
 
