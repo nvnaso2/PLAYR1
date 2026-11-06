@@ -168,6 +168,7 @@ export default function TrainingLogPage() {
   const [activeWorkoutName, setActiveWorkoutName] = useState("Training session");
   const [quickCompletedDrillIds, setQuickCompletedDrillIds] = useState<Set<string>>(new Set());
   const [trackedEntryIndexes, setTrackedEntryIndexes] = useState<Set<number>>(new Set());
+  const [selectedTrackRoundByDrill, setSelectedTrackRoundByDrill] = useState<Record<string, number>>({});
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(() => {
     return new URLSearchParams(searchParams).get('create') === '1';
   });
@@ -1102,6 +1103,7 @@ export default function TrainingLogPage() {
     setWorkoutMode("track");
     setQuickCompletedDrillIds(new Set());
     setTrackedEntryIndexes(new Set());
+    setSelectedTrackRoundByDrill({});
     setWorkoutEntries(entries);
     setWorkoutInProgress(true);
     setActiveView("workout");
@@ -1134,6 +1136,7 @@ export default function TrainingLogPage() {
       setActiveWorkoutName(data.workout.name);
       setQuickCompletedDrillIds(new Set());
       setTrackedEntryIndexes(new Set());
+      setSelectedTrackRoundByDrill({});
       setWorkoutEntries(entries);
       setWorkoutInProgress(true);
       setActiveView("workout");
@@ -1498,6 +1501,7 @@ export default function TrainingLogPage() {
         setDrillStartTimes({});
         setQuickCompletedDrillIds(new Set());
         setTrackedEntryIndexes(new Set());
+        setSelectedTrackRoundByDrill({});
         setWorkoutMode("track");
         setShareSessionId(bulkRes?.ok ? sessionId : null);
         setShowFavoriteDialog(activeWorkoutTemplateId !== DAY_THREE_VOLUME_WORKOUT_ID);
@@ -1605,6 +1609,7 @@ export default function TrainingLogPage() {
     setDrillStartTimes({});
     setQuickCompletedDrillIds(new Set());
     setTrackedEntryIndexes(new Set());
+    setSelectedTrackRoundByDrill({});
     setWorkoutMode("track");
     setActiveWorkoutTemplateId(null);
     setActiveWorkoutName("Training session");
@@ -1732,30 +1737,71 @@ export default function TrainingLogPage() {
     const metricColumns = rows[0].entry.drillMetrics
       .filter((metric) => (metric.template.type as string) !== "calculated" && ((metric.template.type as string) !== "timer" || metric.isRequired))
       .sort((a, b) => Number(/attempt/i.test(`${a.template.name} ${a.template.label}`)) - Number(/attempt/i.test(`${b.template.name} ${b.template.label}`)));
+    const selectedIndex = selectedTrackRoundByDrill[drillId];
+    const selectedRow = rows.find(({ index }) => index === selectedIndex)
+      ?? rows.find(({ index }) => !trackedEntryIndexes.has(index))
+      ?? rows[0];
+    const { entry, index } = selectedRow;
+    const madeMetric = metricColumns.find((metric) => /made/i.test(`${metric.template.name} ${metric.template.label}`));
+    const attemptsMetric = metricColumns.find((metric) => /attempt/i.test(`${metric.template.name} ${metric.template.label}`));
+    const locationLabel = (row: typeof rows[number], roundIndex: number) => {
+      if (!row.entry.shotLocation) return `Round ${roundIndex + 1}`;
+      return getLocationLabel(row.entry.shotLocation)
+        .replace(/\s*\(3\)$/i, "")
+        .replace(/\bCorner Left\b/i, "L Corner")
+        .replace(/\bCorner Right\b/i, "R Corner")
+        .replace(/\bWing Left\b/i, "L Wing")
+        .replace(/\bWing Right\b/i, "R Wing")
+        .replace(/\bTop of Key\b/i, "Top")
+        .replace(/\bLeft Elbow\b/i, "L Elbow")
+        .replace(/\bRight Elbow\b/i, "R Elbow");
+    };
     return (
-      <div className="mt-3 space-y-2">
-        {rows.map(({ entry, index }, roundIndex) => (
-          <div key={index} className="grid items-end gap-1.5 rounded-xl border border-black/10 bg-[#f7f6f3] p-2 sm:gap-2" style={{ gridTemplateColumns: `32px ${entry.drill.trackShots ? "minmax(92px,1.2fr)" : ""} repeat(${metricColumns.length},minmax(56px,.8fr))` }} data-testid={`workout-row-${index}`}>
-            <span className="flex h-10 items-center justify-center rounded-lg bg-white font-mono text-xs font-bold text-zinc-600">R{String(roundIndex + 1).padStart(2, "0")}</span>
-            {entry.drill.trackShots && (
-              <div className="min-w-0">
-                <label htmlFor={`select-location-${index}`} className="mb-1 block truncate text-[9px] font-bold uppercase tracking-wide text-zinc-600">Shot spot</label>
-                <Select value={entry.shotLocation || ""} onValueChange={(value) => updateEntry(index, "shotLocation", value)}>
-                  <SelectTrigger id={`select-location-${index}`} className="h-10 min-w-0 border-black/10 bg-white px-2 text-xs" data-testid={`select-location-${index}`}><SelectValue placeholder="Choose spot" /></SelectTrigger>
-                  <SelectContent position="popper" sideOffset={4} className="max-h-[50vh] overflow-y-auto border-black/10 bg-white text-zinc-900">
-                    {(shotLocationOptions || []).map((location) => <SelectItem key={location.slug} value={location.slug}>{location.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+      <div className="w-full min-w-0">
+        <div className="flex min-w-0 items-center gap-1">
+          <div className="grid min-w-0 flex-1 gap-1" style={{ gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))` }} role="group" aria-label={`${rows[0].entry.drill.title} spots`}>
+            {rows.map((row, roundIndex) => {
+              const selected = row.index === index;
+              const made = madeMetric ? Number(row.entry.metrics[madeMetric.metricTemplateId] ?? 0) : 0;
+              const attempts = attemptsMetric ? Number(row.entry.metrics[attemptsMetric.metricTemplateId] ?? 0) : 0;
+              const label = locationLabel(row, roundIndex);
+              return (
+                <button
+                  key={row.index}
+                  type="button"
+                  aria-pressed={selected}
+                  aria-label={`${label}, ${made} made of ${attempts}`}
+                  onClick={() => setSelectedTrackRoundByDrill((current) => ({ ...current, [drillId]: row.index }))}
+                  className={`flex min-w-0 flex-col items-center justify-center rounded-md border px-0.5 py-1 transition ${
+                    selected ? "border-orange-500 bg-[#111] text-white shadow-[0_2px_0_#a93c0d]" : trackedEntryIndexes.has(row.index) ? "border-orange-400 bg-white text-zinc-900" : "border-zinc-200 bg-white text-zinc-500"
+                  }`}
+                  data-testid={`track-spot-${row.index}`}
+                >
+                  <span className="max-w-full truncate text-[7px] font-bold uppercase leading-tight sm:text-[8px]">{label}</span>
+                  <span className={`mt-0.5 font-mono text-[8px] font-bold tabular-nums sm:text-[9px] ${selected ? "text-orange-300" : ""}`}>{made}/{attempts}</span>
+                </button>
+              );
+            })}
+          </div>
+        {madeMetric && attemptsMetric ? (
+          <div className="flex shrink-0 items-center gap-0.5">
+              <label className="sr-only" htmlFor={`track-made-${index}`}>Makes</label>
+              <Input id={`track-made-${index}`} type="text" inputMode="numeric" pattern="[0-9]*" placeholder="M" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} makes`} value={entry.metrics[madeMetric.metricTemplateId] ? entry.metrics[madeMetric.metricTemplateId] : ""} onChange={(event) => updateMetricValue(index, madeMetric.metricTemplateId, Number(event.target.value.replace(/\D/g, "")) || 0)} className="h-8 w-[39px] border-zinc-200 bg-white px-1 text-center font-mono text-sm font-bold tabular-nums text-zinc-950 placeholder:text-[9px] placeholder:text-zinc-400 sm:w-[44px]" data-testid={`track-made-input-${index}`} />
+              <span className="font-heading text-base font-black text-orange-600">/</span>
+              <label className="sr-only" htmlFor={`track-attempts-${index}`}>Attempts</label>
+              <Input id={`track-attempts-${index}`} type="text" inputMode="numeric" pattern="[0-9]*" placeholder="A" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} attempts`} value={entry.metrics[attemptsMetric.metricTemplateId] ? entry.metrics[attemptsMetric.metricTemplateId] : ""} onChange={(event) => updateMetricValue(index, attemptsMetric.metricTemplateId, Number(event.target.value.replace(/\D/g, "")) || 0)} className="h-8 w-[39px] border-zinc-200 bg-white px-1 text-center font-mono text-sm font-bold tabular-nums text-zinc-950 placeholder:text-[9px] placeholder:text-zinc-400 sm:w-[44px]" data-testid={`track-attempts-input-${index}`} />
+          </div>
+        ) : (
+          <div className="grid shrink-0 grid-cols-1 gap-1">
             {metricColumns.map((metric) => (
-              <div key={metric.metricTemplateId} className="min-w-0">
-                <label htmlFor={`metric-${index}-${metric.metricTemplateId}`} className="mb-1 block truncate text-[9px] font-bold uppercase tracking-wide text-zinc-600">{metric.template.label.replace(/^Shots?\s*/i, "")}</label>
-                <Input id={`metric-${index}-${metric.metricTemplateId}`} type="number" min="0" inputMode="numeric" aria-label={`${metric.template.label} round ${roundIndex + 1}`} value={entry.metrics[metric.metricTemplateId] ?? ""} onChange={(event) => updateMetricValue(index, metric.metricTemplateId, Number(event.target.value) || 0)} className="h-10 border-black/10 bg-white text-center font-mono text-base font-bold tabular-nums text-zinc-950" data-testid={`input-metric-${index}-${metric.metricTemplateId}`} />
-              </div>
+              <label key={metric.metricTemplateId} className="min-w-0">
+                <span className="sr-only">{metric.template.label}</span>
+                <Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder={metric.template.label.slice(0, 1)} value={entry.metrics[metric.metricTemplateId] ?? ""} onChange={(event) => updateMetricValue(index, metric.metricTemplateId, Number(event.target.value.replace(/\D/g, "")) || 0)} className="h-8 w-[44px] border-zinc-200 bg-white text-center font-mono text-sm font-bold tabular-nums text-zinc-950" data-testid={`input-metric-${index}-${metric.metricTemplateId}`} />
+              </label>
             ))}
           </div>
-        ))}
+        )}
+        </div>
       </div>
     );
   };

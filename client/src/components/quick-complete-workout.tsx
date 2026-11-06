@@ -51,10 +51,10 @@ export function QuickCompleteWorkout({
 
   return (
     <main
-      className="fixed inset-0 z-40 overflow-y-auto bg-[#f5f4f0] text-[#181818]"
+      className={`fixed inset-0 z-40 overflow-y-auto text-[#181818] ${tracking ? "bg-white" : "bg-[#f5f4f0]"}`}
       data-testid="quick-complete-workout"
     >
-      <div className="pointer-events-none fixed inset-0 opacity-[0.16]" aria-hidden="true">
+      <div className={`pointer-events-none fixed inset-0 ${tracking ? "opacity-0" : "opacity-[0.16]"}`} aria-hidden="true">
         <svg className="h-full w-full" viewBox="0 0 560 1100" preserveAspectRatio="none">
           <g fill="none" stroke="#aaa69f" strokeWidth="2">
             <circle cx="280" cy="560" r="238" />
@@ -82,7 +82,7 @@ export function QuickCompleteWorkout({
             </button>
           </div>
 
-          <div className="mt-5 flex w-full items-center rounded-xl bg-zinc-100 p-1" aria-label="Workout logging mode">
+          <div className={`mt-5 flex w-full items-center rounded-xl p-1 ${tracking ? "border border-zinc-200 bg-white" : "bg-zinc-100"}`} aria-label="Workout logging mode">
             <button type="button" onClick={onQuickComplete} aria-pressed={!tracking} className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-extrabold uppercase tracking-[.12em] shadow-sm transition ${!tracking ? "bg-[#111] text-white" : "text-zinc-500 hover:text-black"}`}>
               <Check className="mr-1.5 inline h-4 w-4 text-orange-400" />
               Quick Complete
@@ -100,9 +100,9 @@ export function QuickCompleteWorkout({
               <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-zinc-500">Your progress</p>
               <p className="mt-1 font-heading text-2xl font-black uppercase">{completedCount}<span className="mx-1 text-orange-500">/</span>{drills.length} {tracking ? "tracked" : "complete"}</p>
             </div>
-            <p className="pb-1 text-right text-xs text-zinc-500">{tracking ? "Enter results for each round." : <>Tap each drill as you finish.<br className="sm:hidden" /> No stats needed.</>}</p>
+            <p className="pb-1 text-right text-xs text-zinc-500">{tracking ? "Choose a spot and enter your results." : <>Tap each drill as you finish.<br className="sm:hidden" /> No stats needed.</>}</p>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
+          <div className={`mt-3 h-2 overflow-hidden rounded-full ${tracking ? "border border-zinc-200 bg-white" : "bg-zinc-100"}`}>
             <div className="h-full rounded-full bg-orange-500 transition-[width] duration-300" style={{ width: `${progress}%` }} />
           </div>
         </section>
@@ -125,14 +125,14 @@ export function QuickCompleteWorkout({
                     {isDayTwo && index === 5 ? "Bonus drills" : `Drill ${String(index + 1).padStart(2, "0")}`}
                   </span>
                   <span className="mt-0.5 block font-heading text-xl font-black uppercase leading-tight sm:text-2xl">{drill.title}</span>
-                  <span className="mt-1 block text-xs leading-snug text-zinc-600">{drill.description || drill.summary || drill.category}</span>
+                  {!tracking && <span className="mt-1 block text-xs leading-snug text-zinc-600">{drill.description || drill.summary || drill.category}</span>}
                   <span className="mt-1.5 block font-heading text-sm font-black uppercase text-zinc-900">{drill.summary}</span>
                 </span>
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                {!tracking && <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition ${
                   drill.complete ? "border-orange-500 bg-orange-500 text-black" : "border-zinc-300 text-transparent"
                 }`}>
                   <Check className="h-5 w-5" strokeWidth={3} />
-                </span>
+                </span>}
               </>
             );
             return (
@@ -140,11 +140,11 @@ export function QuickCompleteWorkout({
               drill.complete ? "border-orange-400/70 ring-1 ring-orange-400/30" : "border-black/10 hover:border-black/25"
             }`}>
               {tracking ? (
-                <div className="min-w-0 flex-1">
-                  <div className="group flex min-w-0 items-center gap-3 rounded-xl p-1 text-left sm:gap-5 sm:p-2" data-testid={`quick-complete-drill-${drill.id}`}>
+                <div className="flex min-w-0 flex-1 flex-col gap-1 sm:gap-2 lg:flex-row lg:items-center lg:gap-3">
+                  <div className="group flex min-w-0 items-center gap-3 rounded-xl p-1 text-left sm:gap-5 sm:p-2 lg:flex-[1.15]" data-testid={`quick-complete-drill-${drill.id}`}>
                     {content}
                   </div>
-                  {renderTrackControls?.(drill.id)}
+                  <div className="min-w-0 flex-1 lg:max-w-[56%]">{renderTrackControls?.(drill.id)}</div>
                 </div>
               ) : (
                 <button type="button" onClick={() => onToggle(drill.id)} aria-pressed={drill.complete} data-testid={`quick-complete-drill-${drill.id}`} className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:gap-5 sm:p-2">
@@ -170,7 +170,7 @@ export function QuickCompleteWorkout({
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="font-heading text-xl font-black uppercase">{completedCount} of {drills.length} {tracking ? "tracked" : "selected"}</p>
-            <p className="truncate text-[11px] text-zinc-500">{tracking ? "Your round stats will be saved to Training History." : completedCount ? "Only completed drills are saved." : "Check off at least one drill to save."}</p>
+            <p className="truncate text-[11px] text-zinc-500">{tracking ? "Your spot-by-spot results will be saved to Training History." : completedCount ? "Only completed drills are saved." : "Check off at least one drill to save."}</p>
           </div>
           <button
             type="button"
