@@ -94,10 +94,12 @@ import { FreeShotMode, LiveShotCounter } from "@/components/free-shoot-mode";
 import { RecordShootingMode } from "@/components/record-shooting-mode";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import { DrillTimer } from "@/components/drill-timer";
+import { QuickCompleteWorkout } from "@/components/quick-complete-workout";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
+import { DAY_TWO_RANGE_WORKOUT_ID, dayTwoWorkoutArt, dayTwoWorkoutTotals } from "@/lib/day-two-workout-art";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 
@@ -123,6 +125,7 @@ type WorkoutDrillEntry = {
 };
 
 type WorkoutMode = "complete" | "track";
+const isTrackingWorkoutMode = (mode: WorkoutMode): boolean => mode === "track";
 
 // Use insert schemas from shared/schema.ts with UI-specific extensions
 const createDrillFormSchema = insertDrillSchema.pick({
@@ -1137,7 +1140,7 @@ export default function TrainingLogPage() {
         });
       });
 
-      setWorkoutMode("track");
+      setWorkoutMode(workoutId === DAY_TWO_RANGE_WORKOUT_ID ? "complete" : "track");
       setActiveWorkoutTemplateId(workoutId);
       setActiveWorkoutName(data.workout.name);
       setQuickCompletedDrillIds(new Set());
@@ -1719,6 +1722,17 @@ export default function TrainingLogPage() {
 
   const sessionDrillCount = new Set(workoutEntries.map((entry) => entry.drillId)).size;
   const completedDrillCount = quickCompletedDrillIds.size;
+  const isDayTwoWorkout = activeWorkoutTemplateId === DAY_TWO_RANGE_WORKOUT_ID;
+  const quickCompleteDrills = quickWorkoutEntries.map((entry, index) => ({
+    id: entry.drillId,
+    title: entry.drill.title,
+    category: formatCategory(entry.drill.category || ""),
+    summary: isDayTwoWorkout
+      ? dayTwoWorkoutTotals[index] ?? `${entry.plannedReps ?? ""} reps`
+      : `${formatCategory(entry.drill.category || "")} · ${entry.drill.difficulty}`,
+    complete: quickCompletedDrillIds.has(entry.drillId),
+    image: isDayTwoWorkout ? dayTwoWorkoutArt[index] : undefined,
+  }));
 
   // Render drill selection list
   return (
@@ -3025,7 +3039,27 @@ export default function TrainingLogPage() {
       </Dialog>
 
       {/* Active Workout View — full screen takeover */}
-      {activeView === "workout" && workoutInProgress && (
+      {activeView === "workout" && workoutInProgress && workoutMode === "complete" && (
+        <QuickCompleteWorkout
+          workoutName={activeWorkoutName}
+          drills={quickCompleteDrills}
+          elapsed={workoutElapsed}
+          saving={isSavingWorkout}
+          isDayTwo={isDayTwoWorkout}
+          onCancel={cancelWorkout}
+          onToggle={(drillId) => {
+            setQuickCompletedDrillIds((current) => {
+              const next = new Set(current);
+              if (next.has(drillId)) next.delete(drillId);
+              else next.add(drillId);
+              return next;
+            });
+          }}
+          onTrackStats={() => setWorkoutMode("track")}
+          onSave={saveWorkout}
+        />
+      )}
+      {activeView === "workout" && workoutInProgress && isTrackingWorkoutMode(workoutMode) && (
         <div className="fixed inset-0 z-40 overflow-y-auto bg-[#050505] [background-image:radial-gradient(circle_at_85%_0%,hsl(var(--primary)/0.12),transparent_32%)]" data-testid="workout-fullscreen">
           <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
         <Card className="overflow-hidden border-white/10 bg-zinc-950/90 shadow-2xl shadow-orange-950/20">

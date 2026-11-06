@@ -1,0 +1,154 @@
+import { ArrowLeft, Check, Clock3, Target } from "lucide-react";
+import { dayTwoWorkoutArt } from "@/lib/day-two-workout-art";
+
+export type QuickCompleteDrill = {
+  id: string;
+  title: string;
+  category: string;
+  summary: string;
+  complete: boolean;
+  image?: string;
+};
+
+type QuickCompleteWorkoutProps = {
+  workoutName: string;
+  drills: QuickCompleteDrill[];
+  elapsed: string;
+  saving: boolean;
+  isDayTwo: boolean;
+  onCancel: () => void;
+  onToggle: (drillId: string) => void;
+  onTrackStats: () => void;
+  onSave: () => void;
+};
+
+export function QuickCompleteWorkout({
+  workoutName,
+  drills,
+  elapsed,
+  saving,
+  isDayTwo,
+  onCancel,
+  onToggle,
+  onTrackStats,
+  onSave,
+}: QuickCompleteWorkoutProps) {
+  const completedCount = drills.filter((drill) => drill.complete).length;
+  const progress = drills.length > 0 ? (completedCount / drills.length) * 100 : 0;
+
+  return (
+    <main
+      className="fixed inset-0 z-40 overflow-y-auto bg-[#f5f4f0] text-[#181818]"
+      data-testid="quick-complete-workout"
+    >
+      <div className="pointer-events-none fixed inset-0 opacity-[0.16]" aria-hidden="true">
+        <svg className="h-full w-full" viewBox="0 0 560 1100" preserveAspectRatio="none">
+          <g fill="none" stroke="#aaa69f" strokeWidth="2">
+            <circle cx="280" cy="560" r="238" />
+            <path d="M42 560H518M280 322V798M68 365C175 451 175 669 68 755M492 365C385 451 385 669 492 755" />
+            <path d="M-70 170C135 110 425 112 630 170M-85 930C115 990 445 990 645 930" />
+          </g>
+        </svg>
+      </div>
+      <div className="relative mx-auto min-h-full max-w-4xl px-4 pb-32 pt-4 sm:px-7 sm:pt-7">
+        <header className="rounded-2xl border border-black/10 bg-white/95 p-4 shadow-[0_12px_34px_rgba(0,0,0,.07)] sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-orange-600">Workout in progress</p>
+              <h1 className="mt-1 font-heading text-3xl font-black uppercase leading-none sm:text-5xl">{workoutName}</h1>
+              <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-zinc-500">
+                <Clock3 className="h-4 w-4 text-orange-600" />
+                <span>{elapsed}</span>
+                <span className="text-zinc-300">·</span>
+                <span>{drills.length} drills</span>
+              </div>
+            </div>
+            <button type="button" onClick={onCancel} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-black/10 px-3 text-xs font-bold uppercase tracking-wide text-zinc-600 transition hover:border-black/25 hover:text-black" data-testid="button-cancel-workout">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Exit</span>
+            </button>
+          </div>
+
+          <div className="mt-5 flex w-full items-center rounded-xl bg-zinc-100 p-1" aria-label="Workout logging mode">
+            <button type="button" aria-pressed="true" className="flex-1 rounded-lg bg-[#111] px-3 py-2.5 text-xs font-extrabold uppercase tracking-[.12em] text-white shadow-sm">
+              <Check className="mr-1.5 inline h-4 w-4 text-orange-400" />
+              Quick Complete
+            </button>
+            <button type="button" onClick={onTrackStats} aria-pressed="false" className="flex-1 rounded-lg px-3 py-2.5 text-xs font-extrabold uppercase tracking-[.12em] text-zinc-500 transition hover:text-black">
+              <Target className="mr-1.5 inline h-4 w-4" />
+              Track Stats
+            </button>
+          </div>
+        </header>
+
+        <section className="mt-4 rounded-2xl border border-black/10 bg-white/95 p-4 shadow-[0_8px_24px_rgba(0,0,0,.05)] sm:p-5" aria-label="Workout progress">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-zinc-500">Your progress</p>
+              <p className="mt-1 font-heading text-2xl font-black uppercase">{completedCount}<span className="mx-1 text-orange-500">/</span>{drills.length} complete</p>
+            </div>
+            <p className="pb-1 text-right text-xs text-zinc-500">Tap each drill as you finish.<br className="sm:hidden" /> No stats needed.</p>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
+            <div className="h-full rounded-full bg-orange-500 transition-[width] duration-300" style={{ width: `${progress}%` }} />
+          </div>
+        </section>
+
+        <section className="mt-4 space-y-3" aria-label="Workout drills">
+          {drills.map((drill, index) => (
+            <button
+              key={drill.id}
+              type="button"
+              onClick={() => onToggle(drill.id)}
+              aria-pressed={drill.complete}
+              data-testid={`quick-complete-drill-${drill.id}`}
+              className={`group flex w-full items-center gap-3 rounded-2xl border bg-white/95 p-3 text-left shadow-[0_8px_24px_rgba(0,0,0,.05)] transition sm:gap-5 sm:p-4 ${
+                drill.complete ? "border-orange-400/70 ring-1 ring-orange-400/30" : "border-black/10 hover:border-black/25"
+              }`}
+            >
+              {drill.image ? (
+                <span className="flex h-[88px] w-[104px] shrink-0 items-center justify-center overflow-hidden sm:h-[110px] sm:w-[132px]">
+                  <img src={drill.image} alt="" className="max-h-full max-w-full object-contain" />
+                </span>
+              ) : (
+                <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-[#f3f1ed] font-heading text-3xl font-black text-orange-600 sm:h-[84px] sm:w-[84px]">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+              )}
+              <span className="min-w-0 flex-1 py-1">
+                <span className="block font-mono text-[9px] font-bold uppercase tracking-[.18em] text-orange-600">
+                  {isDayTwo && index === 5 ? "Bonus drills" : `Drill ${String(index + 1).padStart(2, "0")}`}
+                </span>
+                <span className="mt-0.5 block font-heading text-xl font-black uppercase leading-tight sm:text-2xl">{drill.title}</span>
+                <span className="mt-1 block text-xs leading-snug text-zinc-500">{drill.summary || drill.category}</span>
+              </span>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                drill.complete ? "border-orange-500 bg-orange-500 text-black" : "border-zinc-300 text-transparent group-hover:border-orange-400"
+              }`}>
+                <Check className="h-5 w-5" strokeWidth={3} />
+              </span>
+            </button>
+          ))}
+        </section>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-7">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-heading text-xl font-black uppercase">{completedCount} of {drills.length} selected</p>
+            <p className="truncate text-[11px] text-zinc-500">{completedCount ? "Only completed drills are saved." : "Check off at least one drill to save."}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving || completedCount === 0}
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 font-mono text-[10px] font-extrabold uppercase tracking-[.12em] text-black shadow-[0_3px_0_#a93c0d] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45 sm:px-6 sm:text-xs"
+            data-testid="button-finish-workout"
+          >
+            {saving ? "Saving…" : "Save completed"}
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}

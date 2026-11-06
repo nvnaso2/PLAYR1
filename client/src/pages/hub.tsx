@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import dayTwoCourtImageCropped from "@/assets/day2-shooting-court-cropped.png";
 import { DayTwoWorkoutPreview } from "@/components/day-two-workout-preview";
+import { DAY_TWO_RANGE_WORKOUT_ID } from "@/lib/day-two-workout-art";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -99,7 +100,7 @@ const previewShotTypes: Array<{ key: PreviewShotKey; label: string; color: strin
   { key: "midrange", label: "Mid-range", color: "#ff5364" },
   { key: "freeThrows", label: "Free throws", color: "#70f06a" },
 ];
-const dayTwoWorkoutId = "playr1-onboarding-day2-find-your-shooting-range";
+const dayTwoWorkoutId = DAY_TWO_RANGE_WORKOUT_ID;
 
 function BasketballIcon({ className = "" }: { className?: string }) {
   return (
@@ -1663,7 +1664,6 @@ export default function HubPage() {
               <div className="fixed inset-0 z-[86] flex items-center justify-center bg-black/85 p-3 backdrop-blur-sm sm:p-6" onClick={() => setDayTwoWorkoutOpen(false)}>
                 <div className="max-h-[92dvh] w-full max-w-4xl overflow-y-auto rounded-[1.35rem]" onClick={(event) => event.stopPropagation()}>
                   <DayTwoWorkoutPreview
-                    workout={dayTwoWorkoutQuery.data?.workout ?? null}
                     drills={dayTwoWorkoutQuery.data?.drills ?? []}
                     loading={dayTwoWorkoutQuery.isLoading}
                     error={dayTwoWorkoutQuery.isError}

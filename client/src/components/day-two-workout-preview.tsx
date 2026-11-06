@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { X, ArrowUpRight } from "lucide-react";
-import type { Drill, Workout, WorkoutDrill } from "@shared/schema";
+import { X } from "lucide-react";
+import type { Drill, WorkoutDrill } from "@shared/schema";
+import { dayTwoWorkoutArt, dayTwoWorkoutTotals } from "@/lib/day-two-workout-art";
 
 export type DayTwoWorkoutPreviewProps = {
-  workout: Workout | null;
   drills: Array<WorkoutDrill & { drill: Drill }>;
   loading: boolean;
   error: boolean;
@@ -12,74 +12,11 @@ export type DayTwoWorkoutPreviewProps = {
   onLogWorkout: () => void;
 };
 
-const shotTotals = [30, 20, 40, 25, 10];
-
 function WorkoutDiagram({ index, title }: { index: number; title: string }) {
-  const markerSets: Array<Array<{ x: number; y: number; count: number }>> = [
-    [22, 46, 70, 94, 118, 142, 166].map((y) => ({ x: 120, y, count: 2 })),
-    [{ x: 82, y: 96, count: 10 }, { x: 158, y: 96, count: 10 }],
-    [
-      { x: 30, y: 112, count: 8 }, { x: 70, y: 65, count: 8 }, { x: 120, y: 48, count: 8 },
-      { x: 170, y: 65, count: 8 }, { x: 210, y: 112, count: 8 },
-    ],
-    [
-      { x: 24, y: 142, count: 5 }, { x: 26, y: 50, count: 5 }, { x: 120, y: 25, count: 5 },
-      { x: 214, y: 50, count: 5 }, { x: 216, y: 142, count: 5 },
-    ],
-    [{ x: 120, y: 100, count: 10 }],
-    [{ x: 105, y: 166, count: 20 }, { x: 135, y: 166, count: 20 }],
-  ];
-  const markers = markerSets[index] ?? markerSets[0];
-  const isBonus = index === 5;
-
-  return (
-    <svg
-      viewBox="0 0 240 200"
-      role="img"
-      aria-label={title}
-      className="h-full w-full"
-    >
-      <rect x="4" y="4" width="232" height="192" fill="#fff" stroke="#111" strokeWidth="4" />
-      <path d="M24 196V122A96 96 0 0 1 216 122V196M88 196V108H152V196M88 108A32 32 0 0 0 152 108M104 196V176A16 16 0 0 1 136 176V196" fill="none" stroke="#151515" strokeWidth="2.8" />
-      <path d="M110 181H130M120 174V188" fill="none" stroke="#151515" strokeWidth="2.2" />
-      {index === 1 && (
-        <g fill="none" stroke="#333" strokeWidth="2" strokeDasharray="4 4">
-          <path d="M58 138Q66 114 79 101" />
-          <path d="M182 138Q174 114 161 101" />
-          <path d="M75 102l6 1-3 5M165 102l-6 1 3 5" fill="#333" />
-        </g>
-      )}
-      {index === 2 && (
-        <g fill="none" stroke="#333" strokeWidth="2" strokeDasharray="4 4">
-          <path d="M38 134L58 119M202 134L182 119" />
-          <path d="M56 118l6 1-3 5M184 118l-6 1 3 5" fill="#333" />
-        </g>
-      )}
-      {isBonus && (
-        <g>
-          <path d="M158 163L184 139 157 115 184 89 158 63 188 37" fill="none" stroke="#222" strokeWidth="2.5" strokeDasharray="4 4" />
-          {[{ x: 158, y: 163 }, { x: 184, y: 139 }, { x: 157, y: 115 }, { x: 184, y: 89 }, { x: 158, y: 63 }].map((cone, coneIndex) => (
-            <g key={coneIndex}>
-              <path d={`M${cone.x - 6} ${cone.y + 5}l6 -13 6 13z`} fill="#ee6b31" stroke="#bd4b1c" strokeWidth="1.5" />
-              <path d={`M${cone.x - 8} ${cone.y + 7}h16`} stroke="#171717" strokeWidth="1.5" strokeDasharray="2 2" />
-            </g>
-          ))}
-        </g>
-      )}
-      {markers.map(({ x, y, count }, markerIndex) => (
-        <g key={`${x}-${y}-${markerIndex}`}>
-          <circle cx={x} cy={y} r="10" fill="#fff" stroke="#e85d3f" strokeWidth="3" />
-          <text x={x} y={y + 3.5} textAnchor="middle" fontFamily="Arial, sans-serif" fontSize={count === 20 ? 8 : count === 10 ? 8 : 9} fontWeight="800" fill="#181818">
-            {count}
-          </text>
-        </g>
-      ))}
-    </svg>
-  );
+  return <img src={dayTwoWorkoutArt[index]} alt={title} className="max-h-full max-w-full object-contain" />;
 }
 
 export function DayTwoWorkoutPreview({
-  workout,
   drills,
   loading,
   error,
@@ -156,13 +93,13 @@ export function DayTwoWorkoutPreview({
             {orderedDrills.map((entry, index) => {
               const isBonus = index === 5;
               const titleLabel = isBonus ? "Bonus Drills" : `Drill #${index + 1}`;
-              const total = isBonus ? "40 layups + 5 cone sets" : `${shotTotals[index] ?? entry.defaultReps ?? "—"} shots`;
+              const total = dayTwoWorkoutTotals[index] ?? `${entry.defaultReps ?? "—"} reps`;
               return (
                 <article
                   key={entry.drillId}
                   className={`grid grid-cols-[minmax(112px,36%)_1fr] gap-3 overflow-hidden rounded-xl border bg-white/95 p-3 shadow-[0_10px_24px_rgba(0,0,0,.11)] sm:grid-cols-[165px_1fr] sm:gap-5 sm:p-4 ${isBonus ? "border-[#e9c9b3]" : "border-[#e7e3dc]"}`}
                 >
-                  <figure className="relative flex aspect-[1.08/1] items-center justify-center overflow-hidden bg-white">
+                  <figure className="relative flex aspect-[1.08/1] items-center justify-center overflow-hidden">
                     <WorkoutDiagram index={index} title={`${titleLabel} court diagram for ${entry.drill.title}`} />
                     <figcaption className="sr-only">{titleLabel} court diagram for {entry.drill.title}</figcaption>
                   </figure>
@@ -183,16 +120,14 @@ export function DayTwoWorkoutPreview({
         {!loading && !error && (
           <div className="mt-5 flex flex-col gap-4 rounded-xl border border-orange-400/20 bg-[#101012] p-4 text-white shadow-[0_12px_28px_rgba(0,0,0,.2)] sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[.19em] text-orange-300">{workout?.name || "Find Your Shooting Range"}</p>
-              <p className="mt-1 font-heading text-xl font-black uppercase tracking-[-.025em] text-white">125 shots <span className="text-orange-400">+</span> 40 layups <span className="text-orange-400">&</span> 5 cone sets</p>
-              <p className="mt-1 text-xs text-zinc-400">Five shooting drills, then finishing and ball handling.</p>
+              <p className="font-heading text-xl font-black uppercase tracking-[-.025em] text-white">125 shots <span className="text-orange-400">+</span> 40 layups <span className="text-orange-400">&</span> 5 cone sets</p>
             </div>
             <button
               type="button"
               onClick={onLogWorkout}
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-7 font-mono text-[11px] font-extrabold uppercase tracking-[.12em] text-black shadow-[0_4px_0_#a93c0d] transition hover:-translate-y-0.5 hover:bg-orange-400 hover:shadow-[0_5px_0_#8c310a] active:translate-y-0 active:shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-orange-400 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-orange-500 px-7 text-sm font-bold text-black shadow-[0_3px_0_#a93c0d] transition hover:bg-orange-400 active:translate-y-px active:shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-orange-400 sm:w-auto"
             >
-              Log workout <ArrowUpRight className="h-4 w-4" />
+              Log Workout
             </button>
           </div>
         )}
