@@ -51,7 +51,7 @@ export function QuickCompleteWorkout({
 
   return (
     <main
-      className={`fixed inset-0 z-40 overflow-y-auto text-[#181818] ${tracking ? "bg-white" : "bg-[#f5f4f0]"}`}
+      className={`fixed inset-0 z-[60] overflow-y-auto text-[#181818] ${tracking ? "bg-white" : "bg-[#f5f4f0]"}`}
       data-testid="quick-complete-workout"
     >
       <div className={`pointer-events-none fixed inset-0 ${tracking ? "opacity-[0.07]" : "opacity-[0.16]"}`} aria-hidden="true">
@@ -124,7 +124,7 @@ export function QuickCompleteWorkout({
             const content = (
               <>
                 {drill.image ? (
-                  <span className="flex h-[82px] w-[90px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white p-1.5 shadow-sm sm:h-[110px] sm:w-[122px] sm:p-2">
+                  <span className="flex w-[112px] shrink-0 items-center justify-center self-center sm:w-[165px]">
                     <img src={drill.image} alt="" className="max-h-full max-w-full object-contain" />
                   </span>
                 ) : (
@@ -148,37 +148,51 @@ export function QuickCompleteWorkout({
               </>
             );
             return (
-            <article key={drill.id} className={`flex items-center gap-2 rounded-2xl border bg-white p-2.5 shadow-[0_8px_24px_rgba(0,0,0,.07)] transition sm:gap-3 sm:p-3.5 ${
-              drill.complete ? "border-orange-400/70 ring-1 ring-orange-400/30" : "border-black/10 hover:border-black/25"
+            <article key={drill.id} className={`overflow-hidden rounded-xl border bg-white shadow-md transition ${
+              drill.complete ? "border-orange-400/70 ring-1 ring-orange-400/30" : "border-[#e7e3dc] hover:border-black/20"
             }`}>
               {tracking ? (
-                <div className="flex min-w-0 flex-1 flex-col gap-1 sm:gap-2 lg:flex-row lg:items-center lg:gap-3">
-                  <div className="group flex min-w-0 items-center gap-3 rounded-xl p-1 text-left sm:gap-5 sm:p-2 lg:flex-[1.15]" data-testid={`quick-complete-drill-${drill.id}`}>
-                    {content}
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-2.5 p-3 sm:gap-5 sm:p-4">
+                    <div className="group flex min-w-0 flex-1 items-center gap-3 text-left sm:gap-5" data-testid={`quick-complete-drill-${drill.id}`}>
+                      {content}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onShowInfo(drill.id)}
+                      aria-label={`More information about ${drill.title}`}
+                      title="Drill information"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                      data-testid={`button-drill-info-${drill.id}`}
+                    >
+                      <Info className="h-5 w-5" />
+                    </button>
                   </div>
-                  <div className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-[#f8f7f4] p-2 lg:max-w-[56%]">{renderTrackControls?.(drill.id)}</div>
+                  <div className="min-w-0 border-t border-[#e7e3dc] bg-[#fbfaf7] p-3 sm:p-4">{renderTrackControls?.(drill.id)}</div>
                 </div>
               ) : (
-                <button type="button" onClick={() => onToggle(drill.id)} aria-pressed={drill.complete} data-testid={`quick-complete-drill-${drill.id}`} className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:gap-5 sm:p-2">
-                  {content}
-                </button>
+                <div className="flex items-center gap-2.5 p-3 sm:gap-5 sm:p-4">
+                  <button type="button" onClick={() => onToggle(drill.id)} aria-pressed={drill.complete} data-testid={`quick-complete-drill-${drill.id}`} className="group flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:gap-5">
+                    {content}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onShowInfo(drill.id)}
+                    aria-label={`More information about ${drill.title}`}
+                    title="Drill information"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                    data-testid={`button-drill-info-${drill.id}`}
+                  >
+                    <Info className="h-5 w-5" />
+                  </button>
+                </div>
               )}
-              <button
-                type="button"
-                onClick={() => onShowInfo(drill.id)}
-                aria-label={`More information about ${drill.title}`}
-                title="Drill information"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:mr-1"
-                data-testid={`button-drill-info-${drill.id}`}
-              >
-                <Info className="h-5 w-5" />
-              </button>
             </article>
           );})}
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-7">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white/95 px-4 py-3 backdrop-blur-md sm:static sm:z-auto sm:mt-4 sm:rounded-xl sm:border sm:border-black/10 sm:shadow-md sm:px-7">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="font-heading text-xl font-black uppercase">{completedCount} of {drills.length} {tracking ? "tracked" : "selected"}</p>
