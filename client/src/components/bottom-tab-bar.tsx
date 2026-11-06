@@ -129,7 +129,7 @@ export function BottomTabBar({ previewMode = false }: { previewMode?: boolean })
     <nav
       data-testid="bottom-tab-bar"
       aria-label={previewMode ? "Main app navigation preview" : "Main app navigation"}
-      className="shrink-0 w-full z-50 flex items-end justify-around bg-zinc-950/98 backdrop-blur-xl border-t border-zinc-800/80"
+      className="shrink-0 w-full z-50 flex items-end justify-around border-t border-zinc-800 bg-[#080808]"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)" }}
     >
       {tabs.map((tab) => {

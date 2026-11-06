@@ -1666,8 +1666,8 @@ export default function HubPage() {
             )}
 
             {previewDay === 3 && (
-              <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-3 pb-2" data-testid="card-day-three-mission">
-                <div className="grid grid-cols-2 gap-3">
+              <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col justify-between gap-2 pb-2" data-testid="card-day-three-mission">
+                <div className="grid flex-1 grid-cols-2 items-center gap-3">
                   <button type="button" onClick={() => navigate("/dashboard")} className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300" data-testid="button-day-three-dashboard">
                     <span className="flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-orange-300/70 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 shadow-[0_7px_22px_rgba(249,115,22,0.24)] transition group-hover:scale-[1.03]"><BarChart3 className="h-8 w-8 text-zinc-950" /></span>
                     <span className="text-[10px] font-bold leading-tight text-zinc-300">Dashboard</span>
@@ -1677,11 +1677,11 @@ export default function HubPage() {
                     <span className="text-[10px] font-bold leading-tight text-zinc-300">Journal</span>
                   </button>
                 </div>
-                <button type="button" onClick={() => setDayThreeWorkoutOpen(true)} className="group flex min-h-0 w-full flex-[1.18] flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-three-workout">
+                <button type="button" onClick={() => setDayThreeWorkoutOpen(true)} className="group flex h-[min(48dvh,420px)] max-h-[420px] w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-three-workout">
                   <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 sm:px-6 sm:pt-5">
                     <span className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), repeating-linear-gradient(135deg, transparent 0 54px, rgba(0,0,0,.018) 55px 56px, transparent 57px 96px), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
-                    <div className="relative grid min-h-[190px] flex-1 grid-cols-[minmax(0,1fr)_32px] items-start gap-2 border-b-[3px] border-black pb-3 sm:min-h-[216px] sm:grid-cols-[minmax(0,1fr)_40px] sm:gap-3 sm:pb-4">
-                      <img src={volumeWorkoutCardArt} alt="Make X 3's in a Row basketball court drill" className="pointer-events-none absolute right-16 top-1/2 z-0 h-[150px] w-[158px] -translate-y-1/2 object-contain mix-blend-multiply sm:right-20 sm:h-[180px] sm:w-[190px]" />
+                    <div className="relative grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_32px] items-start gap-2 border-b-[3px] border-black pb-3 sm:grid-cols-[minmax(0,1fr)_40px] sm:gap-3 sm:pb-4">
+                      <img src={volumeWorkoutCardArt} alt="Make X 3's in a Row basketball court drill" className="pointer-events-none absolute right-8 top-1/2 z-0 h-[min(31dvh,250px)] w-[min(62vw,290px)] -translate-y-1/2 object-contain mix-blend-multiply sm:right-12 sm:w-[min(52vw,330px)]" />
                       <span className="relative z-10 self-start max-w-[48%] min-w-0 pt-1 pr-1 sm:max-w-[55%] sm:pr-2">
                         <span className="block font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#3</span></span>
                         <span className="mt-2 block font-heading text-base font-black uppercase leading-tight sm:text-lg">Volume Shooting</span>

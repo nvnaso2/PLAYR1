@@ -371,8 +371,25 @@ const dayTwoRangeWorkoutDrills = [
 export const DAY_TWO_RANGE_WORKOUT_ID = "playr1-onboarding-day2-find-your-shooting-range";
 
 export async function ensureDayTwoRangeWorkout() {
+  const metricRows = await db.select().from(metricTemplates);
+  const makesId = metricRows.find((metric) => metric.name === "shots-made")?.id;
+  const attemptsId = metricRows.find((metric) => metric.name === "shot-attempts")?.id;
+  if (!makesId || !attemptsId) throw new Error("Day 2 shooting metric templates are missing");
+  const spotRounds: Record<string, Array<[string | undefined, number]>> = {
+    "find-range": [[undefined, 30]],
+    "elbow-jumpers": [["left-elbow", 10], ["right-elbow", 10]],
+    "mid-range-pull-ups": [["left-corner-mid-range", 8], ["wing-left-mid-range", 8], ["top-of-key-3-point", 8], ["wing-right-mid-range", 8], ["right-corner-mid-range", 8]],
+    "catch-shoot-threes": [["corner-left", 5], ["wing-left", 5], ["top-of-key", 5], ["wing-right", 5], ["corner-right", 5]],
+    "game-free-throws": [["free-throw", 10]],
+  };
   const savedDrills: Array<{ drill: Drill; reps: number; duration: number }> = [];
+  const metricAssociations: Array<{ drillId: string; metricTemplateId: string; isRequired: boolean; sortOrder: number }> = [];
   for (const item of dayTwoRangeWorkoutDrills) {
+    const rounds = spotRounds[item.key];
+    const presetRounds = rounds?.map(([shotLocation, attempts]) => ({
+      ...(shotLocation ? { shotLocation } : {}),
+      metricValues: { [makesId]: 0, [attemptsId]: attempts },
+    }));
     let [drill] = await db.select().from(drills).where(and(eq(drills.title, item.title), isNull(drills.userId))).limit(1);
     if (!drill) {
       [drill] = await db.insert(drills).values({
@@ -385,10 +402,24 @@ export async function ensureDayTwoRangeWorkout() {
         tips: [...item.tips],
         isFeatured: false,
         trackShots: item.trackShots,
+        ...(presetRounds ? { presetRounds } : {}),
         userId: null,
       }).returning();
+    } else {
+      [drill] = await db.update(drills).set({
+        description: item.description,
+        duration: item.duration,
+        trackShots: item.trackShots,
+        ...(presetRounds ? { presetRounds } : {}),
+      }).where(eq(drills.id, drill.id)).returning();
     }
     savedDrills.push({ drill, reps: item.reps, duration: Math.ceil(item.duration / 60) });
+    if (rounds) {
+      metricAssociations.push(
+        { drillId: drill.id, metricTemplateId: makesId, isRequired: true, sortOrder: 0 },
+        { drillId: drill.id, metricTemplateId: attemptsId, isRequired: true, sortOrder: 1 },
+      );
+    }
   }
 
   const [existingWorkout] = await db.select().from(workouts).where(eq(workouts.id, DAY_TWO_RANGE_WORKOUT_ID)).limit(1);
@@ -415,6 +446,8 @@ export async function ensureDayTwoRangeWorkout() {
       coachingNotes: drill.description,
     })));
   }
+  await db.delete(drillMetrics).where(inArray(drillMetrics.drillId, savedDrills.filter(({ drill }) => spotRounds[dayTwoRangeWorkoutDrills.find((item) => item.title === drill.title)?.key ?? ""]).map(({ drill }) => drill.id)));
+  if (metricAssociations.length) await db.insert(drillMetrics).values(metricAssociations as any);
   console.log("Day 2 Find Your Shooting Range workout is ready");
 }
 

@@ -1487,10 +1487,8 @@ export default function TrainingLogPage() {
       });
 
       const clientDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local timezone
-      const [bulkRes] = await Promise.all([
-        apiRequest("POST", "/api/training-logs/bulk", { entries: bulkEntries, clientDate, workoutId: activeWorkoutTemplateId || undefined }),
-        ...challengeRequests,
-      ]);
+      const bulkRes = await apiRequest("POST", "/api/training-logs/bulk", { entries: bulkEntries, clientDate, workoutId: activeWorkoutTemplateId || undefined });
+      void Promise.all(challengeRequests).catch((error) => console.error("Challenge progress update failed:", error));
 
       // Immediately invalidate only what the user sees next
       queryClient.invalidateQueries({ queryKey: ['/api/training-logs'] });

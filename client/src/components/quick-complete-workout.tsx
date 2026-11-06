@@ -63,7 +63,7 @@ export function QuickCompleteWorkout({
           </g>
         </svg>
       </div>
-      <div className="relative mx-auto min-h-full max-w-4xl px-4 pb-32 pt-4 sm:px-7 sm:pt-7">
+      <div className="relative mx-auto min-h-full max-w-4xl px-4 pb-32 pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:px-7 sm:pt-[calc(env(safe-area-inset-top,0px)+1.75rem)]">
         <header className="rounded-2xl border border-black/10 bg-white/95 p-4 shadow-[0_12px_34px_rgba(0,0,0,.07)] sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -137,7 +137,6 @@ export function QuickCompleteWorkout({
                     {isDayTwo && index === 5 ? "Bonus drills" : `Drill ${String(index + 1).padStart(2, "0")}`}
                   </span>
                   <span className="mt-0.5 block font-heading text-xl font-black uppercase leading-tight sm:text-2xl">{drill.title}</span>
-                  {!tracking && <span className="mt-1 block text-xs leading-snug text-zinc-600">{drill.description || drill.summary || drill.category}</span>}
                   <span className="mt-1.5 block font-heading text-sm font-black uppercase text-zinc-900">{drill.summary}</span>
                 </span>
                 {!tracking && <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition ${

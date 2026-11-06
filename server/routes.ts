@@ -4467,6 +4467,7 @@ ${JSON.stringify(catalogForPrompt)}
         assignmentsByDrill.get(a.drillId)!.push(a);
       }
 
+      const nonBlockingLogWork: Array<{ log: any; prMetrics: { metricName: string; value: number }[] }> = [];
       const logs = await Promise.all(entries.map(async (entry: any) => {
         const data = insertTrainingLogSchema.parse({ ...entry, userId });
         if (data.shotsMade !== undefined && data.shotsAttempted !== undefined &&
@@ -4492,20 +4493,9 @@ ${JSON.stringify(catalogForPrompt)}
             }
           }
         }
-        if (prMetrics.length > 0) {
-          try { if (log.drillId) await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics); } catch (e) { /* non-fatal */ }
-        }
-        if (log.drillId) {
-          try {
-            const toComplete = assignmentsByDrill.get(log.drillId) || [];
-            for (const a of toComplete) await storage.updateDrillAssignmentStatus(a.id, "completed", log.id);
-          } catch (e) { /* non-fatal */ }
-        }
+        nonBlockingLogWork.push({ log, prMetrics });
         return log;
       }));
-      if (typeof workoutId === "string") {
-        try { await storage.completeCustomWorkoutAssignment(userId, workoutId); } catch (e) { console.error("Custom workout completion error:", e); }
-      }
 
       // Auto-complete daily challenge if any logged drill matches today's challenge
       let streakResult: any = null;
@@ -4528,6 +4518,25 @@ ${JSON.stringify(catalogForPrompt)}
       } catch (e) { /* non-fatal */ }
 
       res.status(201).json({ logs, streakResult });
+      // PR checks and assignment bookkeeping are useful follow-up work, but the
+      // saved logs and metrics are already durable. Do not hold the completion
+      // screen open for these per-drill queries.
+      void (async () => {
+        await Promise.all(nonBlockingLogWork.map(async ({ log, prMetrics }) => {
+          if (log.drillId && prMetrics.length) {
+            try { await storage.checkAndCreateDrillPRs(userId, log.drillId, log.id, prMetrics); } catch {}
+          }
+          if (log.drillId) {
+            const assigned = assignmentsByDrill.get(log.drillId) || [];
+            await Promise.all(assigned.map(async (assignment) => {
+              try { await storage.updateDrillAssignmentStatus(assignment.id, "completed", log.id); } catch {}
+            }));
+          }
+        }));
+        if (typeof workoutId === "string") {
+          try { await storage.completeCustomWorkoutAssignment(userId, workoutId); } catch (error) { console.error("Custom workout completion error:", error); }
+        }
+      })();
       // Friend activity — fire-and-forget
       ;(async () => {
         try {
