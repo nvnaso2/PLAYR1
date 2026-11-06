@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
-import dayTwoCourtImage from "@/assets/day2-shooting-court.png";
 import dayTwoCourtImageCropped from "@/assets/day2-shooting-court-cropped.png";
+import { DayTwoWorkoutPreview } from "@/components/day-two-workout-preview";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -170,45 +170,6 @@ function localDateKey(date: Date) {
 function toLocalDateTime(date: Date) {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function MiniCourtRange({ index }: { index: number }) {
-  const drillSpots = [
-    [[150, 128], [150, 106], [150, 84], [150, 62], [150, 40]],
-    [[116, 90], [184, 90], [116, 116], [184, 116]],
-    [[72, 70], [106, 48], [150, 40], [194, 48], [228, 70]],
-    [[34, 122], [75, 72], [150, 48], [225, 72], [266, 122]],
-    [[150, 118]],
-    [[230, 106], [211, 90], [190, 75], [169, 60], [150, 48]],
-  ][index] ?? [];
-  return (
-    <svg viewBox="0 0 300 150" role="img" aria-label="Basketball court drill diagram" className="h-full w-full">
-      <rect x="3" y="3" width="294" height="144" fill="#fff" stroke="#111" strokeWidth="4" />
-      <path d="M70 147V95Q150 12 230 95V147M112 147V91H188V147M128 91V75H172V91M133 147V133a17 17 0 0 1 34 0v14M125 133a25 25 0 0 0 50 0M135 110a15 15 0 0 0 30 0" fill="none" stroke="#171717" strokeWidth="2.5" />
-      <path d="M70 95Q150 12 230 95" fill="none" stroke="#999" strokeWidth="1.5" strokeDasharray="4 4" />
-      {drillSpots.map(([x, y], spotIndex) => (
-        <g key={`${x}-${y}`}>
-          <circle cx={x} cy={y} r="10" fill="#fff" stroke="#c2410c" strokeWidth="2.5" />
-          <text x={x} y={y + 3.5} textAnchor="middle" fontSize="9" fontWeight="900" fill="#111">{index === 0 ? spotIndex + 1 : index === 1 ? 10 : index === 2 ? 8 : index === 3 ? 5 : index === 4 ? 10 : 1}</text>
-        </g>
-      ))}
-      {index === 0 && <path d="M150 126V36" stroke="#c2410c" strokeWidth="2" strokeDasharray="3 5" />}
-    </svg>
-  );
-}
-
-function ShootingRangeCourt({ fit = false }: { fit?: boolean }) {
-  return (
-    <div className={`${fit
-      ? "flex min-h-0 flex-1 items-center justify-center"
-      : ""} overflow-hidden rounded-xl bg-white shadow-[0_8px_22px_rgba(0,0,0,.14)]`}>
-      <img
-        src={dayTwoCourtImage}
-        alt="Basketball half court with shooting positions numbered one through eight"
-        className={fit ? "block h-full max-h-full w-full object-contain" : "block h-auto w-full"}
-      />
-    </div>
-  );
 }
 
 export default function HubPage() {
@@ -1699,42 +1660,18 @@ export default function HubPage() {
             )}
 
             {dayTwoWorkoutOpen && (
-              <div className="fixed inset-0 z-[86] flex items-end justify-center bg-black/85 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setDayTwoWorkoutOpen(false)}>
-                <section role="dialog" aria-modal="true" aria-labelledby="day-two-workout-title" className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-zinc-300 bg-[#f6f6f4] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-zinc-950 shadow-2xl sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-heading text-sm font-black uppercase tracking-[0.16em] text-orange-700">Workout #2 · {dayTwoWorkoutQuery.data?.workout?.estimatedDuration ? `${dayTwoWorkoutQuery.data.workout.estimatedDuration} min` : "Shooting range"}</p>
-                      <h3 id="day-two-workout-title" className="mt-1 font-heading text-2xl font-black uppercase text-black">{dayTwoWorkoutQuery.data?.workout?.name || "Find Your Shooting Range"}</h3>
-                      <p className="mt-1 text-xs font-medium text-zinc-600">{dayTwoWorkoutQuery.data?.workout?.description || "40 bonus layups and 5 cone sets included."}</p>
-                    </div>
-                    <button type="button" onClick={() => setDayTwoWorkoutOpen(false)} aria-label="Close workout preview" className="rounded-full border border-zinc-300 bg-white p-2 text-zinc-500 hover:text-black"><X className="h-4 w-4" /></button>
-                  </div>
-                  <div className="mt-4">
-                    <ShootingRangeCourt />
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    {dayTwoWorkoutQuery.isLoading && <div className="space-y-2 py-2" aria-label="Loading workout details">{[0, 1, 2].map((item) => <Skeleton key={item} className="h-24 rounded-xl bg-zinc-200" />)}</div>}
-                    {dayTwoWorkoutQuery.isError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><span>Could not load this workout.</span><button type="button" onClick={() => dayTwoWorkoutQuery.refetch()} className="rounded-full border border-red-300 px-3 py-1.5 text-xs font-bold text-red-800 hover:bg-red-100">Try again</button></div>}
-                    {dayTwoWorkoutQuery.data?.drills.map((entry, index) => (
-                      <div key={entry.drillId} className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-[0_3px_12px_rgba(0,0,0,.07)] sm:grid-cols-[8.5rem_1fr] sm:items-center sm:p-4">
-                        <div className="relative flex aspect-[1.4/1] items-center justify-center overflow-hidden rounded-lg border-2 border-black bg-[#fafafa]">
-                          <MiniCourtRange index={index} />
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-[10px] font-black text-orange-800">{String(index + 1).padStart(2, "0")}</span>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-heading text-base font-black uppercase text-black">{entry.drill.title}</p>
-                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-800">{entry.defaultReps ?? "—"} reps · {entry.defaultDuration ?? "—"} min</p>
-                            <p className="mt-2 text-xs leading-relaxed text-zinc-700">{entry.drill.description}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <button type="button" disabled={!dayTwoWorkoutQuery.data} onClick={() => navigate(`/log?workoutId=${encodeURIComponent(dayTwoWorkoutId)}`)} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-black px-4 text-xs font-black uppercase tracking-[0.12em] text-white shadow-[0_5px_0_#c4c4c4] transition hover:bg-zinc-800 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50" data-testid="button-log-day-two-workout">
-                    <Play className="h-4 w-4 fill-current" /> Log Workout
-                  </button>
-                </section>
+              <div className="fixed inset-0 z-[86] flex items-center justify-center bg-black/85 p-3 backdrop-blur-sm sm:p-6" onClick={() => setDayTwoWorkoutOpen(false)}>
+                <div className="max-h-[92dvh] w-full max-w-4xl overflow-y-auto rounded-[1.35rem]" onClick={(event) => event.stopPropagation()}>
+                  <DayTwoWorkoutPreview
+                    workout={dayTwoWorkoutQuery.data?.workout ?? null}
+                    drills={dayTwoWorkoutQuery.data?.drills ?? []}
+                    loading={dayTwoWorkoutQuery.isLoading}
+                    error={dayTwoWorkoutQuery.isError}
+                    onClose={() => setDayTwoWorkoutOpen(false)}
+                    onRetry={() => void dayTwoWorkoutQuery.refetch()}
+                    onLogWorkout={() => navigate(`/log?workoutId=${encodeURIComponent(dayTwoWorkoutId)}`)}
+                  />
+                </div>
               </div>
             )}
 
