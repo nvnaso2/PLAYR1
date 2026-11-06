@@ -51,19 +51,22 @@ export function QuickCompleteWorkout({
 
   return (
     <main
-      className={`fixed inset-0 z-[60] overflow-y-auto text-[#181818] ${tracking ? "bg-white" : "bg-[#f5f4f0]"}`}
+      className="fixed inset-0 z-[60] overflow-hidden bg-[#080808] text-[#181818]"
       data-testid="quick-complete-workout"
     >
-      <div className={`pointer-events-none fixed inset-0 ${tracking ? "opacity-[0.07]" : "opacity-[0.16]"}`} aria-hidden="true">
-        <svg className="h-full w-full" viewBox="0 0 560 1100" preserveAspectRatio="none">
-          <g fill="none" stroke="#aaa69f" strokeWidth="2">
-            <circle cx="280" cy="560" r="238" />
-            <path d="M42 560H518M280 322V798M68 365C175 451 175 669 68 755M492 365C385 451 385 669 492 755" />
-            <path d="M-70 170C135 110 425 112 630 170M-85 930C115 990 445 990 645 930" />
-          </g>
-        </svg>
-      </div>
-      <div className="relative mx-auto min-h-full max-w-4xl px-4 pb-32 pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:px-7 sm:pt-[calc(env(safe-area-inset-top,0px)+1.75rem)]">
+      <div className="mx-auto flex h-full w-full max-w-5xl justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+1.75rem)] pt-[calc(env(safe-area-inset-top,0px)+3.25rem)] sm:px-6 sm:py-6">
+        <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
+          <div className={`pointer-events-none absolute inset-0 ${tracking ? "opacity-[0.07]" : "opacity-[0.16]"}`} aria-hidden="true">
+            <svg className="h-full w-full" viewBox="0 0 560 1100" preserveAspectRatio="none">
+              <g fill="none" stroke="#aaa69f" strokeWidth="2">
+                <circle cx="280" cy="560" r="238" />
+                <path d="M42 560H518M280 322V798M68 365C175 451 175 669 68 755M492 365C385 451 385 669 492 755" />
+                <path d="M-70 170C135 110 425 112 630 170M-85 930C115 990 445 990 645 930" />
+              </g>
+            </svg>
+          </div>
+          <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="relative mx-auto min-h-full max-w-4xl px-4 pb-8 pt-4 sm:px-7 sm:pb-10 sm:pt-7">
         <header className="rounded-2xl border border-black/10 bg-white/95 p-4 shadow-[0_12px_34px_rgba(0,0,0,.07)] sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -138,7 +141,6 @@ export function QuickCompleteWorkout({
                   </span>
                   <span className="mt-0.5 block font-heading text-xl font-black uppercase leading-tight sm:text-2xl">{drill.title}</span>
                   <span className="mt-1.5 block font-heading text-sm font-black uppercase text-zinc-900">{drill.summary}</span>
-                  {drill.description && <span className="mt-1 line-clamp-2 text-[11px] leading-snug text-zinc-600 sm:text-xs">{drill.description}</span>}
                 </span>
                 {!tracking && <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition ${
                   drill.complete ? "border-orange-500 bg-orange-500 text-black" : "border-zinc-300 text-transparent"
@@ -168,7 +170,7 @@ export function QuickCompleteWorkout({
                       <Info className="h-5 w-5" />
                     </button>
                   </div>
-                  <div className="min-w-0 border-t border-[#e7e3dc] bg-[#fbfaf7] p-3 sm:p-4">{renderTrackControls?.(drill.id)}</div>
+                  <div className="min-w-0 border-t border-[#e7e3dc] bg-white p-3 sm:p-4">{renderTrackControls?.(drill.id)}</div>
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5 p-3 sm:gap-5 sm:p-4">
@@ -191,22 +193,7 @@ export function QuickCompleteWorkout({
           );})}
         </section>
       </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white/95 px-4 py-3 backdrop-blur-md sm:static sm:z-auto sm:mt-4 sm:rounded-xl sm:border sm:border-black/10 sm:shadow-md sm:px-7">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-heading text-xl font-black uppercase">{completedCount} of {drills.length} {tracking ? "tracked" : "selected"}</p>
-            <p className="truncate text-[11px] text-zinc-500">{tracking ? "Your spot-by-spot results will be saved to Training History." : completedCount ? "Only completed drills are saved." : "Check off at least one drill to save."}</p>
           </div>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saving || !canSave}
-            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 font-mono text-[10px] font-extrabold uppercase tracking-[.12em] text-black shadow-[0_3px_0_#a93c0d] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45 sm:px-6 sm:text-xs"
-            data-testid="button-finish-workout"
-          >
-            {saving ? "Saving…" : "Complete Workout"}
-          </button>
         </div>
       </div>
     </main>

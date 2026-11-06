@@ -45,3 +45,4 @@
 - [Portable npm lockfiles](npm-lockfile-registry.md) — Replit firewall tarball URLs in package-lock.json fail DNS on cloned Mac builds; keep resolved URLs public
 - [Portable app assets](portable-app-assets.md) — keep imported runtime images in tracked source folders; attached_assets is globally ignored and won't reach Git clones
 - [Day 3 workout artwork](day-three-workout-art.md) — use the original bordered Workout #3 image centered below its text; do not crop or redraw it
+- [Workout tracking presentation](workout-tracking-presentation.md) — use an inset rounded workout surface; tracking cards omit descriptions and bottom summary bars
