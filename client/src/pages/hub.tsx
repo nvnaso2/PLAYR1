@@ -196,13 +196,15 @@ function MiniCourtRange({ index }: { index: number }) {
   );
 }
 
-function ShootingRangeCourt() {
+function ShootingRangeCourt({ fit = false }: { fit?: boolean }) {
   return (
-    <div className="overflow-hidden rounded-xl bg-white shadow-[0_8px_22px_rgba(0,0,0,.14)]">
+    <div className={`${fit
+      ? "flex min-h-0 flex-1 items-center justify-center"
+      : ""} overflow-hidden rounded-xl bg-white shadow-[0_8px_22px_rgba(0,0,0,.14)]`}>
       <img
         src={dayTwoCourtImage}
         alt="Basketball half court with shooting positions numbered one through eight"
-        className="block h-auto w-full"
+        className={fit ? "block h-full max-h-full w-full object-contain" : "block h-auto w-full"}
       />
     </div>
   );
@@ -235,6 +237,7 @@ export default function HubPage() {
     }
   }, [location, previewPage]);
   const fitOnboardingHub = onboardingPreview && previewDay === 1 && !dayTwoProfileStep;
+  const fitOnboardingDayTwo = onboardingPreview && previewDay === 2 && !dayTwoProfileStep;
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
   const [dayTwoCoachDraft, setDayTwoCoachDraft] = useState("");
   const dayTwoCoachInputRef = useRef<HTMLInputElement>(null);
@@ -871,7 +874,7 @@ export default function HubPage() {
   );
 
   return (
-    <div className={fitOnboardingHub
+    <div className={fitOnboardingHub || fitOnboardingDayTwo
       ? "flex h-[100dvh] flex-col overflow-hidden bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
       : onboardingPreview
         ? "min-h-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
@@ -1158,7 +1161,9 @@ export default function HubPage() {
         )}
       </div>
 
-      <div className={fitOnboardingHub ? "min-h-0 flex flex-1 flex-col overflow-hidden px-4 mt-1" : "px-4 space-y-5 mt-4"}>
+      <div className={fitOnboardingHub || fitOnboardingDayTwo
+        ? "min-h-0 flex flex-1 flex-col overflow-hidden px-4 mt-1"
+        : "px-4 space-y-5 mt-4"}>
         {onboardingPreview ? (
           <>
             <div className={previewDay === 1 ? "flex min-h-0 flex-1 flex-col" : "hidden"} data-testid="card-day-one-mission">
@@ -1619,21 +1624,21 @@ export default function HubPage() {
             )}
 
             {previewDay === 2 && (
-              <section className="mx-auto w-full max-w-2xl space-y-4 pb-5 pt-2 sm:space-y-5" data-testid="card-day-two-mission">
-                <article className="relative flex flex-col justify-center px-1 py-4 text-white sm:px-2 sm:py-5" data-testid="day-two-coach-introduction">
-                  <div className="mb-4 flex items-center justify-center gap-3">
-                    <CoachPIcon size="lg" />
-                    <h3 className="font-heading text-2xl font-black tracking-wide sm:text-3xl">Talk to Coach P</h3>
+              <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-2 pb-2 pt-0" data-testid="card-day-two-mission">
+                <article className="shrink-0 px-1 py-1 text-white sm:px-2 sm:py-2" data-testid="day-two-coach-introduction">
+                  <div className="mb-2 flex items-center justify-center gap-2">
+                    <CoachPIcon size="sm" />
+                    <h3 className="font-heading text-xl font-black tracking-wide sm:text-2xl">Talk to Coach P</h3>
                   </div>
                   <div className="space-y-2">
                     <button
                       type="button"
                       onClick={startPlayerBlueprint}
-                      className="flex min-h-10 w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                      className="mx-auto flex min-h-9 w-[92%] max-w-[360px] items-center gap-2.5 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                       data-testid="button-day-two-player-blueprint"
                     >
                       <BasketballIcon className="h-4 w-4 shrink-0 text-orange-300 drop-shadow-[0_0_7px_rgba(251,146,60,0.7)]" />
-                      <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-zinc-200 sm:text-sm">Analyze My Profile</span>
+                      <span className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-200 sm:text-xs">Analyze My Profile</span>
                       <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-zinc-600" />
                     </button>
                   </div>
@@ -1642,7 +1647,7 @@ export default function HubPage() {
                     onClick={(event) => {
                       if (!(event.target as HTMLElement).closest("button")) dayTwoCoachInputRef.current?.focus();
                     }}
-                    className="pointer-events-auto relative z-10 mt-4 flex min-h-12 w-full items-center gap-3 rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-within:border-orange-400/60 focus-within:ring-2 focus-within:ring-orange-400/40"
+                    className="pointer-events-auto relative z-10 mt-2 flex min-h-10 w-full items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3.5 py-1.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors hover:border-orange-400/45 focus-within:border-orange-400/60 focus-within:ring-2 focus-within:ring-orange-400/40"
                     data-testid="form-day-two-coach-message"
                   >
                     <input
@@ -1657,14 +1662,14 @@ export default function HubPage() {
                       autoCapitalize="sentences"
                       autoCorrect="on"
                       enterKeyHint="send"
-                      className="pointer-events-auto relative z-10 block min-w-0 flex-1 cursor-text touch-auto select-text bg-transparent text-sm text-white caret-orange-400 outline-none placeholder:text-zinc-500"
+                      className="pointer-events-auto relative z-10 block min-w-0 flex-1 cursor-text touch-auto select-text bg-transparent text-[13px] text-white caret-orange-400 outline-none placeholder:text-zinc-500"
                       data-testid="input-day-two-coach-message"
                     />
                     <button
                       type="submit"
                       disabled={!dayTwoCoachDraft.trim()}
                       aria-label="Send message to Coach P"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)] transition enabled:hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)] transition enabled:hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-45"
                       data-testid="button-send-day-two-coach-message"
                     >
                       <ArrowUp className="h-4 w-4" />
@@ -1672,23 +1677,23 @@ export default function HubPage() {
                   </form>
                 </article>
 
-                <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group block w-full overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-two-workout">
-                  <span className="relative block overflow-hidden px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
+                <button type="button" onClick={() => setDayTwoWorkoutOpen(true)} className="group flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-two-workout">
+                  <span className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 sm:px-6 sm:pt-5">
                     <span className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), repeating-linear-gradient(135deg, transparent 0 54px, rgba(0,0,0,.018) 55px 56px, transparent 57px 96px), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
-                    <span className="relative flex items-start justify-between gap-3 border-b-[3px] border-black pb-2">
+                    <span className="relative flex shrink-0 items-start justify-between gap-2 border-b-[3px] border-black pb-2">
                       <span className="min-w-0">
-                        <span className="block font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#2</span></span>
-                        <span className="mt-2 block font-heading text-base font-black uppercase leading-tight sm:text-lg">Find Your Shooting Range</span>
-                        <span className="mt-1 block text-[10px] font-semibold text-zinc-600 sm:text-xs">125 shots · 40 bonus layups · 5 cone sets</span>
+                        <span className="block font-heading text-2xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#2</span></span>
+                        <span className="mt-1.5 block font-heading text-sm font-black uppercase leading-tight sm:text-lg">Find Your Shooting Range</span>
+                        <span className="mt-1 block text-[9px] font-semibold text-zinc-600 sm:text-xs">125 shots · 40 bonus layups · 5 cone sets</span>
                       </span>
-                      <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm"><Dumbbell className="h-5 w-5" /></span>
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm sm:h-10 sm:w-10"><Dumbbell className="h-4 w-4 sm:h-5 sm:w-5" /></span>
                     </span>
-                    <div className="mt-3">
-                      <ShootingRangeCourt />
+                    <div className="relative mt-2 flex min-h-0 flex-1">
+                      <ShootingRangeCourt fit />
                     </div>
-                    <span className="relative mt-3 flex min-h-12 items-center justify-between gap-3 rounded-xl bg-black px-4 py-2.5 text-left text-white shadow-[0_12px_22px_rgba(0,0,0,0.35)] transition group-hover:bg-zinc-900 group-hover:shadow-[0_14px_26px_rgba(0,0,0,0.42)]">
-                      <span><span className="block text-xs font-black uppercase tracking-[0.12em]">Preview the workout</span><span className="mt-0.5 block text-[9px] text-zinc-400">6 drills · 125 shots plus bonus work</span></span>
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-orange-400 transition group-hover:translate-x-1"><ChevronRight className="h-5 w-5" /></span>
+                    <span className="relative mt-2 flex min-h-10 shrink-0 items-center justify-between gap-3 rounded-xl bg-black px-3 py-1.5 text-left text-white shadow-[0_12px_22px_rgba(0,0,0,0.35)] transition group-hover:bg-zinc-900 group-hover:shadow-[0_14px_26px_rgba(0,0,0,0.42)] sm:min-h-12 sm:px-4 sm:py-2.5">
+                      <span><span className="block text-[11px] font-black uppercase tracking-[0.12em] sm:text-xs">Preview the workout</span><span className="mt-0.5 block text-[8px] text-zinc-400 sm:text-[9px]">6 drills · 125 shots plus bonus work</span></span>
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-orange-400 transition group-hover:translate-x-1"><ChevronRight className="h-5 w-5" /></span>
                     </span>
                   </span>
                 </button>
