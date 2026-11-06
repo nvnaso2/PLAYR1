@@ -34,11 +34,11 @@ The public lead-magnet quiz happens outside the PLAYR1 app and remains independe
 
 **How to apply:** keep quiz data and app-setup completion separate; only use matching quiz answers as optional prefill, never treat quiz completion as app-setup completion.
 
-Day 2 should open the linked shooting workout in Quick Complete so players learn the no-numbers completion path. Keep that completion screen in the white workout-template visual language, and use the original supplied drill graphics rather than redraws or substitutes.
+Day 2 should open the linked shooting workout in Quick Complete so players learn the no-numbers completion path. Keep that completion screen in the white workout-template visual language, use the original supplied drill graphics rather than redraws or substitutes, show drill descriptions, and let the info control open drill details.
 
 **Why:** the user wants Day 2 to teach Quick Complete and emphasized that the original court graphics are the intended artwork.
 
-**How to apply:** default only the Day 2 system workout to Quick Complete; preserve Track Stats as an available mode and retain the exact supplied drill images in the workout preview and Day 2 completion flow.
+**How to apply:** default only the Day 2 system workout to Quick Complete; preserve Track Stats as an available mode and retain the exact supplied drill images and description-to-detail path in the workout preview and Day 2 completion flow.
 
 ## Retired setup answers
 

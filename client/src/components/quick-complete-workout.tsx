@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Clock3, Target } from "lucide-react";
+import { ArrowLeft, Check, Clock3, Info, Target } from "lucide-react";
 import { dayTwoWorkoutArt } from "@/lib/day-two-workout-art";
 
 export type QuickCompleteDrill = {
@@ -6,6 +6,7 @@ export type QuickCompleteDrill = {
   title: string;
   category: string;
   summary: string;
+  description: string;
   complete: boolean;
   image?: string;
 };
@@ -18,6 +19,7 @@ type QuickCompleteWorkoutProps = {
   isDayTwo: boolean;
   onCancel: () => void;
   onToggle: (drillId: string) => void;
+  onShowInfo: (drillId: string) => void;
   onTrackStats: () => void;
   onSave: () => void;
 };
@@ -30,6 +32,7 @@ export function QuickCompleteWorkout({
   isDayTwo,
   onCancel,
   onToggle,
+  onShowInfo,
   onTrackStats,
   onSave,
 }: QuickCompleteWorkoutProps) {
@@ -96,38 +99,53 @@ export function QuickCompleteWorkout({
 
         <section className="mt-4 space-y-3" aria-label="Workout drills">
           {drills.map((drill, index) => (
-            <button
+            <article
               key={drill.id}
-              type="button"
-              onClick={() => onToggle(drill.id)}
-              aria-pressed={drill.complete}
-              data-testid={`quick-complete-drill-${drill.id}`}
-              className={`group flex w-full items-center gap-3 rounded-2xl border bg-white/95 p-3 text-left shadow-[0_8px_24px_rgba(0,0,0,.05)] transition sm:gap-5 sm:p-4 ${
+              className={`flex items-center gap-2 rounded-2xl border bg-white/95 p-2 shadow-[0_8px_24px_rgba(0,0,0,.05)] transition sm:gap-3 sm:p-3 ${
                 drill.complete ? "border-orange-400/70 ring-1 ring-orange-400/30" : "border-black/10 hover:border-black/25"
               }`}
             >
-              {drill.image ? (
-                <span className="flex h-[88px] w-[104px] shrink-0 items-center justify-center overflow-hidden sm:h-[110px] sm:w-[132px]">
-                  <img src={drill.image} alt="" className="max-h-full max-w-full object-contain" />
+              <button
+                type="button"
+                onClick={() => onToggle(drill.id)}
+                aria-pressed={drill.complete}
+                data-testid={`quick-complete-drill-${drill.id}`}
+                className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:gap-5 sm:p-2"
+              >
+                {drill.image ? (
+                  <span className="flex h-[88px] w-[104px] shrink-0 items-center justify-center overflow-hidden sm:h-[110px] sm:w-[132px]">
+                    <img src={drill.image} alt="" className="max-h-full max-w-full object-contain" />
+                  </span>
+                ) : (
+                  <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-[#f3f1ed] font-heading text-3xl font-black text-orange-600 sm:h-[84px] sm:w-[84px]">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 py-1">
+                  <span className="block font-mono text-[9px] font-bold uppercase tracking-[.18em] text-orange-600">
+                    {isDayTwo && index === 5 ? "Bonus drills" : `Drill ${String(index + 1).padStart(2, "0")}`}
+                  </span>
+                  <span className="mt-0.5 block font-heading text-xl font-black uppercase leading-tight sm:text-2xl">{drill.title}</span>
+                  <span className="mt-1 block text-xs leading-snug text-zinc-600">{drill.description || drill.summary || drill.category}</span>
+                  <span className="mt-1.5 block font-heading text-sm font-black uppercase text-zinc-900">{drill.summary}</span>
                 </span>
-              ) : (
-                <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-[#f3f1ed] font-heading text-3xl font-black text-orange-600 sm:h-[84px] sm:w-[84px]">
-                  {String(index + 1).padStart(2, "0")}
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                  drill.complete ? "border-orange-500 bg-orange-500 text-black" : "border-zinc-300 text-transparent group-hover:border-orange-400"
+                }`}>
+                  <Check className="h-5 w-5" strokeWidth={3} />
                 </span>
-              )}
-              <span className="min-w-0 flex-1 py-1">
-                <span className="block font-mono text-[9px] font-bold uppercase tracking-[.18em] text-orange-600">
-                  {isDayTwo && index === 5 ? "Bonus drills" : `Drill ${String(index + 1).padStart(2, "0")}`}
-                </span>
-                <span className="mt-0.5 block font-heading text-xl font-black uppercase leading-tight sm:text-2xl">{drill.title}</span>
-                <span className="mt-1 block text-xs leading-snug text-zinc-500">{drill.summary || drill.category}</span>
-              </span>
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition ${
-                drill.complete ? "border-orange-500 bg-orange-500 text-black" : "border-zinc-300 text-transparent group-hover:border-orange-400"
-              }`}>
-                <Check className="h-5 w-5" strokeWidth={3} />
-              </span>
-            </button>
+              </button>
+              <button
+                type="button"
+                onClick={() => onShowInfo(drill.id)}
+                aria-label={`More information about ${drill.title}`}
+                title="Drill information"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:mr-1"
+                data-testid={`button-drill-info-${drill.id}`}
+              >
+                <Info className="h-5 w-5" />
+              </button>
+            </article>
           ))}
         </section>
       </div>

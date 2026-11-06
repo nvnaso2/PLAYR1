@@ -1727,6 +1727,7 @@ export default function TrainingLogPage() {
     id: entry.drillId,
     title: entry.drill.title,
     category: formatCategory(entry.drill.category || ""),
+    description: entry.drill.description || "",
     summary: isDayTwoWorkout
       ? dayTwoWorkoutTotals[index] ?? `${entry.plannedReps ?? ""} reps`
       : `${formatCategory(entry.drill.category || "")} · ${entry.drill.difficulty}`,
@@ -3054,6 +3055,10 @@ export default function TrainingLogPage() {
               else next.add(drillId);
               return next;
             });
+          }}
+          onShowInfo={(drillId) => {
+            const drill = quickWorkoutEntries.find((entry) => entry.drillId === drillId)?.drill;
+            if (drill) setDrillInfoOpen(drill);
           }}
           onTrackStats={() => setWorkoutMode("track")}
           onSave={saveWorkout}

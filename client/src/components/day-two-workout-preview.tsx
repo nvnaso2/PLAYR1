@@ -125,7 +125,7 @@ export function DayTwoWorkoutPreview({
             <button
               type="button"
               onClick={onLogWorkout}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-orange-500 px-7 text-sm font-bold text-black shadow-[0_3px_0_#a93c0d] transition hover:bg-orange-400 active:translate-y-px active:shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-orange-400 sm:w-auto"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-gradient-to-r from-[#ff7a1a] via-[#ff5b1f] to-[#ed4718] px-7 text-sm font-extrabold text-black shadow-[0_0_18px_rgba(255,92,25,.42),0_3px_0_#9e3512] transition duration-200 hover:brightness-110 hover:shadow-[0_0_28px_rgba(255,92,25,.68),0_3px_0_#9e3512] active:translate-y-px active:shadow-[0_0_12px_rgba(255,92,25,.4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-orange-400 sm:w-auto"
             >
               Log Workout
             </button>
