@@ -3069,27 +3069,36 @@ export default function TrainingLogPage() {
         />
       )}
       {activeView === "workout" && workoutInProgress && isTrackingWorkoutMode(workoutMode) && (
-        <div className="fixed inset-0 z-40 overflow-y-auto bg-[#050505] [background-image:radial-gradient(circle_at_85%_0%,hsl(var(--primary)/0.12),transparent_32%)]" data-testid="workout-fullscreen">
-          <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-        <Card className="overflow-hidden border-white/10 bg-zinc-950/90 shadow-2xl shadow-orange-950/20">
-          <CardHeader className="border-b border-white/10 bg-white/[0.025] p-5 sm:p-7">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-[#f5f4f0] text-[#181818]" data-testid="workout-fullscreen" data-workout-mode="track">
+          <div className="pointer-events-none fixed inset-0 opacity-[0.16]" aria-hidden="true">
+            <svg className="h-full w-full" viewBox="0 0 560 1100" preserveAspectRatio="none">
+              <g fill="none" stroke="#aaa69f" strokeWidth="2">
+                <circle cx="280" cy="560" r="238" />
+                <path d="M42 560H518M280 322V798M68 365C175 451 175 669 68 755M492 365C385 451 385 669 492 755" />
+                <path d="M-70 170C135 110 425 112 630 170M-85 930C115 990 445 990 645 930" />
+              </g>
+            </svg>
+          </div>
+          <div className="relative mx-auto max-w-6xl p-4 pb-28 sm:p-6 sm:pb-32 lg:p-8 lg:pb-32">
+        <Card className="overflow-hidden border-black/10 bg-white/95 shadow-[0_12px_34px_rgba(0,0,0,.08)]">
+          <CardHeader className="border-b border-black/10 bg-white p-5 sm:p-7">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-4 flex-wrap">
                 <div>
-                  <CardTitle className="flex items-center gap-2 text-2xl text-white">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><Play className="h-4 w-4 fill-current" /></span>
+                  <CardTitle className="flex items-center gap-2 text-2xl text-zinc-950">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-orange-500 text-black shadow-[0_4px_0_#a93c0d]"><Play className="h-4 w-4 fill-current" /></span>
                     {activeWorkoutName}
                   </CardTitle>
-                  <CardDescription className="mt-2 text-zinc-400">
+                  <CardDescription className="mt-2 text-zinc-500">
                     {sessionDrillCount} drill{sessionDrillCount !== 1 ? 's' : ''} · {workoutMode === "complete" ? `${completedDrillCount} completed` : "Track your work as you go"}
                   </CardDescription>
                 </div>
-                <div className="flex rounded-xl border border-white/10 bg-black/30 p-1" aria-label="Workout logging mode">
+                <div className="flex rounded-xl border border-black/10 bg-zinc-100 p-1" aria-label="Workout logging mode">
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                     className={workoutMode === "complete" ? "bg-white text-black hover:bg-zinc-200 hover:text-black" : "text-zinc-400 hover:bg-white/5 hover:text-white"}
+                     className={workoutMode === "complete" ? "bg-white text-black shadow-sm hover:bg-zinc-200 hover:text-black" : "text-zinc-500 hover:bg-white hover:text-black"}
                     onClick={() => setWorkoutMode("complete")}
                     aria-pressed={workoutMode === "complete"}
                     data-testid="button-mode-quick-complete"
@@ -3101,7 +3110,7 @@ export default function TrainingLogPage() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                     className={workoutMode === "track" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-zinc-400 hover:bg-white/5 hover:text-white"}
+                     className={workoutMode === "track" ? "bg-zinc-950 text-white shadow-sm hover:bg-zinc-800" : "text-zinc-500 hover:bg-white hover:text-black"}
                     onClick={() => setWorkoutMode("track")}
                     aria-pressed={workoutMode === "track"}
                     data-testid="button-mode-track-stats"
@@ -3111,9 +3120,9 @@ export default function TrainingLogPage() {
                   </Button>
                 </div>
                 {/* Single workout elapsed timer — auto-starts when workout begins */}
-                <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2" data-testid="workout-elapsed-timer">
-                  <Timer className="h-4 w-4 text-primary" />
-                  <span className="font-mono text-lg font-bold tabular-nums text-primary">{workoutElapsed}</span>
+                <div className="flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2" data-testid="workout-elapsed-timer">
+                  <Timer className="h-4 w-4 text-orange-600" />
+                  <span className="font-mono text-lg font-bold tabular-nums text-orange-700">{workoutElapsed}</span>
                 </div>
                 {/* Manual override — lets user correct the time if timer was started late */}
                 <div className="flex items-center gap-1.5" title="Override session duration if timer was inaccurate">
@@ -3124,14 +3133,14 @@ export default function TrainingLogPage() {
                     placeholder="Override min"
                     value={manualDurationMinutes}
                     onChange={e => setManualDurationMinutes(e.target.value)}
-                    className="h-8 w-24 rounded-lg border border-white/10 bg-black/30 px-2 text-sm tabular-nums text-white focus:outline-none focus:ring-1 focus:ring-primary/60 placeholder:text-zinc-600"
+                    className="h-9 w-24 rounded-lg border border-black/10 bg-white px-2 text-sm tabular-nums text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-400/50"
                     data-testid="input-manual-duration"
                   />
                   <span className="text-xs text-zinc-500">min</span>
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" onClick={cancelWorkout} className="gap-2 border-white/10 text-zinc-300 hover:bg-white/5 hover:text-white" data-testid="button-cancel-workout">
+                <Button variant="outline" onClick={cancelWorkout} className="gap-2 border-black/10 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-black" data-testid="button-cancel-workout">
                   <X className="w-4 h-4" />
                   Cancel
                 </Button>
@@ -3227,19 +3236,6 @@ export default function TrainingLogPage() {
                     </DialogContent>
                   </Dialog>
                 )}
-                <Button
-                  onClick={saveWorkout}
-                  className="gap-2"
-                  disabled={isSavingWorkout || (workoutMode === "complete" && quickCompletedDrillIds.size === 0)}
-                  data-testid="button-finish-workout"
-                >
-                  {isSavingWorkout ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  {isSavingWorkout
-                    ? "Saving..."
-                    : workoutMode === "complete"
-                      ? `Save ${quickCompletedDrillIds.size} Completed`
-                      : "Finish Workout"}
-                </Button>
               </div>
             </div>
           </CardHeader>
@@ -3309,9 +3305,9 @@ export default function TrainingLogPage() {
             <div className="space-y-6">
               {/* Global challenge quick-apply — visible when the user has active challenges */}
               {activeChallenges && activeChallenges.filter(uc => !uc.isCompleted).length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
-                  <Target className="w-4 h-4 text-primary shrink-0" />
-                  <span className="text-sm text-muted-foreground shrink-0">Apply challenge to all drills:</span>
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2">
+                  <Target className="h-4 w-4 shrink-0 text-orange-600" />
+                  <span className="shrink-0 text-sm text-zinc-600">Apply challenge to all drills:</span>
                   <Select
                     onValueChange={(challengeId) => {
                       if (challengeId === 'none') {
@@ -3326,7 +3322,7 @@ export default function TrainingLogPage() {
                       }
                     }}
                   >
-                    <SelectTrigger className="h-8 text-xs flex-1 min-w-[160px] max-w-xs border-primary/30" data-testid="select-global-challenge">
+                    <SelectTrigger className="h-9 min-w-[160px] max-w-xs flex-1 border-orange-200 bg-white text-xs" data-testid="select-global-challenge">
                       <SelectValue placeholder="Pick a challenge…" />
                     </SelectTrigger>
                     <SelectContent position="popper" sideOffset={4}>
@@ -3400,15 +3396,15 @@ export default function TrainingLogPage() {
                   const shootingAccuracy = totalAttempts > 0 ? Math.round((totalMakes / totalAttempts) * 100) : null;
                   
                   return (
-                    <Card key={drillId} className="overflow-hidden border-white/10 bg-zinc-950/70" data-testid={`drill-table-${drillId}`}>
-                      <CardHeader className="space-y-4 border-b border-white/[0.06] pb-4">
+                    <Card key={drillId} className="overflow-hidden border-black/10 bg-white shadow-[0_8px_24px_rgba(0,0,0,.05)]" data-testid={`drill-table-${drillId}`}>
+                      <CardHeader className="space-y-4 border-b border-black/10 pb-4">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex-1 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-primary">
+                              <span className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-orange-700">
                                 Drill {String(drillIdx + 1).padStart(2, '0')}
                               </span>
-                              <Badge variant="outline" className="border-white/10 bg-white/[0.03] text-zinc-300">
+                              <Badge variant="outline" className="border-black/10 bg-zinc-50 text-zinc-600">
                                 {formatCategory(group.drill.category)}
                               </Badge>
                               <span className="text-xs text-zinc-500">
@@ -3418,13 +3414,13 @@ export default function TrainingLogPage() {
                                 {firstEntry.plannedReps ? ` · ${firstEntry.plannedReps} reps` : ''}
                               </span>
                             </div>
-                            <CardTitle className="text-xl leading-tight text-white">{group.drill.title}</CardTitle>
+                            <CardTitle className="text-xl leading-tight text-zinc-950">{group.drill.title}</CardTitle>
                             {firstEntry.coachingNotes && (
-                              <p className="max-w-3xl text-sm leading-5 text-zinc-400">{firstEntry.coachingNotes}</p>
+                              <p className="max-w-3xl text-sm leading-5 text-zinc-600">{firstEntry.coachingNotes}</p>
                             )}
                             {showTimestamps && (
                               <p className="flex items-center gap-1.5 text-xs text-zinc-500">
-                                <Clock className="h-3.5 w-3.5 shrink-0" />
+                                <Clock className="h-3.5 w-3.5 shrink-0 text-orange-600" />
                                 Started {relativeTime(drillStartedMs!)}
                                 {drillEndedMs ? ` · Ended ${relativeTime(drillEndedMs)}` : ''}
                               </p>
@@ -3435,7 +3431,7 @@ export default function TrainingLogPage() {
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="h-10 w-10 border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.08] hover:text-white"
+                              className="h-10 w-10 border-black/10 bg-white text-zinc-600 hover:bg-orange-50 hover:text-orange-700"
                               onClick={() => setDrillInfoOpen(group.drill)}
                               data-testid={`button-drill-info-${drillId}`}
                               title="View drill details"
@@ -3448,7 +3444,7 @@ export default function TrainingLogPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => addRound(group.entries[group.entries.length - 1].index)}
-                              className="h-10 gap-1.5 border-primary/30 bg-primary/10 px-3 text-primary hover:bg-primary/15"
+                              className="h-10 gap-1.5 border-orange-200 bg-orange-50 px-3 text-orange-700 hover:bg-orange-100"
                               data-testid={`button-add-round-${drillId}`}
                             >
                               <Plus className="h-3.5 w-3.5" />
@@ -3458,21 +3454,21 @@ export default function TrainingLogPage() {
                         </div>
 
                         {shootingAccuracy !== null && (
-                          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-3">
+                          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
                             <div>
                               <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Shooting accuracy</p>
-                              <p className="mt-1 text-xs text-zinc-400">{totalMakes} makes from {totalAttempts} attempts</p>
+                              <p className="mt-1 text-xs text-zinc-600">{totalMakes} makes from {totalAttempts} attempts</p>
                             </div>
-                            <p className="font-heading text-3xl leading-none text-primary">{shootingAccuracy}%</p>
+                            <p className="font-heading text-3xl leading-none text-orange-600">{shootingAccuracy}%</p>
                           </div>
                         )}
 
                         {challengeOptions.length > 0 && group.entries.length > 1 && (
                           <div className="flex flex-wrap items-center gap-2">
-                            <Target className="h-4 w-4 text-primary" />
-                            <span className="text-xs text-zinc-400">Set a challenge for every round</span>
+                            <Target className="h-4 w-4 text-orange-600" />
+                            <span className="text-xs text-zinc-600">Set a challenge for every round</span>
                             <Select onValueChange={(value) => applyChallengeToAllRounds(drillId, value)}>
-                              <SelectTrigger className="h-9 w-full border-white/10 bg-black/30 text-xs sm:w-52" data-testid={`select-challenge-all-${drillId}`}>
+                              <SelectTrigger className="h-9 w-full border-black/10 bg-white text-xs sm:w-52" data-testid={`select-challenge-all-${drillId}`}>
                                 <SelectValue placeholder="Apply to all rounds…" />
                               </SelectTrigger>
                               <SelectContent position="popper" sideOffset={4}>
@@ -3495,24 +3491,24 @@ export default function TrainingLogPage() {
                           return (
                             <section
                               key={index}
-                              className="space-y-4 rounded-2xl border border-white/[0.08] bg-black/25 p-3.5 sm:p-4"
+                              className="space-y-4 rounded-2xl border border-black/10 bg-[#f7f6f3] p-3.5 sm:p-4"
                               data-testid={`workout-row-${index}`}
                               aria-label={`Round ${roundIdx + 1} of ${group.drill.title}`}
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                  <span className="rounded-full bg-white/[0.06] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-200">
+                                  <span className="rounded-full bg-white px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700 shadow-sm">
                                     Round {String(roundIdx + 1).padStart(2, '0')}
                                   </span>
                                   {roundAccuracy !== null && (
-                                    <span className="text-xs text-zinc-500">{roundMakes}/{roundAttempts} · {roundAccuracy}%</span>
+                                    <span className="text-xs font-semibold text-orange-700">{roundMakes}/{roundAttempts} · {roundAccuracy}%</span>
                                   )}
                                 </div>
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  className="h-9 w-9 shrink-0 text-zinc-500 hover:bg-red-500/10 hover:text-red-300"
+                                  className="h-9 w-9 shrink-0 text-zinc-500 hover:bg-red-50 hover:text-red-600"
                                   onClick={() => removeFromWorkout(index)}
                                   data-testid={`button-remove-${index}`}
                                   aria-label={`Remove round ${roundIdx + 1} of ${group.drill.title}`}
@@ -3523,14 +3519,14 @@ export default function TrainingLogPage() {
 
                               {isShootingDrill && (
                                 <div className="max-w-sm space-y-1.5">
-                                  <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500" htmlFor={`select-location-${index}`}>
+                                  <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600" htmlFor={`select-location-${index}`}>
                                     Shot location
                                   </label>
                                   <Select
                                     value={entry.shotLocation || ''}
                                     onValueChange={(value) => updateEntry(index, 'shotLocation', value)}
                                   >
-                                    <SelectTrigger id={`select-location-${index}`} className="h-10 w-full border-white/10 bg-black/30 text-sm" data-testid={`select-location-${index}`}>
+                                    <SelectTrigger id={`select-location-${index}`} className="h-11 w-full border-black/10 bg-white text-sm" data-testid={`select-location-${index}`}>
                                       <SelectValue placeholder="Choose location" />
                                     </SelectTrigger>
                                     <SelectContent position="popper" sideOffset={4} className="max-h-[50vh] overflow-y-auto">
@@ -3553,14 +3549,14 @@ export default function TrainingLogPage() {
                               {metricColumns.length > 0 ? (
                                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                   {metricColumns.map((metric) => (
-                                    <div key={metric.metricTemplateId} className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                                    <div key={metric.metricTemplateId} className="rounded-xl border border-black/[0.08] bg-white p-3">
                                       <div className="flex items-center justify-between gap-2">
-                                        <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-400">
-                                          {(metric.template.type as string) === 'timer' && <Timer className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                                        <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-600">
+                                          {(metric.template.type as string) === 'timer' && <Timer className="h-3.5 w-3.5 shrink-0 text-orange-600" />}
                                           <span className="truncate">{metric.template.label}</span>
                                           {metric.isRequired && <span className="text-destructive">*</span>}
                                         </span>
-                                        {metric.isRequired && <span className="shrink-0 text-[9px] text-zinc-600">Required</span>}
+                                        {metric.isRequired && <span className="shrink-0 text-[9px] text-zinc-500">Required</span>}
                                       </div>
                                       {(metric.template.type as string) === 'timer' ? (
                                         <div className="mt-2">
@@ -3578,7 +3574,7 @@ export default function TrainingLogPage() {
                                           aria-label={`${metric.template.label} for round ${roundIdx + 1}`}
                                           value={entry.metrics[metric.metricTemplateId] || ''}
                                           onChange={(event) => updateMetricValue(index, metric.metricTemplateId, parseFloat(event.target.value) || 0)}
-                                          className="mt-2 h-12 border-white/10 bg-black/35 text-center font-mono text-xl font-bold tabular-nums text-white placeholder:text-zinc-700 focus-visible:ring-primary"
+                                          className="mt-2 h-12 border-black/10 bg-[#f7f6f3] text-center font-mono text-xl font-bold tabular-nums text-zinc-950 placeholder:text-zinc-400 focus-visible:ring-orange-400"
                                           placeholder="0"
                                           data-testid={`input-metric-${index}-${metric.metricTemplateId}`}
                                         />
@@ -3587,7 +3583,7 @@ export default function TrainingLogPage() {
                                   ))}
                                 </div>
                               ) : (
-                                <p className="rounded-xl border border-dashed border-white/10 px-3 py-4 text-sm text-zinc-500">
+                                <p className="rounded-xl border border-dashed border-black/15 px-3 py-4 text-sm text-zinc-500">
                                   No performance metrics are configured for this drill yet.
                                 </p>
                               )}
@@ -3604,7 +3600,7 @@ export default function TrainingLogPage() {
               {/* Add Drill Button */}
               <Button 
                 variant="outline" 
-                className="w-full gap-2 border-dashed"
+                className="w-full gap-2 border-dashed border-black/20 bg-white text-zinc-700 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
                 onClick={() => setIsAddDrillToWorkoutOpen(true)}
                 data-testid="button-add-drill-to-workout"
               >
@@ -3676,6 +3672,23 @@ export default function TrainingLogPage() {
             )}
           </CardContent>
         </Card>
+          <div className="fixed inset-x-0 bottom-0 z-[45] border-t border-black/10 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,.08)] backdrop-blur-md sm:px-7">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-heading text-lg font-black uppercase leading-none text-zinc-950">{sessionDrillCount} drill{sessionDrillCount === 1 ? "" : "s"} · {workoutElapsed}</p>
+                <p className="mt-1 truncate text-[11px] text-zinc-500">Your stats and session time will be saved to Training History.</p>
+              </div>
+              <Button
+                onClick={saveWorkout}
+                className="min-h-12 shrink-0 gap-2 bg-orange-500 px-5 font-mono text-[10px] font-extrabold uppercase tracking-[.12em] text-black shadow-[0_3px_0_#a93c0d] transition hover:bg-orange-400 disabled:opacity-45 sm:px-7 sm:text-xs"
+                disabled={isSavingWorkout}
+                data-testid="button-finish-workout"
+              >
+                {isSavingWorkout ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {isSavingWorkout ? "Saving…" : "Save Workout"}
+              </Button>
+            </div>
+          </div>
           </div>
         </div>
       )}

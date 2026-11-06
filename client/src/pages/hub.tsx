@@ -1677,15 +1677,23 @@ export default function HubPage() {
                     <span className="text-[10px] font-bold leading-tight text-zinc-300">Journal</span>
                   </button>
                 </div>
-                <button type="button" onClick={() => setDayThreeWorkoutOpen(true)} className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] p-4 text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,.3)]" data-testid="button-preview-day-three-workout">
-                  <img src={volumeWorkoutArt[5]} alt="Make X 3's in a Row streak drill" className="absolute right-2 top-1/2 h-[80%] w-[58%] -translate-y-1/2 object-contain mix-blend-multiply" />
-                  <div className="relative z-10 max-w-[58%]">
-                    <p className="font-mono text-[10px] font-black uppercase tracking-widest text-orange-600">Day 3 · Manual logging</p>
-                    <h3 className="mt-2 font-heading text-4xl font-black uppercase leading-none">Volume<br />Workout</h3>
-                    <p className="mt-3 text-xs font-bold text-zinc-600">200 shots · 6 drills</p>
-                    <p className="mt-2 font-heading text-sm font-black uppercase">Make X 3&apos;s in a Row</p>
+                <button type="button" onClick={() => setDayThreeWorkoutOpen(true)} className="group flex min-h-0 w-full flex-[1.18] flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-three-workout">
+                  <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 sm:px-6 sm:pt-5">
+                    <span className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), repeating-linear-gradient(135deg, transparent 0 54px, rgba(0,0,0,.018) 55px 56px, transparent 57px 96px), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
+                    <div className="relative grid min-h-[190px] flex-1 grid-cols-[minmax(0,1fr)_32px] items-start gap-2 border-b-[3px] border-black pb-3 sm:min-h-[216px] sm:grid-cols-[minmax(0,1fr)_40px] sm:gap-3 sm:pb-4">
+                      <img src={volumeWorkoutArt[5]} alt="Make X 3's in a Row basketball court drill" className="pointer-events-none absolute right-6 top-1/2 z-0 h-[185px] w-[210px] -translate-y-1/2 object-contain mix-blend-multiply sm:right-8 sm:h-[210px] sm:w-[240px]" />
+                      <span className="relative z-10 self-start max-w-[48%] min-w-0 pt-1 pr-1 sm:max-w-[55%] sm:pr-2">
+                        <span className="block font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#3</span></span>
+                        <span className="mt-2 block font-heading text-base font-black uppercase leading-tight sm:text-lg">Volume Shooting</span>
+                        <span className="mt-1.5 block break-words text-xs font-semibold leading-snug text-zinc-600 sm:text-sm">6 drills · 200-shot workout</span>
+                      </span>
+                      <span className="relative z-10 flex h-8 w-8 self-start items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm sm:h-10 sm:w-10"><Dumbbell className="h-4 w-4 sm:h-5 sm:w-5" /></span>
+                    </div>
+                    <span className="relative mt-2 flex min-h-12 shrink-0 items-center justify-between gap-3 rounded-xl bg-black px-4 py-2 text-left text-white shadow-[0_12px_22px_rgba(0,0,0,0.35)] transition group-hover:bg-zinc-900 group-hover:shadow-[0_14px_26px_rgba(0,0,0,0.42)]">
+                      <span><span className="block text-xs font-black uppercase tracking-[0.12em] sm:text-sm">Preview the workout</span><span className="mt-0.5 block text-[10px] text-zinc-400">Make X 3&apos;s in a Row · 6 drills</span></span>
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-orange-400 transition group-hover:translate-x-1"><ChevronRight className="h-5 w-5" /></span>
+                    </span>
                   </div>
-                  <span className="relative mt-auto flex min-h-12 items-center justify-between rounded-xl bg-black px-4 text-white"><span className="font-black uppercase tracking-wide">Preview the workout</span><ChevronRight className="h-5 w-5 text-orange-400" /></span>
                 </button>
               </section>
             )}

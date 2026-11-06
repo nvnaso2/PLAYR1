@@ -44,7 +44,7 @@ Day 3 introduces the Volume Workout in manual Track Stats mode, then sends playe
 
 **Why:** Day 3 is intended to teach manual logging and demonstrate how its data appears on the Dashboard before players reflect in Journal.
 
-**How to apply:** preserve the order workout → Dashboard → Journal, keep Day 3 separate from the live onboarding until rollout is requested, and use the exact provided Volume Workout drill artwork and instructions.
+**How to apply:** preserve the order workout → Dashboard → Journal, keep Day 3 separate from the live onboarding until rollout is requested, and use the exact provided Volume Workout drill artwork and instructions. Match the Day 2 white court-template card composition; manual Track Stats should share Quick Complete's white background, faint court lines, orange accents, and fixed save action while preserving every existing metric and round control.
 
 ## Retired setup answers
 
