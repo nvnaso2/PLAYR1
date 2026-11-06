@@ -13,6 +13,7 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_price_interval varchar;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end timestamp;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end boolean DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS coach_p_unlimited boolean NOT NULL DEFAULT false;
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS trailer_video_url varchar;
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS is_pro boolean DEFAULT false;
       ALTER TABLE programs ALTER COLUMN is_pro SET DEFAULT true;

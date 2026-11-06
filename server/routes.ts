@@ -448,7 +448,9 @@ export async function registerRoutes(
       (user.subscriptionStatus === "active" || user.subscriptionStatus === "trialing");
     const isInfinity = user?.subscriptionPlan === "pro-infinity";
     const isPro = stripeActive || isInfinity;
+    const isCoachPUnlimited = user?.coachPUnlimited === true;
     const used = usageResult[0]?.questionCount ?? 0;
+    const coachPIsUnlimited = isPro || isCoachPUnlimited;
     return {
       plan: isInfinity ? "pro-infinity" : isPro ? "pro" : "free",
       status: isInfinity ? "pro-infinity" : user?.subscriptionStatus ?? "free",
@@ -457,8 +459,8 @@ export async function registerRoutes(
       cancelAtPeriodEnd: user?.subscriptionCancelAtPeriodEnd ?? false,
       coachP: {
         used,
-        limit: isPro ? null : FREE_COACH_P_LIMIT,
-        remaining: isPro ? null : Math.max(0, FREE_COACH_P_LIMIT - used),
+        limit: coachPIsUnlimited ? null : FREE_COACH_P_LIMIT,
+        remaining: coachPIsUnlimited ? null : Math.max(0, FREE_COACH_P_LIMIT - used),
         monthKey: currentMonthKey(),
       },
     };
@@ -466,7 +468,7 @@ export async function registerRoutes(
 
   async function consumeCoachPQuestion(userId: string) {
     const snapshot = await getSubscriptionSnapshot(userId);
-    if (snapshot.plan === "pro" || snapshot.plan === "pro-infinity") return { allowed: true, charged: false, ...snapshot.coachP };
+    if (snapshot.coachP.limit === null) return { allowed: true, charged: false, ...snapshot.coachP };
     const result = await db.execute(sql`
       INSERT INTO coach_p_usage (user_id, month_key, question_count, updated_at)
       VALUES (${userId}, ${currentMonthKey()}, 1, NOW())
@@ -1729,18 +1731,6 @@ Start now with a warm one-line greeting that briefly references something specif
         conversationId = existingConversation.id;
       }
 
-      const coachPAccess = journalEntry
-        ? { allowed: true, charged: false, used: 0, limit: null, remaining: null, monthKey: currentMonthKey() }
-        : await consumeCoachPQuestion(userId);
-      if (!coachPAccess.allowed) {
-        return res.status(402).json({
-          message: "You've used all 3 free Coach P questions this month.",
-          code: "COACH_P_LIMIT_REACHED",
-          coachP: coachPAccess,
-        });
-      }
-      charged = coachPAccess.charged;
-
       let conversation = !journalEntry && conversationId
         ? await storage.getCoachPConversation(userId, conversationId)
         : undefined;
@@ -1749,7 +1739,9 @@ Start now with a warm one-line greeting that briefly references something specif
           userId,
           title: welcomeWorkoutStartRequest
             ? welcomeWorkoutConversationTitle
-            : lastUserMessage.content.slice(0, 80).trim() || "New Coach P conversation",
+            : parsed.data.profileInsight
+              ? "My player profile insights"
+              : lastUserMessage.content.slice(0, 80).trim() || "New Coach P conversation",
           messageCount: 0,
         });
         conversationId = conversation.id;
@@ -1763,10 +1755,24 @@ Start now with a warm one-line greeting that briefly references something specif
       const lastProfileInsightMessage = priorProfileInsightMessages[priorProfileInsightMessages.length - 1];
       const isContinuingProfileInsight = priorProfileInsightMessages.length > 0
         && priorProfileInsightMessages.length <= 3
+        && !!lastProfileInsightMessage
         && lastProfileInsightMessage.content.trim().endsWith("?");
       const isProfileInsightConversation = parsed.data.profileInsight === true || isContinuingProfileInsight;
       if (isProfileInsightConversation) workoutBuilderRequest = false;
       const profileInsightContext = parsed.data.profileInsightContext;
+      const coachPAccess = journalEntry
+        ? { allowed: true, charged: false, used: 0, limit: null, remaining: null, monthKey: currentMonthKey() }
+        : isContinuingProfileInsight
+          ? { allowed: true, charged: false, ...(await getSubscriptionSnapshot(userId)).coachP }
+          : await consumeCoachPQuestion(userId);
+      if (!coachPAccess.allowed) {
+        return res.status(402).json({
+          message: "You've used all 3 free Coach P questions this month.",
+          code: "COACH_P_LIMIT_REACHED",
+          coachP: coachPAccess,
+        });
+      }
+      charged = coachPAccess.charged;
       const rollingContext = journalEntry
         ? journalMessages
         : [
@@ -1793,7 +1799,7 @@ Start now with a warm one-line greeting that briefly references something specif
       const activeFlow = currentStarterFlow && currentStarterFlow !== firstStarterFlow
         ? getActiveCoachPFlow(lastUserMessage.content, [])
         : getActiveCoachPFlow(firstUserMessage, priorAssistantMessages);
-      if (activeFlow?.type === "workout") workoutBuilderRequest = true;
+      if (!isProfileInsightConversation && activeFlow?.type === "workout") workoutBuilderRequest = true;
       const contextMode: CoachPContextMode = isProfileInsightConversation
         ? "profile-insight"
         : workoutBuilderRequest
@@ -2044,6 +2050,8 @@ Start now with a warm one-line greeting that briefly references something specif
 
       const contextModeLabel = contextMode === "general"
         ? "general coaching"
+        : contextMode === "profile-insight"
+          ? "guided player profile insights"
         : contextMode === "training-review"
           ? "training session review"
           : contextMode === "opportunity"
@@ -2326,7 +2334,9 @@ COACHING RULES:
       // enough room for visible coaching text.
       const maxCompletionTokens = useStrongModel ? 3200 : 2200;
       const modelStartedAt = Date.now();
-      sendSse("status", { stage: "Building your coaching plan..." });
+      sendSse("status", {
+        stage: isProfileInsightConversation ? "Connecting the dots in your profile..." : "Building your coaching plan...",
+      });
       let tokenUsage: { prompt_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens?: number; total_tokens?: number } | null = null;
       let finishReason: string | null = null;
       if (workoutBuilderRequest) {

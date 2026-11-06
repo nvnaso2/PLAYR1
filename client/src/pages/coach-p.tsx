@@ -654,6 +654,7 @@ export default function CoachPPage() {
   const [projectBuilderMode, setProjectBuilderMode] = useState(false);
   const [projectPrompt, setProjectPrompt] = useState<ProjectBuilderPrompt | null>(null);
   const [workoutBuilderMode, setWorkoutBuilderMode] = useState(false);
+  const [profileInsightMode, setProfileInsightMode] = useState(false);
   const [welcomeWorkoutMode, setWelcomeWorkoutMode] = useState(false);
   const [workoutIntake, setWorkoutIntake] = useState<CoachPWorkoutIntake | null>(null);
   const [workoutAnswers, setWorkoutAnswers] = useState<CoachPWorkoutAnswers | null>(null);
@@ -835,6 +836,7 @@ export default function CoachPPage() {
     onSuccess: (data) => {
       setUsage(data.coachP);
       setConversationId(data.conversationId);
+      setProfileInsightMode((current) => current && data.message.trim().endsWith("?"));
       if (data.projectReady) {
         setProjectBuilderMode(false);
         setProjectPrompt(null);
@@ -940,7 +942,7 @@ export default function CoachPPage() {
     const displayContent = options?.displayContent?.trim() || content;
     const isProjectBuilder = options?.projectBuilder ?? projectBuilderMode;
     const isWorkoutBuilder = options?.workoutBuilder ?? workoutBuilderMode;
-    if (!content || chatMutation.isPending || (!isProjectBuilder && !canSend)) return;
+    if (!content || chatMutation.isPending || (!isProjectBuilder && !profileInsightMode && !canSend)) return;
     const nextHistory = [...messages, { role: "user" as const, content: displayContent }];
     setMessages(nextHistory);
     if (isProjectBuilder) setProjectBuilderMode(true);
@@ -995,6 +997,7 @@ export default function CoachPPage() {
     setProjectBuilderMode(false);
     setProjectPrompt(null);
     setWorkoutBuilderMode(false);
+    setProfileInsightMode(false);
     setWelcomeWorkoutMode(false);
     setWorkoutIntake(null);
     setWorkoutAnswers(null);
@@ -1011,6 +1014,13 @@ export default function CoachPPage() {
       const data = await response.json() as { conversation: SavedConversation; messages: ChatMessage[] };
       setConversationId(data.conversation.id);
       setMessages(data.messages);
+      const insightReplies = data.messages.filter((message) => message.role === "assistant");
+      const lastInsightReply = insightReplies[insightReplies.length - 1];
+      setProfileInsightMode(
+        data.conversation.title === "My player profile insights"
+        && insightReplies.length <= 3
+        && !!lastInsightReply?.content.trim().endsWith("?"),
+      );
       const isProjectConversation = data.conversation.title === "Build my PLAYR1 Project";
       const savedProjectReady = isProjectConversation && data.messages.some((message) => message.content.includes("Your PLAYR1 Project is ready"));
       setProjectBuilderMode(isProjectConversation && !savedProjectReady);
@@ -1096,6 +1106,7 @@ export default function CoachPPage() {
       if (message.trim()) sendMessage(message.trim(), { displayContent: message.trim() });
     } else if (onboardingBlueprint) {
       startNewConversation();
+      setProfileInsightMode(true);
       let profileInsightContext: CoachPProfileInsightContext | undefined;
       try {
         const savedContext = sessionStorage.getItem("playr1-coach-player-blueprint-context");
@@ -1534,7 +1545,7 @@ export default function CoachPPage() {
                     sendMessage(draft);
                   }
                 }}
-                placeholder={projectBuilderMode ? "Or type your own answer..." : canSend ? "Ask Coach P anything about your game..." : "Monthly limit reached — type here after upgrading"}
+                placeholder={projectBuilderMode ? "Or type your own answer..." : profileInsightMode ? "Answer Coach P’s question..." : canSend ? "Ask Coach P anything about your game..." : "Monthly limit reached — type here after upgrading"}
                 disabled={chatMutation.isPending}
                 className="min-h-[34px] max-h-28 resize-none rounded-none border-0 bg-transparent px-2 py-1.5 text-[15px] text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-0"
                 data-testid="textarea-coach-p"
@@ -1543,7 +1554,7 @@ export default function CoachPPage() {
               <Button
                 size="icon"
                 onClick={() => sendMessage(draft)}
-                disabled={!draft.trim() || !canSend || chatMutation.isPending}
+                disabled={!draft.trim() || (!canSend && !profileInsightMode) || chatMutation.isPending}
                 className="h-9 w-9 shrink-0 rounded-full bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.18)] hover:bg-orange-400"
                 data-testid="button-send-coach-p"
               >

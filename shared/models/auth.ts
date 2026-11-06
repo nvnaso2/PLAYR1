@@ -32,6 +32,7 @@ export const users = pgTable("users", {
   subscriptionPriceInterval: varchar("subscription_price_interval"),
   subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end"),
   subscriptionCancelAtPeriodEnd: boolean("subscription_cancel_at_period_end").default(false),
+  coachPUnlimited: boolean("coach_p_unlimited").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

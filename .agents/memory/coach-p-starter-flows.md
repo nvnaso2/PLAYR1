@@ -8,3 +8,11 @@ Coach P's starter set is ordered with Build my next workout in the top-left, fol
 **Why:** The user specified the first three coaching actions, asked for Build my next workout to be the first choice, and wants the welcome experience to show that Coach P understands the player's game using all saved lead-magnet history before producing a usable first workout. Preparing for the next game was selected as the fourth because it connects training and reflection to competition.
 
 **How to apply:** Keep the regular preference-based builder distinct from the welcome-specific snapshot-and-workout flow. Give the welcome snapshot all saved lead-magnet attempts, but limit drill choices to evidence relevant to the workout focus. Keep the workout chat open after generation and preserve catalog validation and explicit save/start behavior.
+
+## Guided profile insights
+
+Analyze My Profile is a conversation, not a workout request or a list of profile attributes. Connect measured shooting baseline, assessment, setup answers, training history, and saved diagnostics into evidence-based insights; state uncertainty and ask three distinct, high-value questions one at a time. Refine the read after each answer, then end with a concise synthesis. The whole flow uses one Coach P credit.
+
+**Why:** The user wants a world-class coach who connects information the player may not have noticed, then learns more through three questions without pushing a workout.
+
+**How to apply:** Keep the insight flow separate from workout intake and the opportunity flow. Use one Coach P credit for the complete exchange, and do not claim that the underlying model permanently learns from the conversation.
