@@ -54,7 +54,7 @@ export function QuickCompleteWorkout({
       className={`fixed inset-0 z-40 overflow-y-auto text-[#181818] ${tracking ? "bg-white" : "bg-[#f5f4f0]"}`}
       data-testid="quick-complete-workout"
     >
-      <div className={`pointer-events-none fixed inset-0 ${tracking ? "opacity-0" : "opacity-[0.16]"}`} aria-hidden="true">
+      <div className={`pointer-events-none fixed inset-0 ${tracking ? "opacity-[0.07]" : "opacity-[0.16]"}`} aria-hidden="true">
         <svg className="h-full w-full" viewBox="0 0 560 1100" preserveAspectRatio="none">
           <g fill="none" stroke="#aaa69f" strokeWidth="2">
             <circle cx="280" cy="560" r="238" />
@@ -119,7 +119,7 @@ export function QuickCompleteWorkout({
           </div>
         </section>
 
-        <section className="mt-4 space-y-3" aria-label="Workout drills">
+        <section className="mt-5 space-y-4" aria-label="Workout drills">
           {drills.map((drill, index) => {
             const content = (
               <>

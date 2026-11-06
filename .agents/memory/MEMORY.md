@@ -44,3 +44,4 @@
 - [Personalized shot heat map](personalized-shot-heatmap.md) — preserve the original dark red-to-green palette and map each player's personal average to green
 - [Portable npm lockfiles](npm-lockfile-registry.md) — Replit firewall tarball URLs in package-lock.json fail DNS on cloned Mac builds; keep resolved URLs public
 - [Portable app assets](portable-app-assets.md) — keep imported runtime images in tracked source folders; attached_assets is globally ignored and won't reach Git clones
+- [Day 3 workout artwork](day-three-workout-art.md) — use the original bordered Workout #3 image centered below its text; do not crop or redraw it

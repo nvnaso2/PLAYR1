@@ -1690,7 +1690,7 @@ export default function HubPage() {
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm sm:h-10 sm:w-10"><Dumbbell className="h-4 w-4 sm:h-5 sm:w-5" /></span>
                       </div>
                       <div className="relative flex min-h-0 flex-1 items-center justify-center">
-                        <img src={volumeWorkoutCardArt} alt="Make X 3's in a Row basketball court drill" className="pointer-events-none block h-[min(25dvh,220px)] w-[min(66vw,300px)] object-contain mix-blend-multiply sm:h-[min(27dvh,250px)] sm:w-[min(44vw,340px)]" />
+                        <img src={volumeWorkoutCardArt} alt="Make X 3's in a Row basketball court drill" className="pointer-events-none block h-[min(25dvh,220px)] w-[min(66vw,300px)] rounded-md object-contain sm:h-[min(27dvh,250px)] sm:w-[min(44vw,340px)]" />
                       </div>
                     </div>
                     <span className="relative mt-2 flex min-h-12 shrink-0 items-center justify-between gap-3 rounded-xl bg-black px-4 py-2 text-left text-white shadow-[0_12px_22px_rgba(0,0,0,0.35)] transition group-hover:bg-zinc-900 group-hover:shadow-[0_14px_26px_rgba(0,0,0,0.42)]">
@@ -1709,8 +1709,8 @@ export default function HubPage() {
             </div>}
 
             {dayTwoWorkoutOpen && (
-              <div className="fixed inset-0 z-[86] flex items-center justify-center bg-black/85 p-3 backdrop-blur-sm sm:p-6" onClick={() => setDayTwoWorkoutOpen(false)}>
-                <div className="max-h-[92dvh] w-full max-w-4xl overflow-y-auto rounded-[1.35rem]" onClick={(event) => event.stopPropagation()}>
+              <div className="fixed inset-0 z-[86] flex items-start justify-center overflow-y-auto bg-black/85 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] pt-[calc(env(safe-area-inset-top,0px)+1rem)] backdrop-blur-sm sm:items-center sm:px-6 sm:py-6" onClick={() => setDayTwoWorkoutOpen(false)}>
+                <div className="max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] w-full max-w-4xl overflow-y-auto rounded-[1.35rem]" onClick={(event) => event.stopPropagation()}>
                   <DayTwoWorkoutPreview
                     drills={dayTwoWorkoutQuery.data?.drills ?? []}
                     loading={dayTwoWorkoutQuery.isLoading}

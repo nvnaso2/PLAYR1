@@ -1776,7 +1776,7 @@ export default function TrainingLogPage() {
     };
     return (
       <div className="w-full min-w-0">
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <div className="grid min-w-0 flex-1 gap-1" style={{ gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))` }} role="group" aria-label={`${rows[0].entry.drill.title} spots`}>
             {rows.map((row, roundIndex) => {
               const selected = row.index === index;
@@ -1802,7 +1802,7 @@ export default function TrainingLogPage() {
             })}
           </div>
         {madeMetric && attemptsMetric ? (
-          <div className="flex shrink-0 items-center gap-0.5">
+          <div className="flex min-w-0 items-center justify-end gap-0.5 sm:justify-start">
               <label className="sr-only" htmlFor={`track-made-${index}`}>Makes</label>
               <Input id={`track-made-${index}`} type="text" inputMode="numeric" placeholder="M" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} makes`} value={getMetricInputValue(index, madeMetric.metricTemplateId, entry.metrics[madeMetric.metricTemplateId])} onFocus={(event) => event.currentTarget.select()} onChange={(event) => handleMetricInputChange(index, madeMetric.metricTemplateId, event.target.value)} className="h-8 w-[39px] border-zinc-200 bg-white px-1 text-center font-mono text-sm font-bold tabular-nums text-zinc-950 placeholder:text-[9px] placeholder:text-zinc-400 sm:w-[44px]" data-testid={`track-made-input-${index}`} />
               <span className="font-heading text-base font-black text-orange-600">/</span>
