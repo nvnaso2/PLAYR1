@@ -4,7 +4,9 @@ import { useAuth } from "@/hooks/use-auth";
 import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import dayTwoCourtImageCropped from "@/assets/day2-shooting-court-cropped.png";
 import { DayTwoWorkoutPreview } from "@/components/day-two-workout-preview";
+import { VolumeWorkoutPreview } from "@/components/volume-workout-preview";
 import { DAY_TWO_RANGE_WORKOUT_ID } from "@/lib/day-two-workout-art";
+import { DAY_THREE_VOLUME_WORKOUT_ID, volumeWorkoutArt } from "@/lib/day-three-workout-art";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +43,7 @@ import {
   MessageCircle,
   BookOpen,
   BookMarked,
+  BarChart3,
   Layers3,
   Radar,
 } from "lucide-react";
@@ -181,7 +184,7 @@ export default function HubPage() {
   const dayTwoProfileStep = location.split("?")[0] === "/admin/onboarding-preview" && previewPage === "player-profile";
   const dayTwoProfileOpen = dayTwoProfileStep;
   const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding"
-    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2"].includes(previewPage || ""));
+    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2", "day3"].includes(previewPage || ""));
   const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
   const [baselinePickerOpen, setBaselinePickerOpen] = useState(false);
   const [baselineLogging, setBaselineLogging] = useState(false);
@@ -193,15 +196,17 @@ export default function HubPage() {
   const [scheduleDatePickerOpen, setScheduleDatePickerOpen] = useState(false);
   const [trainingPlanOpen, setTrainingPlanOpen] = useState(false);
   const [nextSessionOpen, setNextSessionOpen] = useState(false);
-  const [previewDay, setPreviewDay] = useState(() => new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
+  const [previewDay, setPreviewDay] = useState(() => new URLSearchParams(search).get("page") === "day3" ? 3 : new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
   useEffect(() => {
     if (location.split("?")[0] === "/admin/onboarding-preview") {
-      setPreviewDay(previewPage === "day2" ? 2 : 1);
+      setPreviewDay(previewPage === "day3" ? 3 : previewPage === "day2" ? 2 : 1);
     }
   }, [location, previewPage]);
   const fitOnboardingHub = onboardingPreview && previewDay === 1 && !dayTwoProfileStep;
   const fitOnboardingDayTwo = onboardingPreview && previewDay === 2 && !dayTwoProfileStep;
+  const fitOnboardingDayThree = onboardingPreview && previewDay === 3 && !dayTwoProfileStep;
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
+  const [dayThreeWorkoutOpen, setDayThreeWorkoutOpen] = useState(false);
   const [dayTwoCoachDraft, setDayTwoCoachDraft] = useState("");
   const dayTwoCoachInputRef = useRef<HTMLInputElement>(null);
   const [dayTwoSaving, setDayTwoSaving] = useState(false);
@@ -832,14 +837,14 @@ export default function HubPage() {
   );
 
   return (
-    <div className={fitOnboardingHub || fitOnboardingDayTwo
+    <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree
       ? "flex h-[100dvh] flex-col overflow-hidden bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
       : onboardingPreview
         ? "min-h-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
         : "min-h-full bg-background pb-6"}>
       {/* Greeting Header */}
       <div className="shrink-0 px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
-        {onboardingPreview && <OnboardingPreviewMenu page={dayTwoProfileStep ? "player-profile" : previewDay === 2 ? "day2" : "hub"} showFeedback />}
+        {onboardingPreview && <OnboardingPreviewMenu page={dayTwoProfileStep ? "player-profile" : previewDay === 3 ? "day3" : previewDay === 2 ? "day2" : "hub"} showFeedback />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
@@ -1119,7 +1124,7 @@ export default function HubPage() {
         )}
       </div>
 
-      <div className={fitOnboardingHub || fitOnboardingDayTwo
+      <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree
         ? "min-h-0 flex flex-1 flex-col overflow-hidden px-4 mt-1"
         : "px-4 space-y-5 mt-4"}>
         {onboardingPreview ? (
@@ -1659,6 +1664,37 @@ export default function HubPage() {
                 </button>
               </section>
             )}
+
+            {previewDay === 3 && (
+              <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-3 pb-2" data-testid="card-day-three-mission">
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => navigate("/dashboard")} className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300" data-testid="button-day-three-dashboard">
+                    <span className="flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-orange-300/70 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 shadow-[0_7px_22px_rgba(249,115,22,0.24)] transition group-hover:scale-[1.03]"><BarChart3 className="h-8 w-8 text-zinc-950" /></span>
+                    <span className="text-[10px] font-bold leading-tight text-zinc-300">Dashboard</span>
+                  </button>
+                  <button type="button" onClick={() => navigate("/journal")} className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-day-three-journal">
+                    <span className="relative flex h-[68px] w-[68px] items-center justify-center rounded-[18px] border border-[#f2e6cc] bg-gradient-to-br from-[#eee1c4] to-[#c9b894] shadow-[0_5px_18px_rgba(0,0,0,0.28)] transition group-hover:-translate-y-0.5"><span className="absolute inset-y-2 left-2 w-px bg-[#9c8765]/60" /><BookMarked className="h-8 w-8 text-[#423727]" strokeWidth={1.8} /><span className="absolute right-3 top-0 h-4 w-2 rounded-b-sm bg-orange-600" /></span>
+                    <span className="text-[10px] font-bold leading-tight text-zinc-300">Journal</span>
+                  </button>
+                </div>
+                <button type="button" onClick={() => setDayThreeWorkoutOpen(true)} className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] p-4 text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,.3)]" data-testid="button-preview-day-three-workout">
+                  <img src={volumeWorkoutArt[5]} alt="Make X 3's in a Row streak drill" className="absolute right-2 top-1/2 h-[80%] w-[58%] -translate-y-1/2 object-contain mix-blend-multiply" />
+                  <div className="relative z-10 max-w-[58%]">
+                    <p className="font-mono text-[10px] font-black uppercase tracking-widest text-orange-600">Day 3 · Manual logging</p>
+                    <h3 className="mt-2 font-heading text-4xl font-black uppercase leading-none">Volume<br />Workout</h3>
+                    <p className="mt-3 text-xs font-bold text-zinc-600">200 shots · 6 drills</p>
+                    <p className="mt-2 font-heading text-sm font-black uppercase">Make X 3&apos;s in a Row</p>
+                  </div>
+                  <span className="relative mt-auto flex min-h-12 items-center justify-between rounded-xl bg-black px-4 text-white"><span className="font-black uppercase tracking-wide">Preview the workout</span><ChevronRight className="h-5 w-5 text-orange-400" /></span>
+                </button>
+              </section>
+            )}
+
+            {dayThreeWorkoutOpen && <div className="fixed inset-0 z-[86] flex items-center justify-center bg-black/85 p-3 backdrop-blur-sm sm:p-6" onClick={() => setDayThreeWorkoutOpen(false)}>
+              <div className="w-full max-w-4xl" onClick={(event) => event.stopPropagation()}>
+                <VolumeWorkoutPreview onClose={() => setDayThreeWorkoutOpen(false)} onLogWorkout={() => navigate(`/log?workoutId=${encodeURIComponent(DAY_THREE_VOLUME_WORKOUT_ID)}`)} />
+              </div>
+            </div>}
 
             {dayTwoWorkoutOpen && (
               <div className="fixed inset-0 z-[86] flex items-center justify-center bg-black/85 p-3 backdrop-blur-sm sm:p-6" onClick={() => setDayTwoWorkoutOpen(false)}>

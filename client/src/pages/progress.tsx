@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { nativeFetch, statsUrl } from "@/lib/queryClient";
 import { QueryError } from "@/components/query-error";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -197,6 +197,8 @@ export default function ProgressPage() {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("shotsMade");
   const [shareOpen, setShareOpen] = useState(false);
   const [location, setLocation] = useLocation();
+  const search = useSearch();
+  const dayThreeTrainingLogId = new URLSearchParams(search).get("day3TrainingLogId");
   const fromHub = location.includes("from=hub");
 
   const { data: weeklyStats } = useQuery<{ date: string; minutes: number; sessions: number }[]>({
@@ -345,6 +347,15 @@ export default function ProgressPage() {
 
   return (
     <div className="min-h-full w-full min-w-0 overflow-x-clip bg-[#090909] p-4 sm:p-6 max-w-7xl mx-auto space-y-5 sm:space-y-6">
+      {dayThreeTrainingLogId && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-400/25 bg-orange-500/10 p-4" data-testid="day-three-dashboard-journal-next-step">
+          <div>
+            <p className="font-heading font-black uppercase text-white">Your Volume Workout is on the Dashboard</p>
+            <p className="text-sm text-zinc-400">Review your results, then capture how the session felt in your Journal.</p>
+          </div>
+          <Button onClick={() => setLocation(`/journal?type=post-workout&trainingLogId=${encodeURIComponent(dayThreeTrainingLogId)}`)} className="bg-orange-500 font-bold text-black hover:bg-orange-400" data-testid="button-day-three-journal-next">Continue to Journal</Button>
+        </div>
+      )}
       <header className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h1 className="mt-1 text-2xl sm:text-3xl font-black uppercase tracking-wide text-white" data-testid="text-page-title">Dashboard</h1>

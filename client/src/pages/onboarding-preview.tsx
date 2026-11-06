@@ -32,9 +32,9 @@ export default function OnboardingPreviewPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const requestedPage = new URLSearchParams(search).get("page");
-  const page = (["login", "register", "profile", "welcome", "hub", "player-profile", "day2"].includes(requestedPage || "")
+  const page = (["login", "register", "profile", "welcome", "hub", "player-profile", "day2", "day3"].includes(requestedPage || "")
     ? requestedPage
-    : "login") as "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2";
+    : "login") as "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2" | "day3";
   const [playerName, setPlayerName] = useState("");
   const [trainingFrequency, setTrainingFrequency] = useState("");
   const [frequencyUnit, setFrequencyUnit] = useState<"week" | "month">("week");
@@ -79,7 +79,7 @@ export default function OnboardingPreviewPage() {
     return <OnboardingTrailerStep previewMode />;
   }
 
-  if (page === "hub" || page === "player-profile" || page === "day2") {
+  if (page === "hub" || page === "player-profile" || page === "day2" || page === "day3") {
     return <HubPage />;
   }
 

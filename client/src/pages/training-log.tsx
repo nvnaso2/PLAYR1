@@ -100,6 +100,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
 import { DAY_TWO_RANGE_WORKOUT_ID, dayTwoWorkoutArt, dayTwoWorkoutTotals } from "@/lib/day-two-workout-art";
+import { DAY_THREE_VOLUME_WORKOUT_ID } from "@/lib/day-three-workout-art";
 
 type DrillMetricWithTemplate = DrillMetric & { template: MetricTemplate };
 
@@ -1521,14 +1522,17 @@ export default function TrainingLogPage() {
         setQuickCompletedDrillIds(new Set());
         setWorkoutMode("track");
         setShareSessionId(bulkRes?.ok ? sessionId : null);
-        setShowFavoriteDialog(true);
+        setShowFavoriteDialog(activeWorkoutTemplateId !== DAY_THREE_VOLUME_WORKOUT_ID);
       });
 
       // Show streak celebration if daily challenge was auto-completed
       const bulkData = bulkRes?.ok ? await bulkRes.json().catch(() => null) : null;
       const streakResult = bulkData?.streakResult;
       const firstLogId = Array.isArray(bulkData?.logs) && bulkData.logs[0]?.id ? bulkData.logs[0].id : undefined;
-      if (bulkRes?.ok && firstLogId) {
+      if (bulkRes?.ok && firstLogId && activeWorkoutTemplateId === DAY_THREE_VOLUME_WORKOUT_ID) {
+        setPostJournalPrompt(null);
+        setLocation(`/dashboard?day3TrainingLogId=${encodeURIComponent(firstLogId)}`);
+      } else if (bulkRes?.ok && firstLogId) {
         setPostJournalPrompt({ type: "post-workout", trainingLogId: firstLogId });
       }
       if (bulkRes?.ok) {

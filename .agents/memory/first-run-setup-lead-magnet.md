@@ -40,6 +40,12 @@ Day 2 should open the linked shooting workout in Quick Complete so players learn
 
 **How to apply:** default only the Day 2 system workout to Quick Complete; preserve Track Stats as an available mode and retain the exact supplied drill images and description-to-detail path in the workout preview and Day 2 completion flow. Keep the fetch cache-disabled and make the reserved workout idempotently repairable.
 
+Day 3 introduces the Volume Workout in manual Track Stats mode, then sends players to the Dashboard to review saved results and from there to a post-workout Journal entry. The Hub preview shows Dashboard and Journal actions beside the workout; use the supplied Make X 3's in a Row art as the card's main visual.
+
+**Why:** Day 3 is intended to teach manual logging and demonstrate how its data appears on the Dashboard before players reflect in Journal.
+
+**How to apply:** preserve the order workout → Dashboard → Journal, keep Day 3 separate from the live onboarding until rollout is requested, and use the exact provided Volume Workout drill artwork and instructions.
+
 ## Retired setup answers
 
 When a setup field is retired, remove it from the current prompts, validation, and new completion payloads, but preserve its previously saved value when completing setup.

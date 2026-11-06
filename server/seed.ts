@@ -418,6 +418,43 @@ export async function ensureDayTwoRangeWorkout() {
   console.log("Day 2 Find Your Shooting Range workout is ready");
 }
 
+const dayThreeVolumeDrills = [
+  { title: "Catch & Shoot 3's", description: "Take 20 shots from each of the 5 spots around the court. Use a rebounder for catch-and-shoot reps, or take stationary shots if training alone.", reps: 100, duration: 900 },
+  { title: "Mid Range Pull-ups", description: "Take 8 shots from each of the 5 spots around the court. Start behind the 3-point line and take 4 shots dribbling left and 4 dribbling right.", reps: 40, duration: 720 },
+  { title: "Free Throws", description: "Take 25 free throws, practicing as if you were in a game and following your regular free-throw routine.", reps: 25, duration: 420 },
+  { title: "Elbow Jumpers", description: "Take 10 shots at each elbow. Start at the block and spin the ball out to the elbow. Plant your inside foot as you catch, then turn, square your shoulders, and shoot.", reps: 20, duration: 480 },
+  { title: "Curling Wing 3's", description: "Take 10 shots at each wing. Start at the top of the key and spin the ball out to a wing. Plant your inside foot as you catch, then turn, square your shoulders, and shoot.", reps: 20, duration: 600 },
+  { title: "Make X 3's in a Row", description: "Pick 1 of the 5 spots on the court and set a target goal. Keep shooting from that spot until you make X 3-pointers in a row or reach your 5- or 10-minute limit. Starting at 3–5 is fine.", reps: 10, duration: 600 },
+] as const;
+
+export const DAY_THREE_VOLUME_WORKOUT_ID = "playr1-onboarding-day3-volume-workout";
+
+async function ensureDayThreeVolumeWorkout() {
+  const savedDrills: Array<{ drill: Drill; reps: number; duration: number }> = [];
+  for (const item of dayThreeVolumeDrills) {
+    let [drill] = await db.select().from(drills).where(and(eq(drills.title, item.title), isNull(drills.userId))).limit(1);
+    if (!drill) {
+      [drill] = await db.insert(drills).values({
+        title: item.title, description: item.description, category: "shooting", difficulty: "intermediate",
+        duration: item.duration, equipment: ["Basketball", "Hoop"], tips: [],
+        isFeatured: false, trackShots: true, userId: null,
+      }).returning();
+    }
+    savedDrills.push({ drill, reps: item.reps, duration: Math.ceil(item.duration / 60) });
+  }
+  const [existing] = await db.select().from(workouts).where(eq(workouts.id, DAY_THREE_VOLUME_WORKOUT_ID)).limit(1);
+  if (!existing) await db.insert(workouts).values({
+    id: DAY_THREE_VOLUME_WORKOUT_ID, name: "Volume Workout",
+    description: "A 200-shot workout built around repeatable shooting volume and a three-point streak challenge.",
+    userId: null, category: "shooting", estimatedDuration: 60, isFavorite: false,
+  });
+  const links = await db.select({ id: workoutDrills.id }).from(workoutDrills).where(eq(workoutDrills.workoutId, DAY_THREE_VOLUME_WORKOUT_ID)).limit(1);
+  if (!links.length) await db.insert(workoutDrills).values(savedDrills.map(({ drill, reps, duration }, sortOrder) => ({
+    workoutId: DAY_THREE_VOLUME_WORKOUT_ID, drillId: drill.id, sortOrder,
+    defaultDuration: duration, defaultReps: reps, coachingNotes: drill.description,
+  })));
+}
+
 const sampleBenchmarks = [
   { category: "ball-handling" as const, ageGroup: "12-14", averageScore: "6.2", averageMinutesPerWeek: 45, topPercentileScore: "8.5", sampleSize: 1250 },
   { category: "ball-handling" as const, ageGroup: "15-17", averageScore: "6.8", averageMinutesPerWeek: 60, topPercentileScore: "9.0", sampleSize: 2100 },
@@ -1699,6 +1736,7 @@ export async function seedDatabase() {
       console.log("Drills already exist, skipping seed");
     }
     await ensureDayTwoRangeWorkout();
+    await ensureDayThreeVolumeWorkout();
 
     // Check if benchmarks already exist
     const existingBenchmarks = await db.select().from(benchmarks).limit(1);
