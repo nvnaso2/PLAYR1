@@ -1686,7 +1686,6 @@ export default function HubPage() {
                         src={dayTwoCourtImageCropped}
                         alt="Basketball half court with shooting positions numbered one through eight"
                         className="pointer-events-none absolute right-8 top-1/2 z-0 h-[185px] w-[210px] -translate-y-1/2 object-contain opacity-75 mix-blend-multiply sm:right-10 sm:h-[210px] sm:w-[240px]"
-                        style={{ maskImage: "linear-gradient(to right, transparent 0%, black 32%)", WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 32%)" }}
                       />
                       <span className="relative z-10 max-w-[68%] min-w-0 pr-2">
                         <span className="block font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">Workout <span className="text-orange-600">#2</span></span>
