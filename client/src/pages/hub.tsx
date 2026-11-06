@@ -803,23 +803,21 @@ export default function HubPage() {
       frequencyUnit: previewProfile.frequencyUnit ?? savedAnswers.frequencyUnit ?? "week",
       sessionLength: previewProfile.sessionLength ?? savedAnswers.sessionLength ?? "Not provided",
     };
-    const baseline = baselineComplete
-      ? Object.fromEntries(previewShotTypes.map(({ key, label }) => [
-          label,
-          `${Math.round((Number(baselineResults[key]) / selectedBaseline[key]) * 100)}% (${baselineResults[key]} makes out of ${selectedBaseline[key]} attempts)`,
-        ]))
-      : "Day 1 shooting baseline has not been recorded yet. Do not invent shooting percentages; ask for them if needed.";
-    const prompt = [
-      "Build my PLAYR1 Player Blueprint using the onboarding information and Day 1 shooting baseline below.",
-      "Give me a specific, encouraging breakdown: what I already do well, my highest-value growth opportunities, and a practical path toward my stated basketball goal. Explain how my training frequency and session length affect the plan. Be honest and realistic—do not promise outcomes or call me unstoppable as a guarantee.",
-      "Then start a short, personalized three-question coaching quiz in chat. Ask only question 1 now, wait for my answer, then ask questions 2 and 3 one at a time. Make each question about my profile, choices, or goals, and use my answers to refine the recommendations.",
-      `Player profile: ${JSON.stringify(profileAnswers)}`,
-      `Day 1 shooting baseline: ${typeof baseline === "string" ? baseline : JSON.stringify(baseline)}`,
-    ].join("\n\n");
+    const profileInsightContext = {
+      profile: profileAnswers,
+      baseline: baselineComplete
+        ? {
+            completed: true,
+            threes: { makes: Number(baselineResults.threes), attempts: selectedBaseline.threes },
+            midrange: { makes: Number(baselineResults.midrange), attempts: selectedBaseline.midrange },
+            freeThrows: { makes: Number(baselineResults.freeThrows), attempts: selectedBaseline.freeThrows },
+          }
+        : { completed: false },
+    };
     try {
-      sessionStorage.setItem("playr1-coach-player-blueprint-prompt", prompt);
+      sessionStorage.setItem("playr1-coach-player-blueprint-context", JSON.stringify(profileInsightContext));
     } catch {
-      // Continue into Coach P; the page will request profile details if storage is unavailable.
+      // Coach P still has the saved account profile if this local context is unavailable.
     }
     navigate("/coach-p?onboardingBlueprint=1");
   };

@@ -1,6 +1,7 @@
 export type CoachPContextMode =
   | "general"
   | "profile"
+  | "profile-insight"
   | "training"
   | "workout"
   | "game"

@@ -104,6 +104,25 @@ type CoachPWorkoutAnswers = {
   secondaryFocuses: string[];
 };
 
+type CoachPProfileInsightContext = {
+  profile: {
+    currentSituation: string;
+    primaryGoal: string;
+    positions: string[];
+    experienceYears: string;
+    skillRankings: Record<string, string>;
+    trainingFrequency: string;
+    frequencyUnit: string;
+    sessionLength: string;
+  };
+  baseline: {
+    completed: boolean;
+    threes?: { makes: number; attempts: number };
+    midrange?: { makes: number; attempts: number };
+    freeThrows?: { makes: number; attempts: number };
+  };
+};
+
 type CoachPStreamResult = {
   message: string;
   coachP: CoachPUsage;
@@ -740,6 +759,8 @@ export default function CoachPPage() {
       workoutBuilder?: boolean;
       welcomeWorkout?: boolean;
       workoutAnswers?: CoachPWorkoutAnswers;
+      profileInsight?: boolean;
+      profileInsightContext?: CoachPProfileInsightContext;
     }): Promise<CoachPStreamResult> => {
       const response = await apiRequest("POST", "/api/coach-p/chat", request);
       const reader = response.body?.getReader();
@@ -910,6 +931,8 @@ export default function CoachPPage() {
       workoutBuilder?: boolean;
       welcomeWorkout?: boolean;
       workoutAnswers?: CoachPWorkoutAnswers;
+      profileInsight?: boolean;
+      profileInsightContext?: CoachPProfileInsightContext;
       displayContent?: string;
     },
   ) => {
@@ -938,6 +961,8 @@ export default function CoachPPage() {
       workoutBuilder: isWorkoutBuilder,
       welcomeWorkout: options?.welcomeWorkout,
       workoutAnswers: options?.workoutAnswers,
+      profileInsight: options?.profileInsight,
+      profileInsightContext: options?.profileInsightContext,
     });
     requestAnimationFrame(() => scrollToBottom("smooth"));
   };
@@ -1071,16 +1096,21 @@ export default function CoachPPage() {
       if (message.trim()) sendMessage(message.trim(), { displayContent: message.trim() });
     } else if (onboardingBlueprint) {
       startNewConversation();
-      let blueprintPrompt = "";
+      let profileInsightContext: CoachPProfileInsightContext | undefined;
       try {
-        blueprintPrompt = sessionStorage.getItem("playr1-coach-player-blueprint-prompt") || "";
-        sessionStorage.removeItem("playr1-coach-player-blueprint-prompt");
+        const savedContext = sessionStorage.getItem("playr1-coach-player-blueprint-context");
+        if (savedContext) profileInsightContext = JSON.parse(savedContext) as CoachPProfileInsightContext;
+        sessionStorage.removeItem("playr1-coach-player-blueprint-context");
       } catch {
-        // Coach P can still start by asking the player what they have shared so far.
+        // The server can still use the saved account profile and assessment.
       }
       sendMessage(
-        blueprintPrompt || "Review my player profile and shooting baseline. Ask me for any information you need, then give me a realistic breakdown of my strengths, biggest growth opportunities, and next steps toward my goal. Start a personalized three-question quiz, one question at a time.",
-        { displayContent: "Reveal my player blueprint" },
+        "Connect my profile, shooting baseline, assessment, and training history into useful insights. Explain what the evidence suggests and what is still uncertain. Do not build a workout. Then ask me one personalized question at a time, three questions total, to sharpen your understanding of my game.",
+        {
+          profileInsight: true,
+          profileInsightContext,
+          displayContent: "Analyze my profile",
+        },
       );
     } else if (welcomeWorkout) {
       startNewConversation();
