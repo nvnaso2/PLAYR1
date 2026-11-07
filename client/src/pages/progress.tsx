@@ -212,8 +212,8 @@ export default function ProgressPage() {
   const savedShootingBaseline = playerSetup?.answers?.shootingBaseline;
   const baselineSeries = [
     { key: "threes" as const, chartKey: "threePoint", label: "3PT", color: "#ffd84d", start: 20, ceiling: 95, phase: 0.2 },
-    { key: "midrange" as const, chartKey: "midRange", label: "Mid-range", color: "#ff5364", start: 30, ceiling: 95, phase: 1.7 },
-    { key: "freeThrows" as const, chartKey: "freeThrows", label: "Free throws", color: "#70f06a", start: 40, ceiling: 99, phase: 3.1 },
+    { key: "midrange" as const, chartKey: "midRange", label: "MID", color: "#ff5364", start: 30, ceiling: 95, phase: 1.7 },
+    { key: "freeThrows" as const, chartKey: "freeThrows", label: "FT", color: "#70f06a", start: 40, ceiling: 99, phase: 3.1 },
   ];
   const trainingFrequency = Math.max(1, Number(playerSetup?.answers?.trainingDaysPerUnit ?? 1));
   const sessionsPerWeek = Math.min(7, trainingFrequency * (playerSetup?.answers?.trainingPeriodUnit === "month" ? 12 / 52 : 1));
@@ -279,6 +279,7 @@ export default function ProgressPage() {
   };
   const handleChartPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
+    if (event.target instanceof HTMLElement && event.target.closest("select,button,input")) return;
     chartDragStart.current = event.clientX;
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -516,11 +517,11 @@ export default function ProgressPage() {
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   {chartIndex === 0 ? <Target className="h-5 w-5 text-primary" /> : chartIndex === 1 ? <BarChart3 className="h-5 w-5 text-primary" /> : <Activity className="h-5 w-5 text-primary" />}
-                  {["Day 1 Shooting Baseline", "Training Activity", "Time by Category"][chartIndex]}
+                  {["Road to Elite Shooting", "Training Activity", "Time by Category"][chartIndex]}
                 </CardTitle>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{chartIndex + 1} / 3</span>
               </div>
-              {chartIndex === 0 && <p className="text-xs text-zinc-500">Your saved baseline or the same starting values used in the Day 1 Hub.</p>}
+              {chartIndex === 0 && <p className="text-xs text-zinc-500">Your Day 1 baseline with a 12-month projection.</p>}
             </CardHeader>
             <CardContent className="min-h-0 flex-1 px-2 pb-3 sm:px-5">
               {chartIndex === 0 && (
@@ -638,8 +639,8 @@ export default function ProgressPage() {
             )}
           </div>
 
-          {/* Progress Chart — single chart with swipeable metric carousel */}
-          <Card className={`min-h-0 min-w-0 flex-1 flex-col border-zinc-800 bg-zinc-950/70 shadow-none ${chartIndex === 0 ? "hidden" : "flex"}`}>
+          {/* One selectable trend chart follows the heatmap. */}
+          {chartIndex === 1 && <Card className="flex min-h-0 min-w-0 flex-1 flex-col border-zinc-800 bg-zinc-950/70 shadow-none">
             <CardHeader className="shrink-0 pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -715,7 +716,7 @@ export default function ProgressPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
           {false && <div className="hidden">
             <Card className="min-w-0 border-zinc-800 bg-zinc-950/70 shadow-none">
