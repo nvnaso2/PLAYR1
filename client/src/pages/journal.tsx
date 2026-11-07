@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CoachPIcon } from "@/components/coach-p-icon";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
@@ -211,11 +212,11 @@ function EntryEditor({
     <div className="space-y-5">
       <div className="flex flex-wrap justify-end gap-2">
         {entry && <Button size="sm" variant="outline" className="h-9 px-3 text-xs" onClick={onDone}>Cancel</Button>}
-        <Button size="sm" variant="outline" className="h-9 border-[#675745] px-3 text-xs text-[#e8ddcd] hover:bg-[#29251f]" disabled={analysisPending || mutation.isPending || !hasReflectionContent} onClick={analyze} data-testid="button-analyze-journal">
-          {analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-orange-400" />}Analyze with Coach P{!isPro && <Badge variant="outline" className="ml-2 border-zinc-700 text-[10px]">Pro</Badge>}
+        <Button size="sm" variant="outline" className="h-8 border-zinc-700 px-2.5 text-[11px] text-zinc-200 hover:border-orange-500/50 hover:bg-zinc-900" disabled={analysisPending || mutation.isPending || !hasReflectionContent} onClick={analyze} data-testid="button-analyze-journal">
+          {analysisPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <span className="relative mr-1.5 inline-flex h-4 w-4 items-center justify-center"><span className="absolute left-1/2 top-1/2 scale-[0.44] -translate-x-1/2 -translate-y-1/2"><CoachPIcon /></span></span>}Analyze with Coach P{!isPro && <Badge variant="outline" className="ml-1.5 border-zinc-700 px-1 text-[9px]">Pro</Badge>}
         </Button>
-        <Button size="sm" className="h-9 bg-orange-500 px-3 text-xs font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending || analysisPending || !hasReflectionContent} onClick={() => mutation.mutate()} data-testid="button-save-journal">
-          {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}{entry ? "Save changes" : "Save page"}
+        <Button size="sm" className="h-8 bg-orange-500 px-3 text-[11px] font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending || analysisPending || !hasReflectionContent} onClick={() => mutation.mutate()} data-testid="button-save-journal">
+          {mutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}{entry ? "Save changes" : "Complete"}
         </Button>
       </div>
       {!entry && <div className="flex flex-wrap items-center justify-between gap-3">
@@ -244,7 +245,6 @@ function EntryEditor({
         <Textarea id="journal-thoughts" value={thoughts} onChange={(event) => setThoughts(event.target.value)} placeholder={activePrompt ? "Write your response…" : "Start anywhere…"} className="relative min-h-[330px] resize-y rounded-none border-0 bg-transparent py-5 pl-11 pr-5 text-[16px] leading-[32px] text-[#38332d] placeholder:text-[#9a8d7c] shadow-none focus-visible:ring-0 sm:min-h-[390px]" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0, transparent 31px, rgba(118, 99, 78, 0.17) 32px)", backgroundPosition: "0 9px" }} data-testid="textarea-journal-thoughts" />
         <span aria-hidden="true" className="absolute right-0 top-5 h-8 w-3 rounded-l-sm bg-orange-500" />
       </div>
-      <p className="text-xs text-zinc-500">Private to you. No perfect answer needed.</p>
     </div>
   );
 }
@@ -436,7 +436,19 @@ export default function JournalPage() {
           {!showAllEntries ? (
             <section className="space-y-5" aria-label="Write a journal page">
               <div className="flex justify-end">
-                <Button variant="outline" className="shrink-0 border-[#51463b] bg-[#1b1a18] text-[#e9e0d4] hover:border-orange-500/60 hover:bg-[#24211d]" onClick={() => setShowAllEntries(true)} data-testid="button-past-entries"><BookOpen className="mr-2 h-4 w-4 text-orange-400" />Past Entries <span className="ml-1 tabular-nums text-zinc-500">{entries.length}</span></Button>
+                <Button
+                  variant="outline"
+                  className="group h-11 shrink-0 gap-2 rounded-xl border-zinc-800 bg-zinc-950 px-3 text-zinc-200 shadow-sm transition hover:border-orange-500/50 hover:bg-zinc-900"
+                  onClick={() => setShowAllEntries(true)}
+                  data-testid="button-past-entries"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500/10">
+                    <BookOpen className="h-4 w-4 text-orange-400" />
+                  </span>
+                  <span className="text-xs font-semibold">Past entries</span>
+                  <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium tabular-nums text-zinc-400">{entries.length}</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-300" />
+                </Button>
               </div>
               <EntryEditor
                 key={`new-journal-editor-${draftRevision}`}
@@ -572,7 +584,7 @@ export default function JournalPage() {
 
       <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
         <DialogContent className="dark max-h-[90vh] overflow-y-auto rounded-2xl border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-xl">
-          <DialogHeader><DialogTitle>Journal reflection</DialogTitle><DialogDescription>Private to you</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Journal reflection</DialogTitle></DialogHeader>
            {selectedEntry && <EntryDetail entry={selectedEntry} isPro={isPro} onAnalyzed={setSelectedEntry} onClose={() => setSelectedEntry(null)} onDelete={() => setDeletingId(selectedEntry.id)} onEdit={() => { setEditing(selectedEntry); setSelectedEntry(null); }} />}
         </DialogContent>
       </Dialog>
