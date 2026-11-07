@@ -11,6 +11,7 @@ import { CoachPIcon } from "@/components/coach-p-icon";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -21,7 +22,7 @@ import {
 import {
   ArrowLeft, ArrowUp, BookOpen, Brain, ChevronRight, Dumbbell,
   Edit3, Filter, Loader2, Search,
-  Sparkles, Trash2, Trophy, X,
+  Trash2, Trophy, X,
 } from "lucide-react";
 import type { JournalEntry, TrainingLog } from "@shared/schema";
 import { getJournalPrompts, type JournalPrompt } from "@shared/journalPrompts";
@@ -68,55 +69,16 @@ function formatDate(value?: string | Date | null, long = false) {
     : { month: "short", day: "numeric", year: "numeric" });
 }
 
-function JournalTypePicker({
-  value, onChange, freeWrite, onFreeWriteChange, disabled = false, className = "",
-}: {
-  value: JournalType;
-  onChange: (value: JournalType) => void;
-  freeWrite: boolean;
-  onFreeWriteChange: (value: boolean) => void;
-  disabled?: boolean;
-  className?: string;
-}) {
-  const options: Array<{ value: JournalType; label: string; icon: typeof Dumbbell }> = [
-    { value: "post-workout", label: "Practice", icon: Dumbbell },
-    { value: "post-game", label: "Game", icon: Trophy },
-    { value: "open", label: "Open", icon: Brain },
-  ];
+function CoachPMark({ size = 16 }: { size?: number }) {
   return (
-    <div className={className}>
-      <div className="grid grid-cols-4 gap-1">
-        {options.map(({ value: optionValue, label, icon: Icon }) => (
-          <button
-            key={optionValue}
-            type="button"
-            disabled={disabled}
-            aria-pressed={!freeWrite && value === optionValue}
-            onClick={() => onChange(optionValue)}
-            className={`flex items-center justify-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-1.5 text-[10px] transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
-              !freeWrite && value === optionValue ? "border-orange-400 bg-orange-500/10" : "border-zinc-800 bg-zinc-950 hover:border-orange-400/50"
-            }`}
-            data-testid={`button-journal-type-${optionValue}`}
-          >
-            <Icon className={`w-3 h-3 shrink-0 ${!freeWrite && value === optionValue ? "text-orange-300" : "text-zinc-500"}`} />
-            <span className="font-medium">{label}</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          disabled={disabled}
-          aria-pressed={freeWrite}
-          onClick={() => onFreeWriteChange(true)}
-          className={`flex items-center justify-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-1.5 text-[10px] transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
-            freeWrite ? "border-orange-400 bg-orange-500/10" : "border-zinc-800 bg-zinc-950 hover:border-orange-400/50"
-          }`}
-          data-testid="button-journal-free-write"
-        >
-          <Edit3 className={`w-3 h-3 shrink-0 ${freeWrite ? "text-orange-300" : "text-zinc-500"}`} />
-          <span className="font-medium">Free write</span>
-        </button>
-      </div>
-    </div>
+    <span className="relative inline-flex shrink-0 items-center justify-center align-middle" style={{ width: size, height: size }}>
+      <span
+        className="absolute left-1/2 top-1/2"
+        style={{ transform: `translate(-50%, -50%) scale(${size / 36})` }}
+      >
+        <CoachPIcon />
+      </span>
+    </span>
   );
 }
 
@@ -145,6 +107,7 @@ function EntryEditor({
   const [sourceKind, setSourceKind] = useState<SourceKind | null>(entry?.gameId ? "game" : entry?.trainingLogId ? "workout" : initialSourceKind || null);
   const [sourceId, setSourceId] = useState<string | null>(entry?.gameId || entry?.trainingLogId || initialSourceId || null);
   const [analysisPending, setAnalysisPending] = useState(false);
+  const [analysisDialogOpen, setAnalysisDialogOpen] = useState(false);
   const activePrompt = !entry && !freeWrite ? PROMPTS[type].find((prompt) => prompt.id === selectedPromptId) : undefined;
   const savedPrompts = entry?.responses || [];
   const hasReflectionContent = Boolean(
@@ -188,7 +151,7 @@ function EntryEditor({
     onError: (error: Error) => toast({ title: "Could not save reflection", description: error.message, variant: "destructive" }),
   });
   const analyze = async () => {
-    if (!isPro) { openProOffer("Journal analysis"); return; }
+    if (!isPro) { setAnalysisDialogOpen(false); openProOffer("Journal analysis"); return; }
     setAnalysisPending(true);
     try {
       const saved = await save();
@@ -197,6 +160,7 @@ function EntryEditor({
       const response = await apiRequest("POST", `/api/journal/${saved.id}/ai-coach`);
       const analyzed = await response.json() as JournalView;
       queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
+      setAnalysisDialogOpen(false);
       toast({ title: "Coach P’s analysis is ready" });
       onSaved?.(analyzed);
       onDone();
@@ -211,51 +175,73 @@ function EntryEditor({
     setSelectedPromptId(prompts[Math.floor(Math.random() * prompts.length)]?.id || "");
     setFreeWrite(false);
   }, [type]);
-  const editorActions = (
-    <div className="flex flex-wrap justify-end gap-2">
-      {entry && <Button size="sm" variant="outline" className="h-9 px-3 text-xs" onClick={onDone}>Cancel</Button>}
-      <Button size="sm" variant="outline" className="h-8 border-zinc-700 px-2.5 text-[11px] text-zinc-200 hover:border-orange-500/50 hover:bg-zinc-900" disabled={analysisPending || mutation.isPending || !hasReflectionContent} onClick={analyze} data-testid="button-analyze-journal">
-        {analysisPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <span className="relative mr-1.5 inline-flex h-4 w-4 items-center justify-center"><span className="absolute left-1/2 top-1/2 scale-[0.44] -translate-x-1/2 -translate-y-1/2"><CoachPIcon /></span></span>}Analyze with Coach P{!isPro && <Badge variant="outline" className="ml-1.5 border-zinc-700 px-1 text-[9px]">Pro</Badge>}
-      </Button>
-      <Button size="sm" className="h-8 bg-orange-500 px-3 text-[11px] font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending || analysisPending || !hasReflectionContent} onClick={() => mutation.mutate()} data-testid="button-save-journal">
-        {mutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}{entry ? "Save changes" : "Complete"}
-      </Button>
+  const coachAnalysisButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="h-10 w-10 shrink-0 p-0 text-zinc-200 hover:bg-transparent"
+      aria-label="Learn about Coach P analysis"
+      title="Learn about Coach P analysis"
+      onClick={() => setAnalysisDialogOpen(true)}
+      data-testid="button-analyze-journal"
+    >
+      <CoachPIcon />
+    </Button>
+  );
+  const entryActions = entry && (
+    <div className="flex justify-end gap-2">
+      <Button size="sm" variant="outline" className="h-9 px-3 text-xs" onClick={onDone}>Cancel</Button>
+      {coachAnalysisButton}
+      <Button size="sm" className="h-9 bg-orange-500 px-3 text-xs font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending || analysisPending || !hasReflectionContent} onClick={() => mutation.mutate()} data-testid="button-save-journal">Save changes</Button>
     </div>
   );
   return (
     <div className="space-y-5">
-      {!entry ? (
-        <div className="space-y-3 rounded-2xl border border-zinc-800/80 bg-zinc-950/70 p-3 shadow-sm sm:p-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            {onTypeChange && (
-              <JournalTypePicker
-                value={type}
-                onChange={changeType}
-                freeWrite={freeWrite}
-                onFreeWriteChange={setFreeWrite}
-                disabled={Boolean(savedDraftId)}
-                className="min-w-0 w-full"
-              />
-            )}
-            {onOpenArchive && (
-              <Button
-                variant="outline"
-                className="group h-10 justify-self-end gap-2 rounded-xl border-zinc-800 bg-zinc-950 px-2.5 text-zinc-200 shadow-sm transition hover:border-orange-500/50 hover:bg-zinc-900"
-                onClick={onOpenArchive}
-                data-testid="button-past-entries"
-              >
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-500/10">
-                  <BookOpen className="h-3.5 w-3.5 text-orange-400" />
-                </span>
-                <span className="text-xs font-semibold">Past entries</span>
-                <span className="rounded-full bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-zinc-400">{entryCount ?? 0}</span>
-                <ChevronRight className="h-3 w-3 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-300" />
-              </Button>
-            )}
-          </div>
-          {editorActions}
-        </div>
-      ) : editorActions}
+      {!entry && <div className="flex items-center gap-2">
+        <Select
+          value={freeWrite ? "free-write" : type}
+          disabled={Boolean(savedDraftId)}
+          onValueChange={(value) => {
+            if (value === "free-write") setFreeWrite(true);
+            else changeType(value as JournalType);
+          }}
+        >
+          <SelectTrigger
+            aria-label="Choose reflection type"
+            className="h-10 min-w-0 flex-1 rounded-xl border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100 focus:ring-orange-500/40"
+            data-testid="select-journal-type"
+          >
+            <SelectValue placeholder="Choose a reflection" />
+          </SelectTrigger>
+          <SelectContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
+            <SelectItem value="post-workout" className="focus:bg-orange-500/15 focus:text-white">
+              <span className="flex items-center gap-2"><Dumbbell className="h-4 w-4 text-orange-400" />Practice</span>
+            </SelectItem>
+            <SelectItem value="post-game" className="focus:bg-orange-500/15 focus:text-white">
+              <span className="flex items-center gap-2"><Trophy className="h-4 w-4 text-orange-400" />Game</span>
+            </SelectItem>
+            <SelectItem value="open" className="focus:bg-orange-500/15 focus:text-white">
+              <span className="flex items-center gap-2"><Brain className="h-4 w-4 text-orange-400" />Open</span>
+            </SelectItem>
+            <SelectItem value="free-write" className="focus:bg-orange-500/15 focus:text-white">
+              <span className="flex items-center gap-2"><Edit3 className="h-4 w-4 text-orange-400" />Free write</span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        {coachAnalysisButton}
+        {onOpenArchive && <Button
+          variant="outline"
+          className="ml-auto h-10 shrink-0 gap-2 rounded-xl border-zinc-800 bg-zinc-950 px-2.5 text-zinc-200 hover:border-orange-500/50 hover:bg-zinc-900"
+          onClick={onOpenArchive}
+          data-testid="button-past-entries"
+        >
+          <BookOpen className="h-4 w-4 text-orange-400" />
+          <span className="text-xs font-semibold">Past entries</span>
+          <span className="rounded-full bg-zinc-900 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-400">{entryCount ?? 0}</span>
+        </Button>}
+      </div>}
+      {entryActions}
       {entry && <div><h2 className="text-lg font-semibold">Edit reflection</h2><p className="text-sm text-zinc-500">Keep the details that matter.</p></div>}
       {entry && savedPrompts.length > 0 && (
         <section className="space-y-3" aria-label="Saved reflection prompts">
@@ -277,8 +263,39 @@ function EntryEditor({
         </div>}
         <label htmlFor="journal-thoughts" className="sr-only">Your thoughts</label>
         <Textarea id="journal-thoughts" value={thoughts} onChange={(event) => setThoughts(event.target.value)} placeholder={activePrompt ? "Write your response…" : "Start anywhere…"} className="relative min-h-[330px] resize-y rounded-none border-0 bg-transparent py-5 pl-11 pr-5 text-[16px] leading-[32px] text-[#38332d] placeholder:text-[#9a8d7c] shadow-none focus-visible:ring-0 sm:min-h-[390px]" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0, transparent 31px, rgba(118, 99, 78, 0.17) 32px)", backgroundPosition: "0 9px" }} data-testid="textarea-journal-thoughts" />
+        {!entry && <div className="flex justify-end border-t border-[#d0c1ac] px-4 py-3 pl-11">
+          <Button
+            size="sm"
+            className="h-8 border border-[#b67a3f] bg-[#30271e] px-3 text-[11px] font-semibold tracking-wide text-[#f2e6d7] shadow-sm hover:bg-[#403324]"
+            disabled={mutation.isPending || analysisPending || !hasReflectionContent}
+            onClick={() => mutation.mutate()}
+            data-testid="button-save-journal"
+          >
+            {mutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+            Complete <ChevronRight className="ml-1 h-3.5 w-3.5 text-orange-400" />
+          </Button>
+        </div>}
         <span aria-hidden="true" className="absolute right-0 top-5 h-8 w-3 rounded-l-sm bg-orange-500" />
       </div>
+      <Dialog open={analysisDialogOpen} onOpenChange={setAnalysisDialogOpen}>
+        <DialogContent className="dark max-w-sm rounded-2xl border-zinc-800 bg-zinc-950 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle>Coach P analysis</DialogTitle>
+            <DialogDescription className="leading-relaxed text-zinc-400">
+              Coach P reads this reflection and gives personalized feedback plus a follow-up question. Your page is saved before the analysis starts.
+              {!isPro && " Journal analysis is a Pro feature."}
+            </DialogDescription>
+          </DialogHeader>
+          {!hasReflectionContent && <p className="text-xs text-zinc-500">Write a few words on the page first to enable analysis.</p>}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setAnalysisDialogOpen(false)}>Cancel</Button>
+            <Button className="bg-orange-500 text-zinc-950 hover:bg-orange-400" onClick={analyze} disabled={!hasReflectionContent || analysisPending || mutation.isPending}>
+              {analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isPro ? "Analyze this page" : "Continue"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -337,11 +354,11 @@ function CoachPanel({ entry, isPro }: { entry: JournalEntry; isPro: boolean }) {
   return (
     <div className="space-y-3">
       <Separator />
-      <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /><h3 className="font-semibold text-sm">Coach P on this reflection</h3></div>{!isPro && <Badge variant="outline">Pro</Badge>}</div>
+      <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><CoachPMark size={16} /><h3 className="font-semibold text-sm">Coach P on this reflection</h3></div>{!isPro && <Badge variant="outline">Pro</Badge>}</div>
       {!isPro ? (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">Get personalized, conversational coaching on your reflection with PLAYR1 Pro.</div>
       ) : messages.length === 0 ? (
-        <Button variant="outline" className="w-full" onClick={() => send("Read this reflection and tell me the most important thing I should understand or work on next.")}><Sparkles className="w-4 h-4 mr-2" />Start Coach P</Button>
+        <Button variant="outline" className="w-full" onClick={() => send("Read this reflection and tell me the most important thing I should understand or work on next.")}><span className="mr-2"><CoachPMark size={16} /></span>Start Coach P</Button>
       ) : (
         <div className="space-y-3 max-h-64 overflow-y-auto rounded-lg border p-3">
           {messages.map((message, index) => <div key={index} className={`rounded-lg p-3 text-sm whitespace-pre-wrap ${message.role === "user" ? "ml-8 bg-primary/10" : "mr-4 bg-muted"}`}>{message.content}</div>)}
@@ -390,12 +407,12 @@ function EntryDetail({ entry, isPro, onEdit, onDelete, onClose, onAnalyzed }: { 
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{TYPE_LABELS[entry.type as JournalType]}</h2><p className="text-sm text-muted-foreground">{formatDate(entry.createdAt, true)}</p></div><div className="flex gap-1"><Button size="icon" variant="ghost" onClick={onEdit} aria-label="Edit"><Edit3 className="w-4 h-4" /></Button><Button size="icon" variant="ghost" onClick={onDelete} aria-label="Delete"><Trash2 className="w-4 h-4" /></Button><Button size="icon" variant="ghost" onClick={onClose} aria-label="Close"><X className="w-4 h-4" /></Button></div></div>
-      <Button variant="outline" className="w-full border-[#675745] text-[#e8ddcd] hover:bg-[#29251f]" onClick={analyze} disabled={analysisPending}>{analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-orange-400" />}{entry.aiCoachFeedback ? "Refresh Coach P analysis" : "Analyze with Coach P"}{!isPro && <Badge variant="outline" className="ml-2 border-zinc-700">Pro</Badge>}</Button>
+      <Button variant="outline" className="w-full border-[#675745] text-[#e8ddcd] hover:bg-[#29251f]" onClick={analyze} disabled={analysisPending}>{analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <span className="mr-2"><CoachPMark size={16} /></span>}{entry.aiCoachFeedback ? "Refresh Coach P analysis" : "Analyze with Coach P"}{!isPro && <Badge variant="outline" className="ml-2 border-zinc-700">Pro</Badge>}</Button>
       {entry.mood && <div className="text-sm text-muted-foreground">Mood · {MOODS[entry.mood - 1]?.label}</div>}
       <div className="space-y-4">{(entry.responses || []).map((response) => <div key={response.promptId}><p className="text-sm font-medium text-muted-foreground">{response.question}</p><p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{response.answer}</p></div>)}{entry.thoughts && <div><p className="text-sm font-medium text-muted-foreground">Your thoughts</p><p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{entry.thoughts}</p></div>}</div>
       {source && <Card className="bg-muted/40"><CardContent className="p-4 text-sm"><div className="flex items-center gap-2 font-medium mb-2">{source.kind === "game" ? <Trophy className="w-4 h-4 text-primary" /> : <Dumbbell className="w-4 h-4 text-primary" />}{source.kind === "game" ? `${formatDate(source.gameDate)} · vs ${source.opponent || "opponent"}` : `Workout · ${formatDate(source.date)}`}</div>{source.kind === "game" ? <p className="text-muted-foreground">Stats: {source.points || 0} PTS · {source.rebounds || 0} REB · {source.assists || 0} AST</p> : <p className="text-muted-foreground">{source.duration || 0} minutes · {source.logs?.map((log: any) => log.drillTitle).join(", ")}</p>}</CardContent></Card>}
       {(entry as JournalView).feedbackStale && <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-muted-foreground">Your reflection changed, so the previous Coach P feedback was cleared. Start a fresh conversation for the updated version.</div>}
-      {entry.aiCoachFeedback && <div className="rounded-lg border border-primary/20 bg-primary/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold mb-2"><Sparkles className="w-4 h-4 text-primary" />Previous Coach P feedback</div><p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.aiCoachFeedback}</p></div>}
+      {entry.aiCoachFeedback && <div className="rounded-lg border border-primary/20 bg-primary/5 p-4"><div className="mb-2 flex items-center gap-2 text-sm font-semibold"><CoachPMark size={16} />Previous Coach P feedback</div><p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.aiCoachFeedback}</p></div>}
        {entry.aiFollowUpQuestion && <div className="space-y-2"><p className="text-sm font-medium">{entry.aiFollowUpQuestion}</p>{savedFollowUp ? <p className="text-sm text-muted-foreground whitespace-pre-wrap">{savedFollowUp}</p> : <><Textarea value={followUpAnswer} onChange={(event) => setFollowUpAnswer(event.target.value)} placeholder="Your response..." /><Button size="sm" disabled={!followUpAnswer.trim() || followUpMutation.isPending} onClick={() => followUpMutation.mutate()}>Save follow-up</Button></>}</div>}
       <CoachPanel entry={entry} isPro={isPro} />
     </div>
@@ -410,9 +427,6 @@ export default function JournalPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [type, setType] = useState("");
-  const [mood, setMood] = useState("");
-  const [coached, setCoached] = useState("");
-  const [linkedSource, setLinkedSource] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [selectedType, setSelectedType] = useState<JournalType>(() =>
@@ -434,9 +448,6 @@ export default function JournalPage() {
   const query = new URLSearchParams();
   if (debouncedSearch) query.set("search", debouncedSearch);
   if (type) query.set("type", type);
-  if (mood) query.set("mood", mood);
-  if (coached) query.set("coached", coached);
-  if (linkedSource) query.set("linkedSource", linkedSource);
   if (from) query.set("from", from);
   if (to) query.set("to", to);
   const { data: entries = [], isLoading, isError, refetch } = useQuery<JournalView[]>({ queryKey: ["/api/journal", query.toString()], queryFn: async () => {
@@ -451,8 +462,8 @@ export default function JournalPage() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/journal/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/journal"] }); setDeletingId(null); setSelectedEntry(null); toast({ title: "Entry deleted" }); },
   });
-  const clearFilters = () => { setSearch(""); setType(""); setMood(""); setCoached(""); setLinkedSource(""); setFrom(""); setTo(""); };
-  const hasFilters = !!(search || type || mood || coached || linkedSource || from || to);
+  const clearFilters = () => { setSearch(""); setType(""); setFrom(""); setTo(""); };
+  const hasFilters = !!(search || type || from || to);
   const visibleEntries = entries;
   const openNew = (nextType: JournalType = "open") => { setEditing(null); setSelectedType(nextType); setShowAllEntries(false); };
   const resetDraft = () => {
@@ -483,82 +494,93 @@ export default function JournalPage() {
               />
             </section>
           ) : <>
-          <section className="min-w-0" aria-labelledby="saved-reflections-heading">
+           <section className="relative min-w-0 overflow-hidden rounded-xl border border-[#c9bba6] border-l-[3px] border-l-orange-500 bg-[#eee5d6] text-[#38332d] shadow-[0_14px_40px_rgba(0,0,0,.25)]" aria-labelledby="saved-reflections-heading">
+             <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-7 border-r border-[#c9bba6] bg-[#e3d8c7]" />
+             <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-[27px] top-0 w-px bg-[#d0c1ac]" />
+             <div className="relative space-y-4 py-5 pl-11 pr-4 sm:pl-14 sm:pr-6">
             <div className="mb-4 flex items-end justify-between gap-3">
               <div>
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">The archive</p>
+                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8c5b2e]">The archive</p>
                 <h2 id="saved-reflections-heading" className="text-xl font-bold">Past entries</h2>
               </div>
-              <Button variant="outline" className="border-[#51463b] bg-[#1b1a18] text-[#e9e0d4]" onClick={() => setShowAllEntries(false)}>Back to notebook</Button>
+               <Button variant="outline" className="border-[#c9bba6] bg-[#f8f3eb] text-[#38332d] hover:bg-[#e3d8c7]" onClick={() => setShowAllEntries(false)}>Back to notebook</Button>
             </div>
 
             <div className="mb-4 flex items-center gap-2">
               <div className="relative min-w-0 flex-1">
-                <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                 <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7b68]" />
                 <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   aria-label="Search journal entries"
                   placeholder="Search your pages"
-                  className="h-10 rounded-lg border-zinc-800 bg-[#181817] pl-9 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:border-orange-500"
+                   className="h-10 rounded-lg border-[#c9bba6] bg-[#f8f3eb] pl-9 text-sm text-[#38332d] placeholder:text-[#9a8c7b] focus-visible:border-orange-500"
                   data-testid="input-journal-search"
                 />
               </div>
               <details className="group relative shrink-0">
-                <summary className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-lg border border-zinc-800 bg-[#181817] px-3 text-xs font-medium text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-100 marker:hidden">
+                 <summary className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-lg border border-[#c9bba6] bg-[#f8f3eb] px-3 text-xs font-medium text-[#6c6258] transition hover:border-[#a9957e] hover:text-[#38332d] marker:hidden">
                   <Filter className="h-3.5 w-3.5" />
                   <span>Filter</span>
-                  {(type || mood || coached || linkedSource || from || to) && <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />}
+                  {(type || from || to) && <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />}
                 </summary>
-                <div className="absolute right-0 z-20 mt-2 grid w-[min(88vw,440px)] grid-cols-2 gap-2 rounded-xl border border-zinc-800 bg-[#191918] p-3 shadow-xl">
-                <select aria-label="Filter by reflection type" value={type} onChange={(event) => setType(event.target.value)} className="h-9 min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-200">
-                  <option value="">All types</option><option value="post-workout">Practice</option><option value="post-game">Game</option><option value="open">Open</option>
-                </select>
-                <select aria-label="Filter by mood" value={mood} onChange={(event) => setMood(event.target.value)} className="h-9 min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-200">
-                   <option value="">Any mood</option>{MOODS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                </select>
-                <select aria-label="Filter by coaching" value={coached} onChange={(event) => setCoached(event.target.value)} className="h-9 min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-200">
-                  <option value="">Any coaching</option><option value="true">Coach P feedback</option><option value="false">No Coach P feedback</option>
-                </select>
-                <select aria-label="Filter by linked source" value={linkedSource} onChange={(event) => setLinkedSource(event.target.value)} className="h-9 min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-200">
-                  <option value="">Any source</option><option value="workout">Workout</option><option value="game">Game</option><option value="none">No source</option>
-                </select>
-                <label className="flex min-w-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2">
-                  <span className="text-[9px] font-bold uppercase text-zinc-500">From</span>
-                  <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="From date" className="h-8 min-w-0 border-0 bg-transparent px-0 text-[10px] text-zinc-200 shadow-none focus-visible:ring-0" />
-                </label>
-                <label className="flex min-w-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2">
-                  <span className="text-[9px] font-bold uppercase text-zinc-500">To</span>
-                  <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" className="h-8 min-w-0 border-0 bg-transparent px-0 text-[10px] text-zinc-200 shadow-none focus-visible:ring-0" />
-                </label>
-                  {hasFilters && <Button variant="ghost" size="sm" className="col-span-2 h-8 justify-start text-xs text-orange-300 hover:bg-zinc-900 hover:text-orange-200" onClick={clearFilters}>Clear search and filters</Button>}
+                 <div className="absolute right-0 z-20 mt-2 grid w-[min(88vw,360px)] gap-3 rounded-xl border border-[#c9bba6] bg-[#f8f3eb] p-3 text-[#38332d] shadow-xl">
+                   <label className="grid min-w-0 gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#8c5b2e]">
+                    Type
+                    <select
+                      aria-label="Filter by reflection type"
+                      value={type}
+                      onChange={(event) => setType(event.target.value)}
+                      className="h-10 w-full rounded-lg border border-[#c9bba6] bg-[#fffaf2] px-3 text-sm font-normal normal-case tracking-normal text-[#38332d] focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                      data-testid="filter-journal-type"
+                    >
+                      <option value="">All types</option>
+                      <option value="post-workout">Practice</option>
+                      <option value="post-game">Game</option>
+                      <option value="open">Open</option>
+                    </select>
+                  </label>
+                  <fieldset className="grid gap-1.5">
+                    <legend className="text-[10px] font-semibold uppercase tracking-wider text-[#8c5b2e]">Date range</legend>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="flex min-w-0 items-center gap-1.5 rounded-lg border border-[#c9bba6] bg-[#fffaf2] px-2">
+                        <span className="text-[9px] font-bold uppercase text-[#8b7b68]">From</span>
+                        <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="From date" className="h-9 min-w-0 border-0 bg-transparent px-0 text-xs text-[#38332d] shadow-none focus-visible:ring-0" data-testid="filter-journal-from-date" />
+                      </label>
+                      <label className="flex min-w-0 items-center gap-1.5 rounded-lg border border-[#c9bba6] bg-[#fffaf2] px-2">
+                        <span className="text-[9px] font-bold uppercase text-[#8b7b68]">To</span>
+                        <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" className="h-9 min-w-0 border-0 bg-transparent px-0 text-xs text-[#38332d] shadow-none focus-visible:ring-0" data-testid="filter-journal-to-date" />
+                      </label>
+                    </div>
+                  </fieldset>
+                  {hasFilters && <Button variant="ghost" size="sm" className="h-8 justify-start text-xs text-[#8c5b2e] hover:bg-[#e3d8c7] hover:text-[#613d1e]" onClick={clearFilters}>Clear search and filters</Button>}
                 </div>
               </details>
             </div>
 
             <div className="space-y-2">
           {isError ? (
-            <Card className="rounded-xl border-zinc-800 bg-[#181817]">
+            <Card className="rounded-xl border-[#c9bba6] bg-[#f8f3eb]">
               <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
                 <BookOpen className="h-7 w-7 text-orange-400" />
                 <p className="font-semibold">Your journal didn’t load</p>
-                <p className="text-sm text-zinc-400">Your saved pages are still yours. Try again in a moment.</p>
+                <p className="text-sm text-[#6c6258]">Your saved pages are still yours. Try again in a moment.</p>
                 <Button variant="outline" onClick={() => refetch()}>Try again</Button>
               </CardContent>
             </Card>
           ) : isLoading ? (
-            <div className="space-y-2" aria-label="Loading journal pages">{[1, 2, 3].map((item) => <div key={item} className="h-[86px] animate-pulse rounded-xl border border-zinc-800/70 bg-[#181817]" />)}</div>
+            <div className="space-y-2" aria-label="Loading journal pages">{[1, 2, 3].map((item) => <div key={item} className="h-[86px] animate-pulse rounded-xl border border-[#c9bba6] bg-[#e3d8c7]" />)}</div>
           ) : entries.length === 0 ? (
-            <Card className="rounded-xl border-dashed border-zinc-700 bg-[#181817]">
+            <Card className="rounded-xl border-dashed border-[#b9a88f] bg-[#f8f3eb]">
               <CardContent className="flex flex-col items-start gap-2 px-5 py-7 text-left">
                 <BookOpen className="mb-1 h-6 w-6 text-orange-400" />
                 <p className="font-semibold">{hasFilters ? "No pages match" : "Your first page is waiting."}</p>
-                <p className="max-w-sm text-sm text-zinc-400">{hasFilters ? "Try a different search or clear your filters." : "Keep a moment from practice, game day, or anything on your mind."}</p>
+                <p className="max-w-sm text-sm text-[#6c6258]">{hasFilters ? "Try a different search or clear your filters." : "Keep a moment from practice, game day, or anything on your mind."}</p>
                 <Button className="mt-2 bg-orange-500 text-zinc-950 hover:bg-orange-400" onClick={hasFilters ? clearFilters : () => openNew()}>{hasFilters ? "Clear filters" : "Write the first page"}</Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-zinc-800/90 bg-[#171716]">
+            <div className="overflow-hidden rounded-xl border border-[#c9bba6] bg-[#e3d8c7]">
               {visibleEntries.map((entry) => {
                 const response = entry.responses?.[0]?.answer || entry.thoughts;
                 const source = entry.gameId ? sources.games.find((item) => item.sourceId === entry.gameId) : entry.trainingLogId ? sources.workouts.find((item) => item.sourceId === entry.trainingLogId) : null;
@@ -567,7 +589,7 @@ export default function JournalPage() {
                 return (
                   <Card
                     key={entry.id}
-                    className="group cursor-pointer rounded-none border-0 border-b border-zinc-800/80 bg-transparent shadow-none transition-colors last:border-b-0 hover:bg-[#201f1d]"
+                    className="group cursor-pointer rounded-none border-0 border-b border-[#c9bba6] bg-transparent shadow-none transition-colors last:border-b-0 hover:bg-[#f8f3eb]"
                     onClick={() => setSelectedEntry(entry)}
                     onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedEntry(entry); } }}
                     role="button"
@@ -575,22 +597,22 @@ export default function JournalPage() {
                     data-testid={`card-journal-${entry.id}`}
                   >
                     <CardContent className="flex gap-3.5 px-3 py-4 sm:gap-5 sm:px-4">
-                      <div className="w-11 shrink-0 border-r border-zinc-800 pr-3 text-center">
-                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-orange-400">{dateIsValid ? created.toLocaleDateString("en-US", { month: "short" }) : "—"}</span>
-                        <span className="mt-0.5 block text-xl font-semibold leading-none tabular-nums text-zinc-300">{dateIsValid ? created.getDate() : "—"}</span>
+                      <div className="w-11 shrink-0 border-r border-[#c9bba6] pr-3 text-center">
+                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-[#a6531e]">{dateIsValid ? created.toLocaleDateString("en-US", { month: "short" }) : "—"}</span>
+                        <span className="mt-0.5 block text-xl font-semibold leading-none tabular-nums text-[#38332d]">{dateIsValid ? created.getDate() : "—"}</span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-sm font-semibold text-zinc-100">{TYPE_LABELS[entry.type as JournalType]}{source?.kind === "game" ? ` · vs ${source.opponent || "opponent"}` : source?.kind === "workout" ? " · Practice" : ""}</span>
-                          {entry.aiCoachFeedback && <span className="inline-flex items-center gap-1 text-[10px] text-orange-300"><Sparkles className="h-3 w-3" />Coach P</span>}
+                          <span className="text-sm font-semibold text-[#38332d]">{TYPE_LABELS[entry.type as JournalType]}{source?.kind === "game" ? ` · vs ${source.opponent || "opponent"}` : source?.kind === "workout" ? " · Practice" : ""}</span>
+                          {entry.aiCoachFeedback && <span className="inline-flex items-center gap-1 text-[10px] text-[#8c5b2e]"><CoachPMark size={12} />Coach P</span>}
                         </div>
-                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-zinc-500">
+                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-[#7c7063]">
                           <span>{dateIsValid ? created.toLocaleDateString("en-US", { weekday: "long", year: "numeric" }) : formatDate(entry.createdAt)}</span>
-                          {entry.mood && <span className="before:mr-2 before:text-zinc-700 before:content-['·']">{MOODS[entry.mood - 1]?.label}</span>}
+                          {entry.mood && <span className="before:mr-2 before:text-[#b9a88f] before:content-['·']">{MOODS[entry.mood - 1]?.label}</span>}
                         </p>
-                        {response && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-400">{response}</p>}
+                        {response && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#62584e]">{response}</p>}
                       </div>
-                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-zinc-700 transition-colors group-hover:text-orange-300" />
+                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#9a8c7b] transition-colors group-hover:text-[#a6531e]" />
                     </CardContent>
                   </Card>
                 );
@@ -598,6 +620,7 @@ export default function JournalPage() {
             </div>
           )}
             </div>
+             </div>
           </section>
            </>}
         </main>
