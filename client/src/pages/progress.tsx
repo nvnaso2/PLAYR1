@@ -17,6 +17,8 @@ import {
 import {
   BarChart,
   Bar,
+  LineChart as RechartsLineChart,
+  Line as RechartsLine,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -194,7 +196,7 @@ const METRIC_DEFS: MetricDef[] = [
 export default function ProgressPage() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("weekly");
   const [selectedDashboardPage, setSelectedDashboardPage] = useState<"completion" | "shooting" | null>(null);
-  const [activeSkill, setActiveSkill] = useState("all");
+  const [chartIndex, setChartIndex] = useState(0);
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("shotsMade");
   const [shareOpen, setShareOpen] = useState(false);
   const [location, setLocation] = useLocation();
@@ -203,35 +205,89 @@ export default function ProgressPage() {
   const { data: playerSetup } = useQuery<{
     answers?: {
       shootingBaseline?: Partial<Record<"threes" | "midrange" | "freeThrows", { makes: number; attempts: number }>>;
+      trainingDaysPerUnit?: number;
+      trainingPeriodUnit?: "week" | "month";
     };
   }>({ queryKey: ["/api/player-setup"] });
   const savedShootingBaseline = playerSetup?.answers?.shootingBaseline;
-  const baselineChartData = [
-    { key: "threes" as const, shotType: "3PT" },
-    { key: "midrange" as const, shotType: "Mid-range" },
-    { key: "freeThrows" as const, shotType: "Free throws" },
-  ].flatMap(({ key, shotType }) => {
-    const result = savedShootingBaseline?.[key];
-    return result && result.attempts > 0
-      ? [{ shotType, percentage: Math.round((result.makes / result.attempts) * 100) }]
-      : [];
+  const baselineSeries = [
+    { key: "threes" as const, chartKey: "threePoint", label: "3PT", color: "#ffd84d", start: 20, ceiling: 95, phase: 0.2 },
+    { key: "midrange" as const, chartKey: "midRange", label: "Mid-range", color: "#ff5364", start: 30, ceiling: 95, phase: 1.7 },
+    { key: "freeThrows" as const, chartKey: "freeThrows", label: "Free throws", color: "#70f06a", start: 40, ceiling: 99, phase: 3.1 },
+  ];
+  const trainingFrequency = Math.max(1, Number(playerSetup?.answers?.trainingDaysPerUnit ?? 1));
+  const sessionsPerWeek = Math.min(7, trainingFrequency * (playerSetup?.answers?.trainingPeriodUnit === "month" ? 12 / 52 : 1));
+  const trainingDose = Math.pow(sessionsPerWeek, 0.7);
+  const baselineProjectionData = Array.from({ length: 13 }, (_, month) => {
+    const row: Record<string, string | number> = { month: month === 0 ? "NOW" : `M${month}` };
+    baselineSeries.forEach((series) => {
+      const saved = savedShootingBaseline?.[series.key];
+      const start = saved && saved.attempts > 0 ? Math.round((saved.makes / saved.attempts) * 100) : series.start;
+      const ceiling = Math.max(start, series.ceiling);
+      const potential = ceiling - start;
+      const rate = 0.12 + 0.16 * (1 - start / 100);
+      const annualGain = potential * (1 - Math.exp(-rate * trainingDose));
+      const progress = (1 - Math.exp(-2.8 * (month / 12))) / (1 - Math.exp(-2.8));
+      const yearFraction = month / 12;
+      const wobble = Math.sin(month * 1.55 + series.phase) * yearFraction * (1 - yearFraction) * (8 + trainingDose * 2);
+      row[series.chartKey] = Math.max(0, Math.min(ceiling, start + annualGain * progress + wobble));
+    });
+    return row;
   });
   const activeDashboardPage = selectedDashboardPage ?? (accountProfile?.preferredWorkoutLoggingMode === "track" ? "shooting" : "completion");
-  const dashboardSwipeStart = useRef<number | null>(null);
-  const changeDashboardPage = (direction: 1 | -1) => {
+  const sectionDragStart = useRef<number | null>(null);
+  const chartDragStart = useRef<number | null>(null);
+  const sectionWheelAt = useRef(0);
+  const chartWheelAt = useRef(0);
+  const shootingChartMetrics = METRIC_DEFS.filter((metric) => metric.key !== "minutes" && metric.key !== "sessions");
+  const dashboardChartCount = activeDashboardPage === "completion" ? 3 : shootingChartMetrics.length + 1;
+  const changeSectionBySwipe = (direction: 1 | -1) => {
     setSelectedDashboardPage(direction === 1
       ? activeDashboardPage === "completion" ? "shooting" : "completion"
       : activeDashboardPage === "shooting" ? "completion" : "shooting");
+    setChartIndex(0);
   };
-  const handleDashboardTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    dashboardSwipeStart.current = event.touches[0]?.clientX ?? null;
+  const handleSectionPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    sectionDragStart.current = event.clientX;
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
-  const handleDashboardTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    const start = dashboardSwipeStart.current;
-    dashboardSwipeStart.current = null;
-    const end = event.changedTouches[0]?.clientX;
-    if (start === null || end === undefined || Math.abs(end - start) < 60) return;
-    changeDashboardPage(end < start ? 1 : -1);
+  const handleSectionPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = sectionDragStart.current;
+    sectionDragStart.current = null;
+    if (start === null || Math.abs(event.clientX - start) < 48) return;
+    changeSectionBySwipe(event.clientX < start ? 1 : -1);
+  };
+  const handleSectionWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaX) < 20 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+    const now = Date.now();
+    if (now - sectionWheelAt.current < 450) return;
+    sectionWheelAt.current = now;
+    changeSectionBySwipe(event.deltaX > 0 ? 1 : -1);
+  };
+  const handleChartPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    chartDragStart.current = event.clientX;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const handleChartPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = chartDragStart.current;
+    chartDragStart.current = null;
+    if (start === null || Math.abs(event.clientX - start) < 48) return;
+    const direction = event.clientX < start ? 1 : -1;
+    const next = (chartIndex + direction + dashboardChartCount) % dashboardChartCount;
+    setChartIndex(next);
+    if (activeDashboardPage === "shooting" && next > 0) setSelectedMetric(shootingChartMetrics[(next - 1) % shootingChartMetrics.length].key);
+  };
+  const handleChartWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaX) < 20 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+    const now = Date.now();
+    if (now - chartWheelAt.current < 450) return;
+    chartWheelAt.current = now;
+    const direction = event.deltaX > 0 ? 1 : -1;
+    const next = (chartIndex + direction + dashboardChartCount) % dashboardChartCount;
+    setChartIndex(next);
+    if (activeDashboardPage === "shooting" && next > 0) setSelectedMetric(shootingChartMetrics[(next - 1) % shootingChartMetrics.length].key);
   };
   const dayThreeTrainingLogId = new URLSearchParams(search).get("day3TrainingLogId");
   const fromHub = location.includes("from=hub");
@@ -283,7 +339,6 @@ export default function ProgressPage() {
     isError: shotHeatmapBaselinesError,
   } = useQuery<ShotHeatmapBaselineResponse>({
     queryKey: ["/api/stats/shot-heatmap-baselines"],
-    enabled: activeSkill === "all" || activeSkill === "shooting",
     queryFn: async () => {
       const res = await nativeFetch("/api/stats/shot-heatmap-baselines");
       if (!res.ok) throw new Error("Failed to fetch recent shooting averages");
@@ -316,7 +371,6 @@ export default function ProgressPage() {
   })) || [];
 
   const totalMinutes = overviewStats?.totalMinutes || 0;
-  const totalSessions = overviewStats?.totalSessions || 0;
   const streak = overviewStats?.streak || 0;
 
   const pieData = categoryStats?.map((cat, index) => ({
@@ -325,27 +379,7 @@ export default function ProgressPage() {
     color: CHART_COLORS[index % CHART_COLORS.length],
   })) || [];
 
-  const filteredStats = TRAINING_STAT_DEFS.filter(def => {
-    const hasValue = trainingStats && trainingStats[def.key] && trainingStats[def.key] > 0;
-    if (!hasValue) return false;
-    if (activeSkill === "all") return true;
-    return def.skillType === activeSkill;
-  });
-
-  const skillsWithData = new Set(
-    TRAINING_STAT_DEFS
-      .filter(def => trainingStats && trainingStats[def.key] && trainingStats[def.key] > 0)
-      .map(def => def.skillType)
-  );
-
-  const showShootingHeatmap = activeSkill === "all" || activeSkill === "shooting";
-
   const activeDef = METRIC_DEFS.find(m => m.key === selectedMetric) || METRIC_DEFS[0];
-  const activeMetricIndex = Math.max(0, METRIC_DEFS.findIndex((metric) => metric.key === activeDef.key));
-  const changeMetric = (direction: 1 | -1) => {
-    const nextIndex = (activeMetricIndex + direction + METRIC_DEFS.length) % METRIC_DEFS.length;
-    setSelectedMetric(METRIC_DEFS[nextIndex].key);
-  };
   const chartData = trendsData?.map(p => ({
     label: p.label,
     value: activeDef.getValue(p),
@@ -367,10 +401,8 @@ export default function ProgressPage() {
     );
   }
 
-  const isNewUser = !overviewLoading && totalSessions === 0;
-
   return (
-    <div className="min-h-full w-full min-w-0 overflow-x-clip bg-[#090909] p-4 sm:p-6 max-w-7xl mx-auto space-y-5 sm:space-y-6" onTouchStart={handleDashboardTouchStart} onTouchEnd={handleDashboardTouchEnd}>
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[#090909] p-3 sm:p-5 max-w-7xl mx-auto gap-3">
       {dayThreeTrainingLogId && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-400/25 bg-orange-500/10 p-4" data-testid="day-three-dashboard-journal-next-step">
           <div>
@@ -380,7 +412,7 @@ export default function ProgressPage() {
           <Button onClick={() => setLocation(`/journal?type=post-workout&trainingLogId=${encodeURIComponent(dayThreeTrainingLogId)}`)} className="bg-orange-500 font-bold text-black hover:bg-orange-400" data-testid="button-day-three-journal-next">Continue to Journal</Button>
         </div>
       )}
-      <header className="space-y-3">
+      <header className="shrink-0 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h1 className="mt-1 text-2xl sm:text-3xl font-black uppercase tracking-wide text-white" data-testid="text-page-title">Dashboard</h1>
           <div className="flex shrink-0 items-center justify-end gap-2">
@@ -423,214 +455,122 @@ export default function ProgressPage() {
         </div>
       </header>
 
-      {!isNewUser && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="inline-flex rounded-xl border border-zinc-800 bg-zinc-950 p-1" role="tablist" aria-label="Dashboard views">
-              {([
-                { id: "completion" as const, label: "Training" },
-                { id: "shooting" as const, label: "Shooting" },
-              ]).map((page) => (
-                <button
-                  key={page.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeDashboardPage === page.id}
-                  onClick={() => setSelectedDashboardPage(page.id)}
-                  className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
-                    activeDashboardPage === page.id ? "bg-white text-black" : "text-zinc-500 hover:text-white"
-                  }`}
-                  data-testid={`dashboard-tab-${page.id}`}
-                >
-                  {page.label}
-                </button>
-              ))}
+      {(
+        <section
+          className="shrink-0 select-none touch-pan-y"
+          aria-label="Swipe between training and shooting statistics"
+          onPointerDown={handleSectionPointerDown}
+          onPointerUp={handleSectionPointerUp}
+          onPointerCancel={() => { sectionDragStart.current = null; }}
+          onWheel={handleSectionWheel}
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <p className="font-heading text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              {activeDashboardPage === "completion" ? "Training" : "Shooting"}
+            </p>
+            <div className="flex items-center gap-1.5" aria-hidden="true">
+              {[0, 1].map((index) => <span key={index} className={`h-1.5 rounded-full transition-all ${index === (activeDashboardPage === "completion" ? 0 : 1) ? "w-5 bg-orange-400" : "w-1.5 bg-zinc-700"}`} />)}
             </div>
-            <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600">Swipe to switch</span>
           </div>
-        </div>
-      )}
-
-      {activeDashboardPage === "completion" && <section className="grid grid-cols-3 gap-2 sm:max-w-[780px] sm:gap-4" aria-label="Training summary">
-        {overviewLoading ? (
-          <>
-            <Skeleton className="h-[68px] rounded-lg sm:h-[72px]" />
-            <Skeleton className="h-[68px] rounded-lg sm:h-[72px]" />
-            <Skeleton className="h-[68px] rounded-lg sm:h-[72px]" />
-          </>
-        ) : (
-          <>
-            <StatsCard
-              title="Total Drills"
-              value={trainingStats?.drillsCompleted ?? 0}
-              icon={<Target className="h-6 w-6 text-primary" />}
-              testId="stats-sessions"
-              compact
-            />
-            <StatsCard
-              title="Hours Trained"
-              value={Math.round((totalMinutes / 60) * 10) / 10}
-              icon={<Clock className="h-6 w-6 text-primary" />}
-              testId="stats-hours"
-              compact
-            />
-            <StatsCard
-              title="Day Streak"
-              value={streak}
-              icon={<Zap className="h-6 w-6 text-primary" />}
-              testId="stats-streak"
-              compact
-            />
-          </>
-        )}
-      </section>}
-
-      {!isNewUser && activeDashboardPage === "completion" && (
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Training completion totals">
-          <StatsCard title="Shots Taken" value={(trendsData ?? []).reduce((sum, point) => sum + point.shotsAttempted, 0).toLocaleString()} icon={<Target className="h-5 w-5 text-primary" />} testId="stats-shots-taken" compact />
-          <StatsCard title="Workouts Completed" value={trainingStats?.workoutsCompleted ?? 0} icon={<PlayCircle className="h-5 w-5 text-primary" />} testId="stats-workouts-completed" compact />
-          <StatsCard title="Dribbles Logged" value={(trainingStats?.totalDribbles ?? 0).toLocaleString()} icon={<Activity className="h-5 w-5 text-primary" />} testId="stats-ball-handling-total" compact />
-          <Card className="col-span-2 border-zinc-800 bg-zinc-950/70 shadow-none sm:col-span-3 lg:col-span-4">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Day 1 Shooting Baseline</CardTitle>
-              <p className="text-xs text-zinc-500">Your starting percentages, saved from your baseline workout.</p>
-            </CardHeader>
-            <CardContent>
-              {baselineChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={210}>
-                  <BarChart data={baselineChartData} margin={{ left: -12, right: 12, top: 8, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                    <XAxis dataKey="shotType" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                    <YAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={42} />
-                    <Tooltip formatter={(value: number) => [`${value}%`, "Day 1 baseline"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
-                    <Bar dataKey="percentage" fill="#f97316" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex flex-col items-center gap-3 py-6 text-center">
-                  <p className="max-w-sm text-sm text-zinc-400">Your Day 1 chart will appear after you save your shooting baseline.</p>
-                  <Button variant="outline" size="sm" onClick={() => setLocation("/hub")}>Open Hub</Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {activeDashboardPage === "completion" ? (
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <StatsCard title="Drills Completed" value={trainingStats?.drillsCompleted ?? 0} icon={<Target className="h-5 w-5 text-primary" />} testId="stats-sessions" compact />
+              <StatsCard title="Hours Trained" value={Math.round((totalMinutes / 60) * 10) / 10} icon={<Clock className="h-5 w-5 text-primary" />} testId="stats-hours" compact />
+              <StatsCard title="Workouts" value={trainingStats?.workoutsCompleted ?? 0} icon={<PlayCircle className="h-5 w-5 text-primary" />} testId="stats-workouts-completed" compact />
+              <StatsCard title="Shots Taken" value={(trendsData ?? []).reduce((sum, point) => sum + point.shotsAttempted, 0).toLocaleString()} icon={<Target className="h-5 w-5 text-primary" />} testId="stats-shots-taken" compact />
+              <StatsCard title="Dribbles Logged" value={(trainingStats?.totalDribbles ?? 0).toLocaleString()} icon={<Activity className="h-5 w-5 text-primary" />} testId="stats-ball-handling-total" compact />
+              <StatsCard title="Day Streak" value={streak} icon={<Zap className="h-5 w-5 text-primary" />} testId="stats-streak" compact />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3" data-testid="shooting-stat-breakdown">
+              {TRAINING_STAT_DEFS.filter((stat) => ["totalShotsMade", "threePointersMade", "freeThrowsMade", "fieldGoalsAttempted", "fgPct"].includes(stat.key)).map((stat) => {
+                const value = trainingStats?.[stat.key] ?? 0;
+                return <StatsCard key={stat.key} title={stat.title} value={stat.format ? stat.format(value) : value.toLocaleString()} icon={<Target className="h-5 w-5 text-primary" />} testId={stat.testId} compact />;
+              })}
+            </div>
+          )}
         </section>
       )}
 
-      {isNewUser ? (
-        <Card className="border-orange-500/25 bg-orange-500/5 shadow-none">
-          <CardContent className="p-8 text-center space-y-5">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <Activity className="w-8 h-8 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-white mb-2">Ready to start your journey?</h2>
-              <p className="text-zinc-500 text-sm max-w-sm mx-auto">
-                Log your first drill to start tracking your progress. Your stats, streaks, and improvement charts will all appear right here.
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button
-                size="lg"
-                onClick={() => setLocation("/log")}
-                data-testid="button-log-first-drill"
-                className="gap-2"
-              >
-                <PlayCircle className="w-5 h-5" />
-                Log a Drill Now
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => setLocation("/drills")}
-                data-testid="button-browse-drills"
-                className="gap-2"
-              >
-                <BookOpen className="w-5 h-5" />
-                Browse Drill Library
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      {activeDashboardPage === "completion" ? (
+        <div
+          className="flex min-h-0 flex-1 flex-col touch-pan-y select-none"
+          data-testid="completion-chart-carousel"
+          onPointerDown={handleChartPointerDown}
+          onPointerUp={handleChartPointerUp}
+          onPointerCancel={() => { chartDragStart.current = null; }}
+          onWheel={handleChartWheel}
+        >
+          <Card className="flex min-h-0 flex-1 flex-col border-zinc-800 bg-zinc-950/70 shadow-none">
+            <CardHeader className="shrink-0 pb-2">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  {chartIndex === 0 ? <Target className="h-5 w-5 text-primary" /> : chartIndex === 1 ? <BarChart3 className="h-5 w-5 text-primary" /> : <Activity className="h-5 w-5 text-primary" />}
+                  {["Day 1 Shooting Baseline", "Training Activity", "Time by Category"][chartIndex]}
+                </CardTitle>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{chartIndex + 1} / 3</span>
+              </div>
+              {chartIndex === 0 && <p className="text-xs text-zinc-500">Your saved baseline or the same starting values used in the Day 1 Hub.</p>}
+            </CardHeader>
+            <CardContent className="min-h-0 flex-1 px-2 pb-3 sm:px-5">
+              {chartIndex === 0 && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsLineChart data={baselineProjectionData} margin={{ left: -12, right: 12, top: 10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={38} />
+                    <Tooltip formatter={(value: number) => [`${Math.round(value)}%`, "Projected make rate"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
+                    {baselineSeries.map((series) => <RechartsLine key={series.chartKey} type="monotone" dataKey={series.chartKey} name={series.label} stroke={series.color} strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />)}
+                  </RechartsLineChart>
+                </ResponsiveContainer>
+              )}
+              {chartIndex === 1 && (
+                weeklyStats?.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklyStats ?? []} margin={{ left: -12, right: 8, top: 12, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(value) => new Date(value).toLocaleDateString("en-US", { weekday: "short" })} />
+                      <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={32} />
+                      <Tooltip formatter={(value: number) => [`${value} min`, "Training time"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
+                      <Bar dataKey="minutes" fill="#f97316" radius={[5, 5, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <div className="flex h-full items-center justify-center text-sm text-zinc-500">Training activity will appear here as you log workouts.</div>
+              )}
+              {chartIndex === 2 && (
+                pieData.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={pieData} cx="50%" cy="50%" innerRadius="45%" outerRadius="72%" paddingAngle={3} dataKey="value" strokeWidth={0}>
+                        {pieData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => [`${value} min`, "Training time"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : <div className="flex h-full items-center justify-center text-sm text-zinc-500">Category totals will appear as you log training.</div>
+              )}
+            </CardContent>
+          </Card>
+          <div className="flex shrink-0 items-center justify-center gap-1.5 py-2" aria-label={`Training chart ${chartIndex + 1} of 3`}>
+            {[0, 1, 2].map((index) => <span key={index} className={`h-1.5 rounded-full transition-all ${index === chartIndex ? "w-5 bg-orange-400" : "w-1.5 bg-zinc-700"}`} />)}
+          </div>
+        </div>
       ) : activeDashboardPage === "shooting" ? (
-        <>
-          <div className="space-y-4">
-            <div className="space-y-2" data-testid="skill-tabs">
-              <div className="flex items-center justify-between">
-                <p className="font-heading text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Breakdown by skill</p>
-              </div>
-              <div className="flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Filter stats by skill">
-              {SKILL_TABS.map((tab) => {
-                const hasData = tab.key === "all" || skillsWithData.has(tab.key);
-                return (
-                  <Button
-                    key={tab.key}
-                    size="sm"
-                    variant={activeSkill === tab.key ? "default" : "outline"}
-                    onClick={() => setActiveSkill(tab.key)}
-                    className={`h-9 shrink-0 gap-1.5 whitespace-nowrap ${activeSkill === tab.key
-                      ? "bg-orange-500 text-black hover:bg-orange-400"
-                      : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300"} ${!hasData && tab.key !== "all" ? "opacity-50" : ""}`}
-                    role="tab"
-                    aria-selected={activeSkill === tab.key}
-                    data-testid={`button-skill-${tab.key}`}
-                  >
-                    {tab.label}
-                  </Button>
-                );
-              })}
-              </div>
-            </div>
-
-            {trainingLoading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-[72px] rounded-lg" />
-                ))}
-              </div>
-            ) : filteredStats.length > 0 ? (
-              <div
-                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1"
-                data-testid="training-stats-container"
-              >
-                {filteredStats.map((card) => {
-                  const val = trainingStats![card.key] ?? 0;
-                  const displayVal = card.format ? card.format(val) : val.toLocaleString();
-                  return (
-                    <StatsCard
-                      key={card.key}
-                      title={card.title}
-                      value={displayVal}
-                      icon={card.icon}
-                      testId={card.testId}
-                      compact
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <Card className="min-w-0 border-zinc-800 bg-zinc-950/70 shadow-none">
-                <CardContent className="p-6 text-center">
-                  <Activity className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                  <h3 className="font-semibold mb-1">
-                    No {activeSkill !== "all" ? categoryLabels[activeSkill] || activeSkill : ""} Stats Yet
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Log training sessions to see your stats here
-                  </p>
-                  <Button size="sm" variant="outline" onClick={() => setLocation("/log")} data-testid="button-log-drill-stats">
-                    <PlayCircle className="w-4 h-4 mr-1.5" />
-                    Log a Drill
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {showShootingHeatmap && (
+        <div
+          className="flex min-h-0 flex-1 flex-col touch-pan-y select-none"
+          data-testid="shooting-chart-carousel"
+          onPointerDown={handleChartPointerDown}
+          onPointerUp={handleChartPointerUp}
+          onPointerCancel={() => { chartDragStart.current = null; }}
+          onWheel={handleChartWheel}
+        >
+          <div className={chartIndex === 0 ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+            {(
               shotHeatmapData.length > 0 ? (
                 <ShootingHeatmap
                     shotData={shotHeatmapData}
                     title="Shooting Heatmap"
+                    compact
                     personalizedScale
                     personalBaselines={shotHeatmapBaselines?.sections ?? EMPTY_SHOT_HEATMAP_BASELINES}
                     baselineLoading={shotHeatmapBaselinesLoading}
@@ -658,44 +598,22 @@ export default function ProgressPage() {
           </div>
 
           {/* Progress Chart — single chart with swipeable metric carousel */}
-          <Card className="min-w-0 border-zinc-800 bg-zinc-950/70 shadow-none">
-            <CardHeader className="pb-3">
+          <Card className={`min-h-0 min-w-0 flex-1 flex-col border-zinc-800 bg-zinc-950/70 shadow-none ${chartIndex === 0 ? "hidden" : "flex"}`}>
+            <CardHeader className="shrink-0 pb-2">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <LineChart className="w-5 h-5 text-primary" />
-                  Progress {periodChartTitle[timePeriod]}
+                  {activeDef.label} · {periodChartTitle[timePeriod]}
                 </CardTitle>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => changeMetric(-1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-400 transition hover:border-orange-500/50 hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                    aria-label="Show previous progress metric"
-                    data-testid="button-previous-chart-metric"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="max-w-[92px] truncate text-[10px] font-bold uppercase tracking-[0.08em] text-zinc-500 sm:max-w-none sm:text-xs">
-                    {activeDef.label}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => changeMetric(1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-400 transition hover:border-orange-500/50 hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                    aria-label="Show next progress metric"
-                    data-testid="button-next-chart-metric"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{chartIndex} / {dashboardChartCount - 1}</span>
               </div>
             </CardHeader>
             <CardContent
-              className="px-3 pb-4 sm:px-6 touch-pan-y"
+              className="min-h-0 flex-1 px-3 pb-3 sm:px-6"
               data-testid="select-chart-metric"
             >
               {hasTrendData ? (
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ left: -10, right: 8, top: 4, bottom: 0 }}>
                     <defs>
                       <linearGradient id="metricGrad" x1="0" y1="0" x2="0" y2="1">
@@ -742,19 +660,15 @@ export default function ProgressPage() {
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[220px] flex flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
+                <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
                   <LineChart className="w-12 h-12 text-muted-foreground/25" />
                   <p>No {activeDef.label.toLowerCase()} data for {periodChartTitle[timePeriod].toLowerCase()}</p>
-                  <Button size="sm" variant="outline" onClick={() => setLocation("/log")} data-testid="button-log-for-chart">
-                    <PlayCircle className="w-4 h-4 mr-1.5" />
-                    Log a Drill
-                  </Button>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+          {false && <div className="hidden">
             <Card className="min-w-0 border-zinc-800 bg-zinc-950/70 shadow-none">
               <CardHeader>
                 <CardTitle className="text-base sm:text-lg flex items-center gap-2">
@@ -763,9 +677,9 @@ export default function ProgressPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-2 sm:px-6">
-                {weeklyStats && weeklyStats.length > 0 ? (
+                {weeklyStats?.length ? (
                   <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={weeklyStats} margin={{ left: -10, right: 5 }}>
+                    <BarChart data={weeklyStats ?? []} margin={{ left: -10, right: 5 }}>
                       <defs>
                         <linearGradient id="activityBarGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#f97316" stopOpacity={0.95} />
@@ -885,8 +799,11 @@ export default function ProgressPage() {
                 )}
               </CardContent>
             </Card>
+          </div>}
+          <div className="flex shrink-0 items-center justify-center gap-1.5 py-2" aria-label={`Shooting chart ${chartIndex} of ${dashboardChartCount - 1}`}>
+            {Array.from({ length: dashboardChartCount }, (_, index) => <span key={index} className={`h-1.5 rounded-full transition-all ${index === chartIndex ? "w-5 bg-orange-400" : "w-1.5 bg-zinc-700"}`} />)}
           </div>
-        </>
+        </div>
       ) : null}
       <DashboardShareDialog
         open={shareOpen}

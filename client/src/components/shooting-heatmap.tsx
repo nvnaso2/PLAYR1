@@ -23,6 +23,7 @@ type ShootingHeatmapProps = {
   shotData: ShotData[];
   title?: string;
   className?: string;
+  compact?: boolean;
   personalizedScale?: boolean;
   personalBaselines?: ShotHeatmapBaselines;
   baselineLoading?: boolean;
@@ -687,6 +688,7 @@ export function ShootingHeatmap({
   shotData,
   title = "Shooting Heatmap",
   className = "",
+  compact = false,
   personalizedScale = false,
   personalBaselines,
   baselineLoading = false,
@@ -737,7 +739,7 @@ export function ShootingHeatmap({
 
   return (
     <Card className={`bg-black border-zinc-800 ${className}`} data-testid="shooting-heatmap">
-      <CardHeader className="pb-2">
+      <CardHeader className={compact ? "py-2 pb-1" : "pb-2"}>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           {title && <CardTitle className="text-lg text-white" data-testid="heatmap-title">{title}</CardTitle>}
           <div className="flex items-center gap-2 text-sm" data-testid="heatmap-overall-stats">
@@ -748,14 +750,14 @@ export function ShootingHeatmap({
         </div>
       </CardHeader>
 
-      <CardContent className="p-3 pt-0">
+      <CardContent className={compact ? "p-2 pt-0" : "p-3 pt-0"}>
         {/* Court */}
-        <div className="relative w-full aspect-[500/470] rounded-lg overflow-hidden">
+        <div className={`relative w-full ${compact ? "mx-auto h-[min(35dvh,300px)] max-w-[360px]" : "aspect-[500/470]"} rounded-lg overflow-hidden`}>
           <HeatmapCourtSVG zoneData={zoneData} personalizedScale={personalizedScale} />
         </div>
 
         {personalizedScale ? (
-          <div className="mt-3 space-y-1" data-testid="heatmap-legend">
+          <div className={`${compact ? "mt-1" : "mt-3"} space-y-1`} data-testid="heatmap-legend">
             <div className="flex items-center justify-center gap-1">
               <span className="text-[10px] text-zinc-500 mr-1">0%</span>
               <div
@@ -775,7 +777,7 @@ export function ShootingHeatmap({
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-1 mt-3" data-testid="heatmap-legend">
+          <div className={`flex items-center justify-center gap-1 ${compact ? "mt-1" : "mt-3"}`} data-testid="heatmap-legend">
             <span className="text-xs text-zinc-500 mr-1">Cold</span>
             <div className="flex h-3 rounded overflow-hidden" data-testid="heatmap-color-scale">
               {SHOT_HEAT_COLOR_BANDS.map((band) => (
