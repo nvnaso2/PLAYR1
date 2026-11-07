@@ -1677,7 +1677,7 @@ export default function HubPage() {
                     <span className="text-[10px] font-bold leading-tight text-zinc-300">Journal</span>
                   </button>
                 </div>
-                <button type="button" onClick={() => setDayThreeWorkoutOpen(true)} className="group flex h-[min(62dvh,520px)] max-h-[520px] w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-three-workout">
+                <button type="button" onClick={() => setDayThreeWorkoutOpen(true)} className="group flex h-[min(50dvh,440px)] max-h-[440px] w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,0.3)] transition hover:shadow-[0_18px_44px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" data-testid="button-preview-day-three-workout">
                   <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 sm:px-6 sm:pt-5">
                     <span className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), repeating-linear-gradient(135deg, transparent 0 54px, rgba(0,0,0,.018) 55px 56px, transparent 57px 96px), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
                     <div className="relative flex min-h-0 flex-1 flex-col border-b-[3px] border-black pb-3 sm:pb-4">
@@ -1690,7 +1690,7 @@ export default function HubPage() {
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm sm:h-10 sm:w-10"><Dumbbell className="h-4 w-4 sm:h-5 sm:w-5" /></span>
                       </div>
                       <div className="relative flex min-h-0 flex-1 items-center justify-center">
-                        <img src={volumeWorkoutCardArt} alt="Make X 3's in a Row basketball court drill" className="pointer-events-none block h-[min(37.5dvh,330px)] w-[min(90vw,450px)] max-w-full object-contain sm:h-[min(40.5dvh,375px)] sm:w-[min(66vw,510px)]" />
+                        <img src={volumeWorkoutCardArt} alt="Make X 3's in a Row basketball court drill" className="pointer-events-none block h-[min(31dvh,260px)] w-[min(82vw,380px)] max-h-full max-w-full object-contain sm:h-[min(33dvh,300px)] sm:w-[min(58vw,430px)]" />
                       </div>
                     </div>
                     <span className="relative mt-2 flex min-h-12 shrink-0 items-center justify-between gap-3 rounded-xl bg-black px-4 py-2 text-left text-white shadow-[0_12px_22px_rgba(0,0,0,0.35)] transition group-hover:bg-zinc-900 group-hover:shadow-[0_14px_26px_rgba(0,0,0,0.42)]">
@@ -1702,8 +1702,8 @@ export default function HubPage() {
               </section>
             )}
 
-            {dayThreeWorkoutOpen && <div className="fixed inset-0 z-[86] flex items-center justify-center bg-black/85 p-3 backdrop-blur-sm sm:p-6" onClick={() => setDayThreeWorkoutOpen(false)}>
-              <div className="w-full max-w-4xl" onClick={(event) => event.stopPropagation()}>
+            {dayThreeWorkoutOpen && <div className="fixed inset-0 z-[86] flex items-center justify-center bg-black/85 p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] backdrop-blur-sm sm:p-6" onClick={() => setDayThreeWorkoutOpen(false)}>
+              <div className="max-h-full w-full max-w-4xl" onClick={(event) => event.stopPropagation()}>
                 <VolumeWorkoutPreview onClose={() => setDayThreeWorkoutOpen(false)} onLogWorkout={() => navigate(`/log?workoutId=${encodeURIComponent(DAY_THREE_VOLUME_WORKOUT_ID)}`)} />
               </div>
             </div>}

@@ -202,6 +202,7 @@ export default function TrainingLogPage() {
   const [drillVideoUploading, setDrillVideoUploading] = useState(false);
   const [drillVideoProgress, setDrillVideoProgress] = useState(0);
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
+  const [isStartingTemplate, setIsStartingTemplate] = useState(() => new URLSearchParams(window.location.search).has("workoutId"));
   const [showFavoriteDialog, setShowFavoriteDialog] = useState(false);
   const [postJournalPrompt, setPostJournalPrompt] = useState<{ type: "post-workout"; trainingLogId: string } | null>(null);
   const [completedWorkoutEntries, setCompletedWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
@@ -1159,8 +1160,10 @@ export default function TrainingLogPage() {
     const workoutId = new URLSearchParams(searchParams).get("workoutId");
     if (!workoutId || workoutId === lastTemplateStartKey) return;
     setLastTemplateStartKey(workoutId);
-    void startWorkoutFromTemplate(workoutId).then(() => {
+    setIsStartingTemplate(true);
+    void startWorkoutFromTemplate(workoutId).finally(() => {
       try { window.history.replaceState({}, "", "/log"); } catch {}
+      setIsStartingTemplate(false);
     });
   }, [searchParams, lastTemplateStartKey]);
 
@@ -1853,6 +1856,21 @@ export default function TrainingLogPage() {
       </div>
     );
   };
+
+  if (isStartingTemplate) {
+    return (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-zinc-950 p-5 text-zinc-950">
+        <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-[#fbfaf7] p-7 text-center shadow-2xl">
+          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border-2 border-orange-500/25 border-t-orange-500">
+            <span className="h-7 w-7 animate-spin rounded-full border-2 border-transparent border-t-orange-500" aria-hidden="true" />
+          </div>
+          <p className="font-mono text-xs font-black uppercase tracking-[.2em] text-orange-600">Getting your workout ready</p>
+          <p className="mt-2 font-heading text-2xl font-black uppercase">Loading your drills</p>
+          <p className="mt-2 text-sm text-zinc-600">Your workout will open in a moment.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Render drill selection list
   return (

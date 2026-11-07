@@ -54,7 +54,7 @@ export function QuickCompleteWorkout({
       className="fixed inset-0 z-[60] overflow-hidden bg-[#080808] text-[#181818]"
       data-testid="quick-complete-workout"
     >
-      <div className="mx-auto flex h-full w-full max-w-5xl justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+1.75rem)] pt-[calc(env(safe-area-inset-top,0px)+3.25rem)] sm:px-6 sm:py-6">
+      <div className="mx-auto flex h-full w-full max-w-5xl justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-[calc(env(safe-area-inset-top,0px)+3.25rem)] sm:px-6 sm:py-6">
         <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
           <div className={`pointer-events-none absolute inset-0 ${tracking ? "opacity-[0.07]" : "opacity-[0.16]"}`} aria-hidden="true">
             <svg className="h-full w-full" viewBox="0 0 560 1100" preserveAspectRatio="none">

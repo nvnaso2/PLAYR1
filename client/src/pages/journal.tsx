@@ -18,11 +18,11 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  ArrowLeft, ArrowUp, BookOpen, Brain, CalendarDays, ChevronRight, Dumbbell,
+  ArrowLeft, ArrowUp, BookOpen, Brain, ChevronRight, Dumbbell,
   Edit3, Filter, Loader2, Plus, Search,
   Sparkles, Trash2, Trophy, X,
 } from "lucide-react";
-import type { Game, JournalEntry, TrainingLog } from "@shared/schema";
+import type { JournalEntry, TrainingLog } from "@shared/schema";
 import { getJournalPrompts, type JournalPrompt } from "@shared/journalPrompts";
 
 type JournalType = "post-workout" | "post-game" | "open";
@@ -45,11 +45,11 @@ type JournalView = JournalEntry & { feedbackStale?: boolean };
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const MOODS = [
-  { value: 1, label: "Frustrated", emoji: "😤" },
-  { value: 2, label: "Below average", emoji: "😕" },
-  { value: 3, label: "Average", emoji: "😐" },
-  { value: 4, label: "Good", emoji: "😊" },
-  { value: 5, label: "On fire", emoji: "🔥" },
+  { value: 1, label: "Rough" },
+  { value: 2, label: "Off" },
+  { value: 3, label: "Steady" },
+  { value: 4, label: "Good" },
+  { value: 5, label: "Locked in" },
 ];
 const TYPE_LABELS: Record<JournalType, string> = {
   "post-workout": "Practice", "post-game": "Game", open: "Open",
@@ -81,10 +81,12 @@ function MoodPicker({ value, onChange }: { value: number | null; onChange: (valu
             key={mood.value}
             type="button"
             onClick={() => onChange(value === mood.value ? null : mood.value)}
+            aria-pressed={value === mood.value}
+            aria-label={`Mood: ${mood.label}${value === mood.value ? ", selected" : ""}`}
             className={`rounded-lg border p-2 text-center transition-colors ${value === mood.value ? "border-orange-400 bg-orange-500/10" : "border-zinc-800 bg-zinc-950 hover:border-orange-400/50"}`}
             data-testid={`button-mood-${mood.value}`}
           >
-            <span className="block text-xl">{mood.emoji}</span>
+            <span aria-hidden="true" className={`mx-auto mb-1 block h-2.5 w-2.5 rounded-full ${value === mood.value ? "bg-orange-400" : "bg-zinc-700"}`} />
             <span className="block text-[10px] text-zinc-400">{mood.label}</span>
           </button>
         ))}
@@ -163,10 +165,10 @@ function EntryEditor({
   onBack?: () => void;
 }) {
   const { toast } = useToast();
-  const [promptCount, setPromptCount] = useState(() => entry ? Math.min(3, entry.responses?.length || 0) : 1);
+  const [promptCount, setPromptCount] = useState(() => entry ? Math.min(3, entry.responses?.length || 0) : 0);
   const [selectionMode, setSelectionMode] = useState<"automatic" | "manual">("automatic");
   const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>(() =>
-    entry?.responses?.map((response) => response.promptId) || chooseRandomPromptIds(type, 1),
+    entry?.responses?.map((response) => response.promptId) || [],
   );
   const prompts = useMemo(() => {
     if (entry) return entry.responses?.map((response) => ({ id: response.promptId, question: response.question })) || [];
@@ -218,9 +220,10 @@ function EntryEditor({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const responses = prompts.map((prompt) => ({ promptId: prompt.id, question: prompt.question, answer: (answers[prompt.id] || "").trim() }));
-      if (responses.some((response) => !response.answer)) throw new Error("Answer each selected reflection question before saving.");
-      if (!responses.length && !thoughts.trim()) throw new Error("Add something to Your Thoughts before saving.");
+      const responses = prompts
+        .map((prompt) => ({ promptId: prompt.id, question: prompt.question, answer: (answers[prompt.id] || "").trim() }))
+        .filter((response) => response.answer.length > 0);
+      if (!responses.length && !thoughts.trim()) throw new Error("Write a few words before saving.");
        const payload = {
          ...(entry ? {} : { type }), mood, responses, thoughts: thoughts.trim() || null,
         trainingLogId: sourceKind === "workout" ? sourceId : null,
@@ -240,16 +243,24 @@ function EntryEditor({
     <div className="space-y-5">
       <div className="flex items-center gap-2">
         {onBack && <Button size="icon" variant="ghost" onClick={onBack}><ChevronRight className="w-4 h-4 rotate-180" /></Button>}
-        <div><h2 className="text-lg font-semibold">{entry ? "Edit reflection" : `New ${TYPE_LABELS[type].toLowerCase()}`}</h2><p className="text-sm text-muted-foreground">Be honest. This is for your development.</p></div>
+        <div><h2 className="text-lg font-semibold">{entry ? "Edit reflection" : `New ${TYPE_LABELS[type].toLowerCase()} entry`}</h2><p className="text-sm text-muted-foreground">A private page for what’s on your mind.</p></div>
       </div>
-      <SourcePicker kind={type} sourceId={sourceId} sources={sources} onChange={(nextKind, id) => { setSourceKind(nextKind); setSourceId(id); }} />
-      <MoodPicker value={mood} onChange={setMood} />
+      <div className="space-y-2">
+        <label htmlFor="journal-thoughts" className="text-sm font-medium">Your thoughts</label>
+        <div className="overflow-hidden rounded-xl border border-[#51463b] border-l-2 border-l-orange-500/80 bg-[#201e1b]">
+          <Textarea id="journal-thoughts" value={thoughts} onChange={(event) => setThoughts(event.target.value)} placeholder="Start anywhere. What’s on your mind?" className="min-h-[250px] resize-y rounded-none border-0 bg-transparent px-4 py-4 text-base leading-8 text-[#eee8df] placeholder:text-zinc-600 shadow-none focus-visible:ring-0" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0, transparent 31px, rgba(168, 145, 119, 0.11) 32px)", backgroundPosition: "0 13px" }} data-testid="textarea-journal-thoughts" />
+        </div>
+        <p className="text-xs text-zinc-500">Just for you. No perfect answer needed.</p>
+      </div>
+      {!entry && <details className="group rounded-xl border border-zinc-800 bg-zinc-950/60">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3.5 text-sm font-medium marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+          Add a prompt <span className="text-xs font-normal text-zinc-500">optional</span>
+        </summary>
       {!entry && <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <div><p className="text-sm font-semibold">Start with one question</p><p className="text-xs text-muted-foreground">Answer it, or write freely below.</p></div>
-          {promptCount > 0 && selectionMode === "automatic" && <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 text-xs" onClick={() => setSelectedPromptIds(chooseRandomPromptIds(type, promptCount))}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Try another</Button>}
+          <div><p className="text-sm font-semibold">A little help getting started</p><p className="text-xs text-muted-foreground">Skip it if you’d rather write freely.</p></div>
         </div>
-        {promptCount > 0 && prompts.map((prompt, index) => (
+          {promptCount > 0 && prompts.map((prompt, index) => (
           <div key={`${prompt.id}-${index}`} className="space-y-2 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
             <div className="flex items-start justify-between gap-2">
               {selectionMode === "manual" ? <select value={prompt.id} onChange={(event) => selectPrompt(index, event.target.value)} aria-label={`Reflection question ${index + 1}`} className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm"><option value={prompt.id}>{prompt.question}</option>{PROMPTS[type].filter((candidate) => candidate.id === prompt.id || !selectedPromptIds.includes(candidate.id)).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.question}</option>)}</select> : <p className="flex-1 text-sm font-semibold leading-relaxed">{prompt.question}</p>}
@@ -258,16 +269,12 @@ function EntryEditor({
             <Textarea value={answers[prompt.id] || ""} onChange={(event) => setAnswers((current) => ({ ...current, [prompt.id]: event.target.value }))} placeholder="Write what is actually true..." className="min-h-[88px] resize-y border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" data-testid={`textarea-journal-${prompt.id}`} />
           </div>
         ))}
-        {promptCount === 0 && <p className="rounded-xl bg-zinc-900 p-3 text-xs text-zinc-400">Question prompts are off. Use Your thoughts below as a free write.</p>}
-        <details className="group rounded-xl border border-zinc-800 bg-zinc-950">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-sm font-medium marker:hidden">
-            Customize questions <span className="text-xs font-normal text-zinc-400">{promptCount === 0 ? "Free write" : `${promptCount} ${promptCount === 1 ? "question" : "questions"}`} · optional</span>
-          </summary>
-          <div className="space-y-3 border-t border-zinc-800 px-3.5 py-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-3">
+          <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="text-xs font-medium">How many questions?</p><p className="text-xs text-zinc-400">Choose none, one, or up to three.</p></div>
+              <div><p className="text-xs font-medium">Optional prompts</p><p className="text-xs text-zinc-400">Add a question if it helps.</p></div>
               <div className="flex rounded-lg border border-zinc-800 bg-zinc-950 p-0.5">
-                {[0, 1, 2, 3].map((count) => <button key={count} type="button" onClick={() => setCount(count)} className={`min-w-8 rounded-md px-2 py-1.5 text-xs transition-colors ${promptCount === count ? "bg-orange-500 text-zinc-950" : "text-zinc-400 hover:text-zinc-100"}`} data-testid={`button-journal-prompt-count-${count}`}>{count}</button>)}
+                {[0, 1].map((count) => <button key={count} type="button" onClick={() => setCount(count)} aria-pressed={promptCount === count} className={`min-w-9 rounded-md px-2 py-1.5 text-xs transition-colors ${promptCount === count ? "bg-orange-500 text-zinc-950" : "text-zinc-400 hover:text-zinc-100"}`} data-testid={`button-journal-prompt-count-${count}`}>{count === 0 ? "Off" : "Add one"}</button>)}
               </div>
             </div>
             {promptCount > 0 && <div className="flex items-center justify-between gap-2">
@@ -278,16 +285,33 @@ function EntryEditor({
               {selectionMode === "automatic" && <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setSelectedPromptIds(chooseRandomPromptIds(type, promptCount))}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Shuffle</Button>}
             </div>}
           </div>
-        </details>
+        </div>
       </div>}
-      <div className="space-y-2">
-        <p className="text-sm font-medium">Your thoughts <span className="text-xs font-normal text-zinc-400">(optional with prompts)</span></p>
-        <Textarea value={thoughts} onChange={(event) => setThoughts(event.target.value)} placeholder="Write anything else you were feeling or thinking..." className="min-h-[120px] resize-none border-zinc-700 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500" data-testid="textarea-journal-thoughts" />
-      </div>
-      <div className="flex gap-2">
-        <Button variant="outline" className="flex-1" onClick={onDone}>Cancel</Button>
-        <Button className="flex-1" disabled={mutation.isPending} onClick={() => mutation.mutate()} data-testid="button-save-journal">
-          {mutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}{entry ? "Save changes" : "Save reflection"}
+      </details>}
+      {entry && prompts.length > 0 && (
+        <section className="space-y-3" aria-label="Saved reflection prompts">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Saved prompts</p>
+          {prompts.map((prompt) => (
+            <div key={prompt.id} className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
+              <p className="text-sm font-medium leading-relaxed">{prompt.question}</p>
+              <Textarea value={answers[prompt.id] || ""} onChange={(event) => setAnswers((current) => ({ ...current, [prompt.id]: event.target.value }))} placeholder="Your response (optional)" className="min-h-[84px] resize-y border-zinc-700 bg-zinc-950 text-zinc-100" />
+            </div>
+          ))}
+        </section>
+      )}
+      <details open={Boolean(entry && (mood || sourceId))} className="group rounded-xl border border-zinc-800 bg-zinc-950/60">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3.5 text-sm font-medium marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+          Add details <span className="text-xs font-normal text-zinc-500">mood or link a session · optional</span>
+        </summary>
+        <div className="space-y-4 border-t border-zinc-800 px-3.5 py-4">
+          <SourcePicker kind={type} sourceId={sourceId} sources={sources} onChange={(nextKind, id) => { setSourceKind(nextKind); setSourceId(id); }} />
+          <MoodPicker value={mood} onChange={setMood} />
+        </div>
+      </details>
+      <div className="sticky bottom-0 flex gap-2 border-t border-zinc-800 bg-zinc-950/95 py-3">
+        <Button variant="outline" className="min-h-11 flex-1" onClick={onDone}>Cancel</Button>
+        <Button className="min-h-11 flex-1 bg-orange-500 font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending} onClick={() => mutation.mutate()} data-testid="button-save-journal">
+          {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}{entry ? "Save changes" : "Save page"}
         </Button>
       </div>
     </div>
@@ -383,7 +407,7 @@ function EntryDetail({ entry, isPro, onEdit, onDelete, onClose }: { entry: Journ
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{TYPE_LABELS[entry.type as JournalType]}</h2><p className="text-sm text-muted-foreground">{formatDate(entry.createdAt, true)}</p></div><div className="flex gap-1"><Button size="icon" variant="ghost" onClick={onEdit} aria-label="Edit"><Edit3 className="w-4 h-4" /></Button><Button size="icon" variant="ghost" onClick={onDelete} aria-label="Delete"><Trash2 className="w-4 h-4" /></Button><Button size="icon" variant="ghost" onClick={onClose} aria-label="Close"><X className="w-4 h-4" /></Button></div></div>
-      {entry.mood && <div className="text-sm text-muted-foreground">{MOODS[entry.mood - 1].emoji} {MOODS[entry.mood - 1].label}</div>}
+      {entry.mood && <div className="text-sm text-muted-foreground">Mood · {MOODS[entry.mood - 1]?.label}</div>}
       <div className="space-y-4">{(entry.responses || []).map((response) => <div key={response.promptId}><p className="text-sm font-medium text-muted-foreground">{response.question}</p><p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{response.answer}</p></div>)}{entry.thoughts && <div><p className="text-sm font-medium text-muted-foreground">Your thoughts</p><p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{entry.thoughts}</p></div>}</div>
       {source && <Card className="bg-muted/40"><CardContent className="p-4 text-sm"><div className="flex items-center gap-2 font-medium mb-2">{source.kind === "game" ? <Trophy className="w-4 h-4 text-primary" /> : <Dumbbell className="w-4 h-4 text-primary" />}{source.kind === "game" ? `${formatDate(source.gameDate)} · vs ${source.opponent || "opponent"}` : `Workout · ${formatDate(source.date)}`}</div>{source.kind === "game" ? <p className="text-muted-foreground">Stats: {source.points || 0} PTS · {source.rebounds || 0} REB · {source.assists || 0} AST</p> : <p className="text-muted-foreground">{source.duration || 0} minutes · {source.logs?.map((log: any) => log.drillTitle).join(", ")}</p>}</CardContent></Card>}
       {(entry as JournalView).feedbackStale && <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-muted-foreground">Your reflection changed, so the previous Coach P feedback was cleared. Start a fresh conversation for the updated version.</div>}
@@ -427,7 +451,11 @@ export default function JournalPage() {
   if (linkedSource) query.set("linkedSource", linkedSource);
   if (from) query.set("from", from);
   if (to) query.set("to", to);
-  const { data: entries = [], isLoading } = useQuery<JournalView[]>({ queryKey: ["/api/journal", query.toString()], queryFn: async () => (await fetch(`/api/journal${query.toString() ? `?${query}` : ""}`)).json() });
+  const { data: entries = [], isLoading, isError, refetch } = useQuery<JournalView[]>({ queryKey: ["/api/journal", query.toString()], queryFn: async () => {
+    const response = await fetch(`/api/journal${query.toString() ? `?${query}` : ""}`);
+    if (!response.ok) throw new Error("Could not load your journal.");
+    return response.json();
+  } });
   const { data: sources = { workouts: [], games: [] } } = useQuery<{ workouts: Source[]; games: Source[] }>({ queryKey: ["/api/journal/sources"] });
   const { data: subscription } = useQuery<{ plan: "free" | "pro" | "pro-infinity" }>({ queryKey: ["/api/billing/subscription"] });
   const isPro = subscription?.plan === "pro" || subscription?.plan === "pro-infinity";
@@ -445,64 +473,55 @@ export default function JournalPage() {
   const initialSourceKind = params.get("trainingLogId") ? "workout" : params.get("gameId") ? "game" : null;
   const initialSourceId = params.get("trainingLogId") || params.get("gameId");
   return (
-    <div className="dark flex h-full min-h-0 flex-col overflow-hidden bg-zinc-950 text-zinc-100 sm:h-auto sm:min-h-full sm:overflow-visible">
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-4 p-4 sm:h-auto sm:min-h-full sm:p-6">
-        <header className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
+    <div className="dark min-h-[100dvh] bg-[#111110] text-zinc-100">
+      <div className="mx-auto w-full max-w-6xl px-4 pb-10 pt-5 sm:px-7 sm:pt-8">
+        <header className="mb-7 flex items-center justify-between border-b border-zinc-800/80 pb-5">
+          <div className="flex min-w-0 items-center gap-3">
             <Button variant="ghost" size="icon" className="shrink-0 text-zinc-400 hover:bg-zinc-900 hover:text-white" onClick={() => navigate("/hub")} aria-label="Back to Hub" data-testid="button-back-to-hub">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <h1 className="truncate text-xl font-bold text-zinc-100">Journal</h1>
+            <div className="min-w-0">
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-orange-400">PLAYR1 / PERSONAL</p>
+              <h1 className="truncate text-2xl font-bold leading-none text-zinc-100">Journal</h1>
+            </div>
           </div>
-          <Button
-            onClick={() => openNew()}
-            className="h-10 shrink-0 bg-orange-500 px-3 text-sm font-bold text-zinc-950 hover:bg-orange-400 sm:px-4"
-            data-testid="button-new-journal-entry"
-          >
-            <Plus className="mr-1.5 h-4 w-4" />New reflection
-          </Button>
+          <span className="hidden text-xs text-zinc-500 sm:block">A quiet place to get better.</span>
         </header>
 
-        <div className="flex items-center gap-2.5 rounded-xl border border-orange-500/25 bg-gradient-to-r from-orange-500/10 to-zinc-900/60 px-3 py-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/15 text-orange-300">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <p className="min-w-0 flex-1 text-xs text-zinc-300">
-            {isPro ? "Open a reflection to review it with Coach P." : "Coach P can review your reflections with Pro."}
-          </p>
-          <Badge className="border border-orange-300/20 bg-orange-400/10 text-[10px] text-orange-200 hover:bg-orange-400/10">{isPro ? "Ready" : "Pro"}</Badge>
-        </div>
-
-        <section className="flex min-h-0 flex-1 flex-col gap-3" aria-labelledby="saved-reflections-heading">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="saved-reflections-heading" className="text-lg font-bold">Saved reflections</h2>
-            <span className="text-xs text-zinc-500">{entries.length} saved</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search reflections"
-                className="h-10 rounded-xl border-zinc-800 bg-zinc-900 pl-9 text-sm text-zinc-100 placeholder:text-zinc-500"
-                data-testid="input-journal-search"
-              />
+        <main className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_330px] lg:gap-12">
+          <section className="min-w-0" aria-labelledby="saved-reflections-heading">
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">The notebook</p>
+                <h2 id="saved-reflections-heading" className="text-xl font-bold">Saved pages</h2>
+              </div>
+              <span className="pb-1 text-xs tabular-nums text-zinc-500">{entries.length} {entries.length === 1 ? "page" : "pages"}</span>
             </div>
-            <details className="group relative shrink-0">
-              <summary className="flex h-10 cursor-pointer list-none items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900 px-3 text-xs font-semibold text-zinc-300 transition hover:border-orange-400/50 marker:hidden">
-                <Filter className="h-3.5 w-3.5 text-orange-300" />
-                <span className="hidden sm:inline">Filters</span>
-                {(type || mood || coached || linkedSource || from || to) && <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />}
-                <ChevronRight className="h-3.5 w-3.5 rotate-90 text-zinc-500 transition group-open:-rotate-90" />
-              </summary>
-              <div className="absolute right-0 z-20 mt-2 grid w-[min(88vw,560px)] grid-cols-2 gap-2 rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-xl">
+
+            <div className="mb-4 flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  aria-label="Search journal entries"
+                  placeholder="Search your pages"
+                  className="h-10 rounded-lg border-zinc-800 bg-[#181817] pl-9 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:border-orange-500"
+                  data-testid="input-journal-search"
+                />
+              </div>
+              <details className="group relative shrink-0">
+                <summary className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-lg border border-zinc-800 bg-[#181817] px-3 text-xs font-medium text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-100 marker:hidden">
+                  <Filter className="h-3.5 w-3.5" />
+                  <span>Filter</span>
+                  {(type || mood || coached || linkedSource || from || to) && <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />}
+                </summary>
+                <div className="absolute right-0 z-20 mt-2 grid w-[min(88vw,440px)] grid-cols-2 gap-2 rounded-xl border border-zinc-800 bg-[#191918] p-3 shadow-xl">
                 <select aria-label="Filter by reflection type" value={type} onChange={(event) => setType(event.target.value)} className="h-9 min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-200">
                   <option value="">All types</option><option value="post-workout">Practice</option><option value="post-game">Game</option><option value="open">Open</option>
                 </select>
                 <select aria-label="Filter by mood" value={mood} onChange={(event) => setMood(event.target.value)} className="h-9 min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-200">
-                  <option value="">Any mood</option>{MOODS.map((item) => <option key={item.value} value={item.value}>{item.emoji} {item.label}</option>)}
+                   <option value="">Any mood</option>{MOODS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
                 <select aria-label="Filter by coaching" value={coached} onChange={(event) => setCoached(event.target.value)} className="h-9 min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-200">
                   <option value="">Any coaching</option><option value="true">Coach P feedback</option><option value="false">No Coach P feedback</option>
@@ -518,69 +537,100 @@ export default function JournalPage() {
                   <span className="text-[9px] font-bold uppercase text-zinc-500">To</span>
                   <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" className="h-8 min-w-0 border-0 bg-transparent px-0 text-[10px] text-zinc-200 shadow-none focus-visible:ring-0" />
                 </label>
-                {hasFilters && <Button variant="ghost" size="sm" className="col-span-2 h-8 justify-start text-xs text-orange-300 hover:bg-zinc-900 hover:text-orange-200" onClick={clearFilters}>Clear search and filters</Button>}
-              </div>
-            </details>
-          </div>
+                  {hasFilters && <Button variant="ghost" size="sm" className="col-span-2 h-8 justify-start text-xs text-orange-300 hover:bg-zinc-900 hover:text-orange-200" onClick={clearFilters}>Clear search and filters</Button>}
+                </div>
+              </details>
+            </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-          {isLoading ? (
-            <div className="space-y-2">{[1, 2, 3].map((item) => <div key={item} className="h-20 animate-pulse rounded-xl bg-zinc-900" />)}</div>
+            <div className="space-y-2">
+          {isError ? (
+            <Card className="rounded-xl border-zinc-800 bg-[#181817]">
+              <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+                <BookOpen className="h-7 w-7 text-orange-400" />
+                <p className="font-semibold">Your journal didn’t load</p>
+                <p className="text-sm text-zinc-400">Your saved pages are still yours. Try again in a moment.</p>
+                <Button variant="outline" onClick={() => refetch()}>Try again</Button>
+              </CardContent>
+            </Card>
+          ) : isLoading ? (
+            <div className="space-y-2" aria-label="Loading journal pages">{[1, 2, 3].map((item) => <div key={item} className="h-[86px] animate-pulse rounded-xl border border-zinc-800/70 bg-[#181817]" />)}</div>
           ) : entries.length === 0 ? (
-            <Card className="rounded-xl border-dashed border-zinc-700 bg-zinc-900/50">
-              <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-                <BookOpen className="h-8 w-8 text-orange-400" />
-                <p className="font-semibold">{hasFilters ? "No reflections found" : "No reflections yet"}</p>
-                <p className="max-w-sm text-sm text-zinc-400">{hasFilters ? "Try another search or clear your filters." : "Save a moment from practice, a game, or your day."}</p>
-                <Button className="mt-1 bg-orange-500 text-zinc-950 hover:bg-orange-400" onClick={hasFilters ? clearFilters : () => openNew()}>{hasFilters ? "Clear filters" : "Start a reflection"}</Button>
+            <Card className="rounded-xl border-dashed border-zinc-700 bg-[#181817]">
+              <CardContent className="flex flex-col items-start gap-2 px-5 py-7 text-left">
+                <BookOpen className="mb-1 h-6 w-6 text-orange-400" />
+                <p className="font-semibold">{hasFilters ? "No pages match" : "Your first page is waiting."}</p>
+                <p className="max-w-sm text-sm text-zinc-400">{hasFilters ? "Try a different search or clear your filters." : "Keep a moment from practice, game day, or anything on your mind."}</p>
+                <Button className="mt-2 bg-orange-500 text-zinc-950 hover:bg-orange-400" onClick={hasFilters ? clearFilters : () => openNew()}>{hasFilters ? "Clear filters" : "Write the first page"}</Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
+            <div className="overflow-hidden rounded-xl border border-zinc-800/90 bg-[#171716]">
               {visibleEntries.map((entry) => {
                 const response = entry.responses?.[0]?.answer || entry.thoughts;
                 const source = entry.gameId ? sources.games.find((item) => item.sourceId === entry.gameId) : entry.trainingLogId ? sources.workouts.find((item) => item.sourceId === entry.trainingLogId) : null;
-                const Icon = entry.type === "post-workout" ? Dumbbell : entry.type === "post-game" ? Trophy : Brain;
+                const created = entry.createdAt ? new Date(entry.createdAt) : null;
+                const dateIsValid = created && !Number.isNaN(created.getTime());
                 return (
                   <Card
                     key={entry.id}
-                    className="group cursor-pointer rounded-xl border-zinc-800 bg-zinc-900/50 transition hover:border-orange-500/40 hover:bg-zinc-900"
+                    className="group cursor-pointer rounded-none border-0 border-b border-zinc-800/80 bg-transparent shadow-none transition-colors last:border-b-0 hover:bg-[#201f1d]"
                     onClick={() => setSelectedEntry(entry)}
-                    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedEntry(entry); }}
+                    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedEntry(entry); } }}
                     role="button"
                     tabIndex={0}
                     data-testid={`card-journal-${entry.id}`}
                   >
-                    <CardContent className="flex gap-3 p-3.5">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-400/15 bg-orange-500/10 text-orange-300">
-                        <Icon className="h-4 w-4" />
+                    <CardContent className="flex gap-3.5 px-3 py-4 sm:gap-5 sm:px-4">
+                      <div className="w-11 shrink-0 border-r border-zinc-800 pr-3 text-center">
+                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-orange-400">{dateIsValid ? created.toLocaleDateString("en-US", { month: "short" }) : "—"}</span>
+                        <span className="mt-0.5 block text-xl font-semibold leading-none tabular-nums text-zinc-300">{dateIsValid ? created.getDate() : "—"}</span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-sm font-semibold text-zinc-100">{TYPE_LABELS[entry.type as JournalType]}</span>
-                          {entry.aiCoachFeedback && <Badge className="h-5 gap-1 border border-orange-400/20 bg-orange-500/10 px-2 text-[10px] text-orange-200 hover:bg-orange-500/10"><Sparkles className="h-3 w-3" />Reviewed</Badge>}
+                          <span className="text-sm font-semibold text-zinc-100">{TYPE_LABELS[entry.type as JournalType]}{source?.kind === "game" ? ` · vs ${source.opponent || "opponent"}` : source?.kind === "workout" ? " · Practice" : ""}</span>
+                          {entry.aiCoachFeedback && <span className="inline-flex items-center gap-1 text-[10px] text-orange-300"><Sparkles className="h-3 w-3" />Coach P</span>}
                         </div>
-                        <p className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-zinc-400">
-                          <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3 text-orange-300/80" />{formatDate(entry.createdAt)}</span>
-                          {source?.kind === "game" ? <span>vs {source.opponent || "opponent"}</span> : source?.kind === "workout" ? <span>{source.duration || 0} min workout</span> : null}
-                          {entry.mood && <span>{MOODS[entry.mood - 1]?.emoji} {MOODS[entry.mood - 1]?.label}</span>}
+                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-zinc-500">
+                          <span>{dateIsValid ? created.toLocaleDateString("en-US", { weekday: "long", year: "numeric" }) : formatDate(entry.createdAt)}</span>
+                          {entry.mood && <span className="before:mr-2 before:text-zinc-700 before:content-['·']">{MOODS[entry.mood - 1]?.label}</span>}
                         </p>
-                        {response && <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-zinc-400">{response}</p>}
+                        {response && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-400">{response}</p>}
                       </div>
-                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-300" />
+                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-zinc-700 transition-colors group-hover:text-orange-300" />
                     </CardContent>
                   </Card>
                 );
               })}
-              {entries.length > 3 && (
-                <Button variant="ghost" className="h-9 w-full text-xs font-semibold text-orange-300 hover:bg-orange-500/10 hover:text-orange-200" onClick={() => setShowAllEntries((current) => !current)}>
-                  {showAllEntries ? "Show fewer" : `Show all ${entries.length} reflections`}
-                </Button>
-              )}
             </div>
           )}
-          </div>
-        </section>
+              {entries.length > 3 && <Button variant="ghost" className="mt-2 h-9 w-full text-xs font-semibold text-zinc-400 hover:bg-zinc-900 hover:text-orange-200" onClick={() => setShowAllEntries((current) => !current)}>{showAllEntries ? "Show fewer pages" : `Show all ${entries.length} pages`}</Button>}
+            </div>
+          </section>
+          <aside className="order-first lg:order-last">
+            <div className="relative overflow-hidden rounded-2xl border border-[#4c4035] bg-[#211f1c] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] sm:p-6">
+              <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-orange-500/70" />
+              <div className="mb-8 flex items-center justify-between">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300">A fresh page</span>
+                <BookOpen className="h-4 w-4 text-orange-400/80" />
+              </div>
+              <h2 className="max-w-[15rem] text-2xl font-semibold leading-tight text-[#eee7dc]">Take a minute. Get it down.</h2>
+              <p className="mt-3 max-w-[17rem] text-sm leading-relaxed text-zinc-400">Practice, game day, or anything you want to remember. This space is yours.</p>
+              <Button
+                onClick={() => openNew()}
+                className="mt-7 h-11 w-full justify-between rounded-lg bg-orange-500 px-4 font-semibold text-zinc-950 hover:bg-orange-400"
+                data-testid="button-new-journal-entry"
+              >
+                <span className="inline-flex items-center"><Plus className="mr-2 h-4 w-4" />Write a page</span><ArrowUp className="h-4 w-4 rotate-45" />
+              </Button>
+              <div className="mt-5 flex items-center gap-2 border-t border-zinc-700/70 pt-4 text-[11px] text-zinc-500">
+                <Sparkles className="h-3.5 w-3.5 text-orange-400/80" />
+                <span>{isPro ? "Coach P is ready when you are." : "Open any page to hear from Coach P."}</span>
+                {!isPro && <Badge variant="outline" className="ml-auto border-zinc-700 px-1.5 py-0 text-[9px] text-zinc-400">Pro</Badge>}
+              </div>
+            </div>
+            <p className="mt-4 px-1 text-[10px] uppercase tracking-[0.16em] text-zinc-600">PLAYR1 · Keep showing up</p>
+          </aside>
+        </main>
       </div>
 
       <Dialog open={newOpen} onOpenChange={(open) => { if (!open) closeEditor(); else setNewOpen(true); }}>
