@@ -1535,7 +1535,6 @@ export class DatabaseStorage {
         eq(trainingLogs.userId, userId),
         gte(trainingLogs.completedAt, startDate)
       ));
-
     const totalSessions = logs.length;
     const totalMinutes = logs.reduce((sum, log) => sum + (log.duration || 0), 0);
     const scoresWithValues = logs.filter(log => log.score != null);
@@ -1790,6 +1789,7 @@ export class DatabaseStorage {
         eq(trainingLogs.userId, userId),
         gte(trainingLogs.completedAt, startDate)
       ));
+    result["drillsCompleted"] = logs.length;
 
     let totalShotsMade = 0;
     let threePointersMade = 0;
@@ -1906,6 +1906,7 @@ export class DatabaseStorage {
 
       const totalBallHandling = leftHandDribbles + rightHandDribbles + totalDribbles;
 
+      if (totalBallHandling > 0) result["totalDribbles"] = totalBallHandling;
       if (totalBallHandling > 0 || ballHandlingTime > 0) result["timeBallHandling"] = totalBallHandling || ballHandlingTime;
       if (passesMade > 0) result["passesMade"] = passesMade;
       if (leftHandDribbles > 0) result["leftHandBallHandling"] = leftHandDribbles;

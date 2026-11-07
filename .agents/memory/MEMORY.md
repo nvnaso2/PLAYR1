@@ -4,6 +4,7 @@
 - [Hub onboarding path](hub-onboarding-path.md) — profile-derived Hub states share one Coach P prompt; daily drill picks are deterministic and profile-based
 - [Shared onboarding trailer card](shared-onboarding-trailer-card.md) — show the video before the Hub and keep its metadata global/admin-managed
 - [Baseline shooting projections](baseline-shooting-projections.md) — Day 1 forecast starts from measured percentages and scales diminishing growth by stated training frequency
+- [Dashboard audience split](dashboard-audience-split.md) — separate completion-first and shooting-analysis views, defaulting from the player’s workout logging preference
 - [Profile and Hub scope](profile-first-release-scope.md) — lead Profile with the player card; fill the mobile content area and keep Pro pricing compact
 - [Auth and launch visual direction](auth-startup-visual-direction.md) — keep PLAYR1 sign-in sparse and centered, and preserve the black splash as the app's preview entry
 - [Archetype content source](archetype-content-source.md) — descriptions and four core characteristics come from database definitions with explicit assessment-label mapping

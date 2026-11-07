@@ -193,11 +193,46 @@ const METRIC_DEFS: MetricDef[] = [
 
 export default function ProgressPage() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("weekly");
+  const [selectedDashboardPage, setSelectedDashboardPage] = useState<"completion" | "shooting" | null>(null);
   const [activeSkill, setActiveSkill] = useState("all");
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("shotsMade");
   const [shareOpen, setShareOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const search = useSearch();
+  const { data: accountProfile } = useQuery<{ preferredWorkoutLoggingMode?: "complete" | "track" | null }>({ queryKey: ["/api/profile"] });
+  const { data: playerSetup } = useQuery<{
+    answers?: {
+      shootingBaseline?: Partial<Record<"threes" | "midrange" | "freeThrows", { makes: number; attempts: number }>>;
+    };
+  }>({ queryKey: ["/api/player-setup"] });
+  const savedShootingBaseline = playerSetup?.answers?.shootingBaseline;
+  const baselineChartData = [
+    { key: "threes" as const, shotType: "3PT" },
+    { key: "midrange" as const, shotType: "Mid-range" },
+    { key: "freeThrows" as const, shotType: "Free throws" },
+  ].flatMap(({ key, shotType }) => {
+    const result = savedShootingBaseline?.[key];
+    return result && result.attempts > 0
+      ? [{ shotType, percentage: Math.round((result.makes / result.attempts) * 100) }]
+      : [];
+  });
+  const activeDashboardPage = selectedDashboardPage ?? (accountProfile?.preferredWorkoutLoggingMode === "track" ? "shooting" : "completion");
+  const dashboardSwipeStart = useRef<number | null>(null);
+  const changeDashboardPage = (direction: 1 | -1) => {
+    setSelectedDashboardPage(direction === 1
+      ? activeDashboardPage === "completion" ? "shooting" : "completion"
+      : activeDashboardPage === "shooting" ? "completion" : "shooting");
+  };
+  const handleDashboardTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    dashboardSwipeStart.current = event.touches[0]?.clientX ?? null;
+  };
+  const handleDashboardTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = dashboardSwipeStart.current;
+    dashboardSwipeStart.current = null;
+    const end = event.changedTouches[0]?.clientX;
+    if (start === null || end === undefined || Math.abs(end - start) < 60) return;
+    changeDashboardPage(end < start ? 1 : -1);
+  };
   const dayThreeTrainingLogId = new URLSearchParams(search).get("day3TrainingLogId");
   const fromHub = location.includes("from=hub");
 
@@ -307,20 +342,9 @@ export default function ProgressPage() {
 
   const activeDef = METRIC_DEFS.find(m => m.key === selectedMetric) || METRIC_DEFS[0];
   const activeMetricIndex = Math.max(0, METRIC_DEFS.findIndex((metric) => metric.key === activeDef.key));
-  const chartTouchStart = useRef<number | null>(null);
   const changeMetric = (direction: 1 | -1) => {
     const nextIndex = (activeMetricIndex + direction + METRIC_DEFS.length) % METRIC_DEFS.length;
     setSelectedMetric(METRIC_DEFS[nextIndex].key);
-  };
-  const handleChartTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    chartTouchStart.current = event.touches[0]?.clientX ?? null;
-  };
-  const handleChartTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    const startX = chartTouchStart.current;
-    const endX = event.changedTouches[0]?.clientX;
-    chartTouchStart.current = null;
-    if (startX === null || endX === undefined || Math.abs(endX - startX) < 40) return;
-    changeMetric(endX < startX ? 1 : -1);
   };
   const chartData = trendsData?.map(p => ({
     label: p.label,
@@ -346,7 +370,7 @@ export default function ProgressPage() {
   const isNewUser = !overviewLoading && totalSessions === 0;
 
   return (
-    <div className="min-h-full w-full min-w-0 overflow-x-clip bg-[#090909] p-4 sm:p-6 max-w-7xl mx-auto space-y-5 sm:space-y-6">
+    <div className="min-h-full w-full min-w-0 overflow-x-clip bg-[#090909] p-4 sm:p-6 max-w-7xl mx-auto space-y-5 sm:space-y-6" onTouchStart={handleDashboardTouchStart} onTouchEnd={handleDashboardTouchEnd}>
       {dayThreeTrainingLogId && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-400/25 bg-orange-500/10 p-4" data-testid="day-three-dashboard-journal-next-step">
           <div>
@@ -399,7 +423,35 @@ export default function ProgressPage() {
         </div>
       </header>
 
-      <section className="grid grid-cols-3 gap-2 sm:max-w-[780px] sm:gap-4" aria-label="Training summary">
+      {!isNewUser && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="inline-flex rounded-xl border border-zinc-800 bg-zinc-950 p-1" role="tablist" aria-label="Dashboard views">
+              {([
+                { id: "completion" as const, label: "Training" },
+                { id: "shooting" as const, label: "Shooting" },
+              ]).map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeDashboardPage === page.id}
+                  onClick={() => setSelectedDashboardPage(page.id)}
+                  className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+                    activeDashboardPage === page.id ? "bg-white text-black" : "text-zinc-500 hover:text-white"
+                  }`}
+                  data-testid={`dashboard-tab-${page.id}`}
+                >
+                  {page.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600">Swipe to switch</span>
+          </div>
+        </div>
+      )}
+
+      {activeDashboardPage === "completion" && <section className="grid grid-cols-3 gap-2 sm:max-w-[780px] sm:gap-4" aria-label="Training summary">
         {overviewLoading ? (
           <>
             <Skeleton className="h-[68px] rounded-lg sm:h-[72px]" />
@@ -410,14 +462,14 @@ export default function ProgressPage() {
           <>
             <StatsCard
               title="Total Drills"
-              value={totalSessions}
+              value={trainingStats?.drillsCompleted ?? 0}
               icon={<Target className="h-6 w-6 text-primary" />}
               testId="stats-sessions"
               compact
             />
             <StatsCard
               title="Hours Trained"
-              value={Math.floor(totalMinutes / 60)}
+              value={Math.round((totalMinutes / 60) * 10) / 10}
               icon={<Clock className="h-6 w-6 text-primary" />}
               testId="stats-hours"
               compact
@@ -431,7 +483,39 @@ export default function ProgressPage() {
             />
           </>
         )}
-      </section>
+      </section>}
+
+      {!isNewUser && activeDashboardPage === "completion" && (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Training completion totals">
+          <StatsCard title="Shots Taken" value={(trendsData ?? []).reduce((sum, point) => sum + point.shotsAttempted, 0).toLocaleString()} icon={<Target className="h-5 w-5 text-primary" />} testId="stats-shots-taken" compact />
+          <StatsCard title="Workouts Completed" value={trainingStats?.workoutsCompleted ?? 0} icon={<PlayCircle className="h-5 w-5 text-primary" />} testId="stats-workouts-completed" compact />
+          <StatsCard title="Dribbles Logged" value={(trainingStats?.totalDribbles ?? 0).toLocaleString()} icon={<Activity className="h-5 w-5 text-primary" />} testId="stats-ball-handling-total" compact />
+          <Card className="col-span-2 border-zinc-800 bg-zinc-950/70 shadow-none sm:col-span-3 lg:col-span-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Day 1 Shooting Baseline</CardTitle>
+              <p className="text-xs text-zinc-500">Your starting percentages, saved from your baseline workout.</p>
+            </CardHeader>
+            <CardContent>
+              {baselineChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={210}>
+                  <BarChart data={baselineChartData} margin={{ left: -12, right: 12, top: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                    <XAxis dataKey="shotType" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                    <YAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={42} />
+                    <Tooltip formatter={(value: number) => [`${value}%`, "Day 1 baseline"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
+                    <Bar dataKey="percentage" fill="#f97316" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center gap-3 py-6 text-center">
+                  <p className="max-w-sm text-sm text-zinc-400">Your Day 1 chart will appear after you save your shooting baseline.</p>
+                  <Button variant="outline" size="sm" onClick={() => setLocation("/hub")}>Open Hub</Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {isNewUser ? (
         <Card className="border-orange-500/25 bg-orange-500/5 shadow-none">
@@ -468,7 +552,7 @@ export default function ProgressPage() {
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : activeDashboardPage === "shooting" ? (
         <>
           <div className="space-y-4">
             <div className="space-y-2" data-testid="skill-tabs">
@@ -609,8 +693,6 @@ export default function ProgressPage() {
             <CardContent
               className="px-3 pb-4 sm:px-6 touch-pan-y"
               data-testid="select-chart-metric"
-              onTouchStart={handleChartTouchStart}
-              onTouchEnd={handleChartTouchEnd}
             >
               {hasTrendData ? (
                 <ResponsiveContainer width="100%" height={220}>
@@ -805,7 +887,7 @@ export default function ProgressPage() {
             </Card>
           </div>
         </>
-      )}
+      ) : null}
       <DashboardShareDialog
         open={shareOpen}
         onOpenChange={setShareOpen}

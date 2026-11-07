@@ -345,6 +345,11 @@ export async function registerRoutes(
     trainingFrequency: z.enum(playerSetupTrainingFrequency).optional(),
     trainingDaysPerUnit: z.number().int().min(0).max(31).optional(),
     trainingPeriodUnit: z.enum(["week", "month"]).optional(),
+    shootingBaseline: z.object({
+      threes: z.object({ makes: z.number().int().min(0).max(100), attempts: z.number().int().min(1).max(100) }),
+      midrange: z.object({ makes: z.number().int().min(0).max(100), attempts: z.number().int().min(1).max(100) }),
+      freeThrows: z.object({ makes: z.number().int().min(0).max(100), attempts: z.number().int().min(1).max(100) }),
+    }).optional(),
     experienceYears: z.union([z.number().min(0).max(100), z.enum(playerSetupExperience)]).optional(),
     competitiveExperienceYears: z.number().min(0).max(100).optional(),
     teamType: z.enum(playerSetupTeamTypes).optional(),

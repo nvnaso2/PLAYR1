@@ -189,6 +189,8 @@ export default function HubPage() {
   const [baselinePickerOpen, setBaselinePickerOpen] = useState(false);
   const [baselineLogging, setBaselineLogging] = useState(false);
   const [baselineComplete, setBaselineComplete] = useState(false);
+  const [baselineSaving, setBaselineSaving] = useState(false);
+  const [baselineSaveError, setBaselineSaveError] = useState("");
   const [activeProjectionType, setActiveProjectionType] = useState<PreviewShotKey | null>(null);
   const [scheduleEditing, setScheduleEditing] = useState(false);
   const [scheduleCalendarIndex, setScheduleCalendarIndex] = useState(0);
@@ -1557,13 +1559,35 @@ export default function HubPage() {
                             );
                           })}
                         </div>
+                        {baselineSaveError && <p role="alert" className="mt-3 text-sm text-red-300">{baselineSaveError}</p>}
                         <button type="button"
-                          disabled={previewShotTypes.some(({ key }) => baselineResults[key] === "" || !Number.isInteger(Number(baselineResults[key])) || Number(baselineResults[key]) < 0 || Number(baselineResults[key]) > selectedBaseline[key])}
-                          onClick={() => { setBaselineComplete(true); setBaselineLogging(false); }}
+                          disabled={baselineSaving || previewShotTypes.some(({ key }) => baselineResults[key] === "" || !Number.isInteger(Number(baselineResults[key])) || Number(baselineResults[key]) < 0 || Number(baselineResults[key]) > selectedBaseline[key])}
+                          onClick={async () => {
+                            setBaselineSaving(true);
+                            setBaselineSaveError("");
+                            try {
+                              await apiRequest("PUT", "/api/player-setup", {
+                                answers: {
+                                  shootingBaseline: {
+                                    threes: { makes: Number(baselineResults.threes), attempts: selectedBaseline.threes },
+                                    midrange: { makes: Number(baselineResults.midrange), attempts: selectedBaseline.midrange },
+                                    freeThrows: { makes: Number(baselineResults.freeThrows), attempts: selectedBaseline.freeThrows },
+                                  },
+                                },
+                              });
+                              setBaselineComplete(true);
+                              setBaselineLogging(false);
+                              queryClient.invalidateQueries({ queryKey: ["/api/player-setup"] });
+                            } catch {
+                              setBaselineSaveError("Your baseline could not be saved. Please try again.");
+                            } finally {
+                              setBaselineSaving(false);
+                            }
+                          }}
                           className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-4 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[0_8px_24px_rgba(249,115,22,0.2)] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
                           data-testid="button-log-onboarding-baseline"
                         >
-                          <CheckCircle2 className="h-4 w-4" /> Finish Baseline Workout
+                          {baselineSaving ? "Saving baseline…" : <><CheckCircle2 className="h-4 w-4" /> Finish Baseline Workout</>}
                         </button>
                       </section>
                     </div>
