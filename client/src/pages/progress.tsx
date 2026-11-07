@@ -493,7 +493,7 @@ export default function ProgressPage() {
               <StatsCard title="Day Streak" value={streak} icon={<Zap className="h-5 w-5 text-primary" />} testId="stats-streak" compact />
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3" data-testid="shooting-stat-breakdown">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3" data-testid="shooting-stat-breakdown">
               {TRAINING_STAT_DEFS.filter((stat) => ["totalShotsMade", "threePointersMade", "freeThrowsMade", "fieldGoalsMade", "formShotsMade", "layupsMade"].includes(stat.key)).map((stat) => {
                 const value = trainingStats?.[stat.key] ?? 0;
                 return <StatsCard key={stat.key} title={stat.title} value={stat.format ? stat.format(value) : value.toLocaleString()} icon={<Target className="h-5 w-5 text-primary" />} testId={stat.testId} compact />;
@@ -516,7 +516,7 @@ export default function ProgressPage() {
             <CardHeader className="shrink-0 pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  {chartIndex === 0 ? <Target className="h-5 w-5 text-primary" /> : chartIndex === 1 ? <BarChart3 className="h-5 w-5 text-primary" /> : <Activity className="h-5 w-5 text-primary" />}
+                  {chartIndex === 1 ? <BarChart3 className="h-5 w-5 text-primary" /> : chartIndex === 2 ? <Activity className="h-5 w-5 text-primary" /> : null}
                   {["Road to Elite Shooting", "Training Activity", "Time by Category"][chartIndex]}
                 </CardTitle>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{chartIndex + 1} / 3</span>
