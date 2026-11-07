@@ -230,17 +230,29 @@ export default function ProgressPage() {
       const progress = (1 - Math.exp(-2.8 * (month / 12))) / (1 - Math.exp(-2.8));
       const yearFraction = month / 12;
       const wobble = Math.sin(month * 1.55 + series.phase) * yearFraction * (1 - yearFraction) * (8 + trainingDose * 2);
-      row[series.chartKey] = Math.max(0, Math.min(ceiling, start + annualGain * progress + wobble));
+      const expected = start + annualGain * progress;
+      const uncertainty = (month / 12) * (2.6 + trainingDose * 0.65);
+      row[series.chartKey] = Math.max(0, Math.min(ceiling, expected + wobble));
+      row[`${series.chartKey}Low`] = Math.max(0, Math.min(ceiling, expected - uncertainty));
+      row[`${series.chartKey}High`] = Math.max(0, Math.min(ceiling, expected + uncertainty));
     });
     return row;
   });
+  const baselineMinValue = Math.min(...baselineProjectionData.flatMap((point) => baselineSeries.map((series) => Number(point[`${series.chartKey}Low`]))));
+  const baselineMaxValue = Math.max(...baselineProjectionData.flatMap((point) => baselineSeries.map((series) => Number(point[`${series.chartKey}High`]))));
+  const baselineChartMin = Math.max(0, Math.floor(baselineMinValue / 5) * 5);
+  const baselineTickStep = baselineMaxValue - baselineChartMin <= 40 ? 5 : 10;
+  const baselineChartMax = Math.min(100, Math.max(baselineChartMin + baselineTickStep, Math.ceil((baselineMaxValue + 1) / baselineTickStep) * baselineTickStep));
+  const baselineTicks = Array.from({ length: Math.floor((baselineChartMax - baselineChartMin) / baselineTickStep) + 1 }, (_, index) => baselineChartMin + index * baselineTickStep);
+  const baselineX = (month: number) => 68 + month * (590 / 12);
+  const baselineY = (percent: number) => 470 - ((percent - baselineChartMin) * 430) / (baselineChartMax - baselineChartMin);
   const activeDashboardPage = selectedDashboardPage ?? (accountProfile?.preferredWorkoutLoggingMode === "track" ? "shooting" : "completion");
   const sectionDragStart = useRef<number | null>(null);
   const chartDragStart = useRef<number | null>(null);
   const sectionWheelAt = useRef(0);
   const chartWheelAt = useRef(0);
   const shootingChartMetrics = METRIC_DEFS.filter((metric) => metric.key !== "minutes" && metric.key !== "sessions");
-  const dashboardChartCount = activeDashboardPage === "completion" ? 3 : shootingChartMetrics.length + 1;
+  const dashboardChartCount = activeDashboardPage === "completion" ? 3 : 2;
   const changeSectionBySwipe = (direction: 1 | -1) => {
     setSelectedDashboardPage(direction === 1
       ? activeDashboardPage === "completion" ? "shooting" : "completion"
@@ -277,7 +289,6 @@ export default function ProgressPage() {
     const direction = event.clientX < start ? 1 : -1;
     const next = (chartIndex + direction + dashboardChartCount) % dashboardChartCount;
     setChartIndex(next);
-    if (activeDashboardPage === "shooting" && next > 0) setSelectedMetric(shootingChartMetrics[(next - 1) % shootingChartMetrics.length].key);
   };
   const handleChartWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     if (Math.abs(event.deltaX) < 20 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
@@ -287,7 +298,6 @@ export default function ProgressPage() {
     const direction = event.deltaX > 0 ? 1 : -1;
     const next = (chartIndex + direction + dashboardChartCount) % dashboardChartCount;
     setChartIndex(next);
-    if (activeDashboardPage === "shooting" && next > 0) setSelectedMetric(shootingChartMetrics[(next - 1) % shootingChartMetrics.length].key);
   };
   const dayThreeTrainingLogId = new URLSearchParams(search).get("day3TrainingLogId");
   const fromHub = location.includes("from=hub");
@@ -482,8 +492,8 @@ export default function ProgressPage() {
               <StatsCard title="Day Streak" value={streak} icon={<Zap className="h-5 w-5 text-primary" />} testId="stats-streak" compact />
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3" data-testid="shooting-stat-breakdown">
-              {TRAINING_STAT_DEFS.filter((stat) => ["totalShotsMade", "threePointersMade", "freeThrowsMade", "fieldGoalsAttempted", "fgPct"].includes(stat.key)).map((stat) => {
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3" data-testid="shooting-stat-breakdown">
+              {TRAINING_STAT_DEFS.filter((stat) => ["totalShotsMade", "threePointersMade", "freeThrowsMade", "fieldGoalsMade", "formShotsMade", "layupsMade"].includes(stat.key)).map((stat) => {
                 const value = trainingStats?.[stat.key] ?? 0;
                 return <StatsCard key={stat.key} title={stat.title} value={stat.format ? stat.format(value) : value.toLocaleString()} icon={<Target className="h-5 w-5 text-primary" />} testId={stat.testId} compact />;
               })}
@@ -514,15 +524,46 @@ export default function ProgressPage() {
             </CardHeader>
             <CardContent className="min-h-0 flex-1 px-2 pb-3 sm:px-5">
               {chartIndex === 0 && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsLineChart data={baselineProjectionData} margin={{ left: -12, right: 12, top: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={38} />
-                    <Tooltip formatter={(value: number) => [`${Math.round(value)}%`, "Projected make rate"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
-                    {baselineSeries.map((series) => <RechartsLine key={series.chartKey} type="monotone" dataKey={series.chartKey} name={series.label} stroke={series.color} strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />)}
-                  </RechartsLineChart>
-                </ResponsiveContainer>
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className="mb-1 flex shrink-0 flex-wrap items-center gap-3 text-[9px] font-black tracking-wide">
+                    {baselineSeries.map((line) => <span key={line.chartKey} className="inline-flex items-center gap-1.5" style={{ color: line.color }}><span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color, boxShadow: `0 0 9px ${line.color}` }} />{line.label}</span>)}
+                    <span className="inline-flex items-center gap-1.5 text-[8px] uppercase text-white"><span className="h-2.5 w-2.5 rounded-full border border-white bg-white/20" />You are here</span>
+                  </div>
+                  <svg viewBox="0 0 680 540" role="img" aria-label="Day 1 shooting baseline with monthly projection ranges for threes, mid-range, and free throws" className="block h-full min-h-0 w-full">
+                    <defs>
+                      <linearGradient id="dashboard-shot-chart-wash" x1="0" x2="1" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#70f06a" stopOpacity="0.06" />
+                        <stop offset="48%" stopColor="#ffd84d" stopOpacity="0.025" />
+                        <stop offset="100%" stopColor="#ff5364" stopOpacity="0.05" />
+                      </linearGradient>
+                    </defs>
+                    <rect width="680" height="540" fill="url(#dashboard-shot-chart-wash)" />
+                    {baselineTicks.map((tick) => {
+                      const y = baselineY(tick);
+                      return <g key={tick}>
+                        {tick !== baselineChartMin && <line x1="68" x2="658" y1={y} y2={y} stroke={tick % 10 === 0 ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)"} strokeDasharray="3 7" />}
+                        <text x="58" y={y + 5} textAnchor="end" fill="#c3c7cd" fontSize="18" fontWeight="700">{tick}%</text>
+                      </g>;
+                    })}
+                    {[0, 3, 6, 9, 12].map((month) => <text key={month} x={baselineX(month)} y="520" textAnchor="middle" fill={month === 0 ? "#fff" : "#b5bac2"} fontSize="16" fontWeight="800">{month === 0 ? "NOW" : `M${month}`}</text>)}
+                    {[3, 6, 9].map((month) => <line key={month} x1={baselineX(month)} x2={baselineX(month)} y1="40" y2="470" stroke="rgba(255,255,255,0.07)" strokeDasharray="3 7" />)}
+                    <line x1="68" x2="68" y1="40" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
+                    <line x1="68" x2="658" y1="470" y2="470" stroke="rgba(255,255,255,0.72)" strokeWidth="2" />
+                    {baselineSeries.map((series) => {
+                      const linePoints = baselineProjectionData.map((point, index) => `${baselineX(index)},${baselineY(Number(point[series.chartKey]))}`);
+                      const upper = baselineProjectionData.map((point, index) => `${baselineX(index)},${baselineY(Number(point[`${series.chartKey}High`]))}`);
+                      const lower = baselineProjectionData.map((point, index) => `${baselineX(index)},${baselineY(Number(point[`${series.chartKey}Low`]))}`).reverse();
+                      const linePath = linePoints.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ");
+                      const rangePath = `${upper.map((point, index) => `${index === 0 ? "M" : "L"}${point}`).join(" ")} ${lower.map((point) => `L${point}`).join(" ")} Z`;
+                      return <g key={series.chartKey}>
+                        <path d={rangePath} fill={series.color} fillOpacity="0.15" />
+                        <path d={linePath} fill="none" stroke={series.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="8 5" opacity="0.82" />
+                        <circle cx={baselineX(0)} cy={baselineY(Number(baselineProjectionData[0][series.chartKey]))} r="10" fill={series.color} fillOpacity="0.2" stroke="white" strokeWidth="2" />
+                        <circle cx={baselineX(0)} cy={baselineY(Number(baselineProjectionData[0][series.chartKey]))} r="5" fill={series.color} stroke="white" strokeWidth="2" />
+                      </g>;
+                    })}
+                  </svg>
+                </div>
               )}
               {chartIndex === 1 && (
                 weeklyStats?.length ? (
@@ -605,7 +646,15 @@ export default function ProgressPage() {
                   <LineChart className="w-5 h-5 text-primary" />
                   {activeDef.label} · {periodChartTitle[timePeriod]}
                 </CardTitle>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{chartIndex} / {dashboardChartCount - 1}</span>
+                <select
+                  aria-label="Choose shooting statistic"
+                  data-testid="select-shooting-metric"
+                  value={selectedMetric}
+                  onChange={(event) => setSelectedMetric(event.currentTarget.value as MetricKey)}
+                  className="max-w-[48%] rounded-lg border border-zinc-700 bg-black px-2 py-1.5 text-xs font-semibold text-zinc-200 outline-none focus:border-orange-400"
+                >
+                  {shootingChartMetrics.map((metric) => <option key={metric.key} value={metric.key}>{metric.label}</option>)}
+                </select>
               </div>
             </CardHeader>
             <CardContent
@@ -800,8 +849,8 @@ export default function ProgressPage() {
               </CardContent>
             </Card>
           </div>}
-          <div className="flex shrink-0 items-center justify-center gap-1.5 py-2" aria-label={`Shooting chart ${chartIndex} of ${dashboardChartCount - 1}`}>
-            {Array.from({ length: dashboardChartCount }, (_, index) => <span key={index} className={`h-1.5 rounded-full transition-all ${index === chartIndex ? "w-5 bg-orange-400" : "w-1.5 bg-zinc-700"}`} />)}
+          <div className="flex shrink-0 items-center justify-center gap-1.5 py-2" aria-label={`Shooting chart ${chartIndex + 1} of 2`}>
+            {[0, 1].map((index) => <span key={index} className={`h-1.5 rounded-full transition-all ${index === chartIndex ? "w-5 bg-orange-400" : "w-1.5 bg-zinc-700"}`} />)}
           </div>
         </div>
       ) : null}
