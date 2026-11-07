@@ -6981,6 +6981,13 @@ export class DatabaseStorage {
         COALESCE(AVG(duration) FILTER (WHERE completed_at >= NOW() - INTERVAL '28 days'), 0)::float AS avg_minutes_28d
       FROM session_logs
     `));
+    const loggingPreferenceRow = r1(await db.execute(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE preferred_workout_logging_mode = 'complete')::int AS quick_complete_preferences,
+        COUNT(*) FILTER (WHERE preferred_workout_logging_mode = 'track')::int AS track_preferences
+      FROM user_profiles
+      WHERE preferred_workout_logging_mode IN ('complete', 'track')
+    `));
 
     const topPrograms = r(await db.execute(sql`
       SELECT
@@ -7150,6 +7157,8 @@ export class DatabaseStorage {
         sessionsAllTime: Number(sessionRow.sessions_all_time || 0),
         tracked28d: Number(sessionRow.tracked_28d || 0),
         quickComplete28d: Number(sessionRow.quick_28d || 0),
+        preferredQuickComplete: Number(loggingPreferenceRow.quick_complete_preferences || 0),
+        preferredTrackStats: Number(loggingPreferenceRow.track_preferences || 0),
         telemetrySessions28d: Number(funnelRow.telemetry_sessions || 0),
         telemetryTracked28d: Number(funnelRow.tracked_sessions || 0),
         telemetryQuickComplete28d: Number(funnelRow.quick_complete_sessions || 0),

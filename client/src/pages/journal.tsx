@@ -83,7 +83,7 @@ function CoachPMark({ size = 16 }: { size?: number }) {
 }
 
 function EntryEditor({
-  entry, type, isPro, onTypeChange, onOpenArchive, entryCount, initialSourceKind, initialSourceId, onDone, onSaved,
+  entry, type, isPro, onTypeChange, onOpenArchive, entryCount, initialSourceKind, initialSourceId, onBack, onDone, onSaved,
 }: {
   entry?: JournalEntry;
   type: JournalType;
@@ -93,6 +93,7 @@ function EntryEditor({
   entryCount?: number;
   initialSourceKind?: SourceKind | null;
   initialSourceId?: string | null;
+  onBack?: () => void;
   onDone: () => void;
   onSaved?: (entry: JournalView) => void;
 }) {
@@ -198,7 +199,25 @@ function EntryEditor({
   );
   return (
     <div className="space-y-5">
-      {!entry && <div className="flex items-center gap-2">
+      {!entry && <>
+        <div className="flex items-center gap-2">
+          {onBack && <Button type="button" variant="ghost" className="h-10 shrink-0 gap-1.5 px-2 text-zinc-300 hover:bg-zinc-900 hover:text-white" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="text-xs font-semibold">Back</span>
+          </Button>}
+          {onOpenArchive && <Button
+            variant="outline"
+            className="h-10 shrink-0 gap-2 rounded-xl border-zinc-800 bg-zinc-950 px-2.5 text-zinc-200 hover:border-orange-500/50 hover:bg-zinc-900"
+            onClick={onOpenArchive}
+            data-testid="button-past-entries"
+          >
+            <BookOpen className="h-4 w-4 text-orange-400" />
+            <span className="text-xs font-semibold">Past entries</span>
+            <span className="rounded-full bg-zinc-900 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-400">{entryCount ?? 0}</span>
+          </Button>}
+          <div className="ml-auto">{coachAnalysisButton}</div>
+        </div>
+        <div>
         <Select
           value={freeWrite ? "free-write" : type}
           disabled={Boolean(savedDraftId)}
@@ -229,18 +248,8 @@ function EntryEditor({
             </SelectItem>
           </SelectContent>
         </Select>
-        {coachAnalysisButton}
-        {onOpenArchive && <Button
-          variant="outline"
-          className="ml-auto h-10 shrink-0 gap-2 rounded-xl border-zinc-800 bg-zinc-950 px-2.5 text-zinc-200 hover:border-orange-500/50 hover:bg-zinc-900"
-          onClick={onOpenArchive}
-          data-testid="button-past-entries"
-        >
-          <BookOpen className="h-4 w-4 text-orange-400" />
-          <span className="text-xs font-semibold">Past entries</span>
-          <span className="rounded-full bg-zinc-900 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-400">{entryCount ?? 0}</span>
-        </Button>}
-      </div>}
+        </div>
+      </>}
       {entryActions}
       {entry && <div><h2 className="text-lg font-semibold">Edit reflection</h2><p className="text-sm text-zinc-500">Keep the details that matter.</p></div>}
       {entry && savedPrompts.length > 0 && (
@@ -278,21 +287,26 @@ function EntryEditor({
         <span aria-hidden="true" className="absolute right-0 top-5 h-8 w-3 rounded-l-sm bg-orange-500" />
       </div>
       <Dialog open={analysisDialogOpen} onOpenChange={setAnalysisDialogOpen}>
-        <DialogContent className="dark max-w-sm rounded-2xl border-zinc-800 bg-zinc-950 text-zinc-100">
-          <DialogHeader>
-            <DialogTitle>Coach P analysis</DialogTitle>
-            <DialogDescription className="leading-relaxed text-zinc-400">
-              Coach P reads this reflection and gives personalized feedback plus a follow-up question. Your page is saved before the analysis starts.
-              {!isPro && " Journal analysis is a Pro feature."}
-            </DialogDescription>
-          </DialogHeader>
-          {!hasReflectionContent && <p className="text-xs text-zinc-500">Write a few words on the page first to enable analysis.</p>}
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setAnalysisDialogOpen(false)}>Cancel</Button>
-            <Button className="bg-orange-500 text-zinc-950 hover:bg-orange-400" onClick={analyze} disabled={!hasReflectionContent || analysisPending || mutation.isPending}>
-              {analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isPro ? "Analyze this page" : "Continue"}
-            </Button>
+        <DialogContent className="dark max-w-sm overflow-hidden rounded-2xl border border-zinc-800 bg-black p-0 text-zinc-100 shadow-2xl">
+          <div className="p-5 sm:p-6">
+            <DialogHeader className="items-center text-center">
+              <CoachPIcon size="lg" />
+              <DialogTitle className="mt-3 text-xl font-bold tracking-tight">A Coach P read on your page</DialogTitle>
+              <DialogDescription className="mt-1 max-w-xs leading-relaxed text-zinc-400">
+                Get personalized feedback on what you wrote, plus one question to help you think about your next step.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="my-5 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-300">
+              Your reflection is saved before Coach P starts. {!isPro && <span className="text-orange-300">Journal analysis is a Pro feature.</span>}
+              {!hasReflectionContent && <p className="mt-2 text-xs text-zinc-500">Write a few words on the page first.</p>}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" className="text-zinc-400 hover:bg-zinc-900 hover:text-white" onClick={() => setAnalysisDialogOpen(false)}>Cancel</Button>
+              <Button className="bg-orange-500 text-zinc-950 hover:bg-orange-400" onClick={analyze} disabled={!hasReflectionContent || analysisPending || mutation.isPending}>
+                {analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isPro ? "Analyze page" : "Continue"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -476,7 +490,7 @@ export default function JournalPage() {
   const initialSourceId = params.get("trainingLogId") || params.get("gameId");
   return (
     <div className="dark min-h-[100dvh] bg-black text-zinc-100">
-      <div className="mx-auto w-full max-w-6xl px-4 pb-10 pt-5 sm:px-7 sm:pt-8">
+      <div className="mx-auto w-full max-w-6xl px-4 pb-10 pt-7 sm:px-7 sm:pt-10">
         <main className="mx-auto w-full max-w-3xl">
           {!showAllEntries ? (
             <section className="space-y-5" aria-label="Write a journal page">
@@ -485,6 +499,7 @@ export default function JournalPage() {
                 type={selectedType}
                 isPro={isPro}
                 onTypeChange={setSelectedType}
+                onBack={() => navigate("/hub")}
                 onOpenArchive={() => setShowAllEntries(true)}
                 entryCount={entries.length}
                 initialSourceKind={initialSourceKind}

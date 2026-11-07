@@ -7514,6 +7514,10 @@ function TrainingAnalyticsSubTab() {
               <div><p className="text-muted-foreground">Minutes in window</p><p className="mt-1 font-semibold">{number(sessions.minutes28d)}</p></div>
               <div><p className="text-muted-foreground">Sessions all time</p><p className="mt-1 font-semibold">{number(sessions.sessionsAllTime)}</p></div>
             </div>
+            <div className="grid grid-cols-2 gap-3 border-t border-zinc-800/70 pt-4 text-sm" data-testid="workout-logging-preferences">
+              <div><p className="text-muted-foreground">Quick complete default</p><p className="mt-1 font-semibold">{number(sessions.preferredQuickComplete)}</p></div>
+              <div><p className="text-muted-foreground">Track stats default</p><p className="mt-1 font-semibold">{number(sessions.preferredTrackStats)}</p></div>
+            </div>
           </CardContent>
         </Card>
       </div>

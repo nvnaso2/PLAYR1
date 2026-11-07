@@ -37,6 +37,7 @@
 - [Game-speed shooting diagnostic](game-speed-shooting-diagnostic.md) — score the leading conversion leak but keep one drill for every answer; a 1-1-1 split stays mixed
 - [Seven-day onboarding direction](first-run-setup-lead-magnet.md) — Day 1 baseline is schedule-aware; Day 2 keeps Coach P prominent and integrates supplied court art into the workout card
 - [Journal design direction](journal-design-direction.md) — use a blank notebook landing page, with saved entries under Past Entries and existing prompts
+- [Workout logging preference](workout-logging-preference.md) — ask after Day 3 whether players prefer Quick Complete or Track Stats; persist the account default and report it in admin analytics
 - [Lead magnet result privacy](lead-magnet-result-privacy.md) — keep submissions stored for Coach P while hiding saved-result history from players
 - [Settings family controls](settings-family-controls.md) — remove family and parent-invite controls from Settings only; retain related routes, stored data, and backend flows
 - [Founder-led shooting cohort](founder-shooting-cohort.md) — member-only portal, private Founder messaging, dated shooting progress, assigned workouts, and outstanding-review counts

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, startTransition } from "react";
+import { Fragment, useState, useMemo, useEffect, useRef, startTransition } from "react";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useLocation, useSearch, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -55,6 +55,7 @@ import {
   Plus, 
   Clock, 
   Target, 
+  BarChart3,
   Calendar,
   ClipboardList,
   Play,
@@ -165,6 +166,8 @@ export default function TrainingLogPage() {
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [workoutEntries, setWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
   const [workoutMode, setWorkoutMode] = useState<WorkoutMode>("track");
+  const { data: accountProfile } = useQuery<{ preferredWorkoutLoggingMode?: WorkoutMode | null }>({ queryKey: ["/api/profile"] });
+  const preferredWorkoutMode: WorkoutMode = accountProfile?.preferredWorkoutLoggingMode === "complete" ? "complete" : "track";
   const [activeWorkoutTemplateId, setActiveWorkoutTemplateId] = useState<string | null>(null);
   const [activeWorkoutName, setActiveWorkoutName] = useState("Training session");
   const [quickCompletedDrillIds, setQuickCompletedDrillIds] = useState<Set<string>>(new Set());
@@ -204,6 +207,9 @@ export default function TrainingLogPage() {
   const [activeView, setActiveView] = useState<"library" | "workout" | "history">("library");
   const [isStartingTemplate, setIsStartingTemplate] = useState(() => new URLSearchParams(window.location.search).has("workoutId"));
   const [showFavoriteDialog, setShowFavoriteDialog] = useState(false);
+  const [showLoggingPreferencePrompt, setShowLoggingPreferencePrompt] = useState(false);
+  const [selectedLoggingPreference, setSelectedLoggingPreference] = useState<WorkoutMode | null>(null);
+  const [savingLoggingPreference, setSavingLoggingPreference] = useState<WorkoutMode | null>(null);
   const [postJournalPrompt, setPostJournalPrompt] = useState<{ type: "post-workout"; trainingLogId: string } | null>(null);
   const [completedWorkoutEntries, setCompletedWorkoutEntries] = useState<WorkoutDrillEntry[]>([]);
   const [shareSessionId, setShareSessionId] = useState<string | null>(null);
@@ -231,6 +237,27 @@ export default function TrainingLogPage() {
   // Manual duration override — user can type in actual minutes if timer was inaccurate
   // drillId → timestamp (ms) when that drill was first added to the session
   const [drillStartTimes, setDrillStartTimes] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!workoutInProgress && accountProfile?.preferredWorkoutLoggingMode) {
+      setWorkoutMode(accountProfile.preferredWorkoutLoggingMode);
+    }
+  }, [accountProfile?.preferredWorkoutLoggingMode, workoutInProgress]);
+
+  const saveWorkoutLoggingPreference = async (mode: WorkoutMode) => {
+    setSavingLoggingPreference(mode);
+    try {
+      await apiRequest("PUT", "/api/profile/workout-logging-preference", { mode });
+      setSelectedLoggingPreference(mode);
+      setWorkoutMode(mode);
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      toast({ title: "Preference saved", description: `${mode === "complete" ? "Quick Complete" : "Track Stats"} is now your default.` });
+    } catch (error) {
+      toast({ title: "Could not save preference", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
+    } finally {
+      setSavingLoggingPreference(null);
+    }
+  };
 
   // ── localStorage draft persistence ──────────────────────────────────────────
   const WORKOUT_DRAFT_KEY = "playr1_workout_draft";
@@ -421,7 +448,7 @@ export default function TrainingLogPage() {
           autoShotLocation = 'free-throw';
         }
 
-        setWorkoutMode("track");
+        setWorkoutMode(preferredWorkoutMode);
         setQuickCompletedDrillIds(new Set());
         setWorkoutEntries([{
           drillId: drill.id,
@@ -1009,7 +1036,7 @@ export default function TrainingLogPage() {
   };
 
   // Start workout with selected drills
-  const startWorkoutFromDrills = async (mode: WorkoutMode = "track") => {
+  const startWorkoutFromDrills = async (mode: WorkoutMode = preferredWorkoutMode) => {
     if (selectedDrillIds.size === 0) {
       toast({ title: "Please select at least one drill", variant: "destructive" });
       return;
@@ -1104,7 +1131,7 @@ export default function TrainingLogPage() {
     const entries = await buildDrillEntries(drillId, drill);
     setActiveWorkoutTemplateId(null);
     setActiveWorkoutName(drill.title);
-    setWorkoutMode("track");
+    setWorkoutMode(preferredWorkoutMode);
     setQuickCompletedDrillIds(new Set());
     setTrackedEntryIndexes(new Set());
     setSelectedTrackRoundByDrill({});
@@ -1136,7 +1163,7 @@ export default function TrainingLogPage() {
         }));
       }))).flat();
 
-      setWorkoutMode(workoutId === DAY_TWO_RANGE_WORKOUT_ID ? "complete" : "track");
+      setWorkoutMode(workoutId === DAY_TWO_RANGE_WORKOUT_ID ? "complete" : preferredWorkoutMode);
       setActiveWorkoutTemplateId(workoutId);
       setActiveWorkoutName(data.workout.name);
       setQuickCompletedDrillIds(new Set());
@@ -1182,7 +1209,7 @@ export default function TrainingLogPage() {
     const programItemId = params.get("programItemId");
     const enrollmentId = params.get("enrollmentId");
     const saveTemplate = params.get("saveTemplate") === "1";
-    const mode: WorkoutMode = params.get("mode") === "complete" ? "complete" : "track";
+    const mode: WorkoutMode = params.get("mode") === "complete" ? "complete" : params.get("mode") === "track" ? "track" : preferredWorkoutMode;
     const dedupKey = [list, programItemId, enrollmentId, mode, saveTemplate ? "save" : ""].filter(Boolean).join("|");
     if (dedupKey === lastAutoStartKey) return;
     const ids = list.split(",").map((s) => s.trim()).filter(Boolean);
@@ -1366,6 +1393,7 @@ export default function TrainingLogPage() {
 
   // Save workout
   const saveWorkout = async () => {
+    const completedDayThreeWorkout = activeWorkoutTemplateId === DAY_THREE_VOLUME_WORKOUT_ID;
     const quickEntries = Array.from(
       new Map(workoutEntries.map((entry) => [entry.drillId, entry])).values()
     );
@@ -1528,8 +1556,10 @@ export default function TrainingLogPage() {
         setTrackedEntryIndexes(new Set());
         setSelectedTrackRoundByDrill({});
         setMetricInputDrafts({});
-        setWorkoutMode("track");
+        setWorkoutMode(preferredWorkoutMode);
         setShareSessionId(bulkRes?.ok ? sessionId : null);
+        setShowLoggingPreferencePrompt(completedDayThreeWorkout);
+        setSelectedLoggingPreference(accountProfile?.preferredWorkoutLoggingMode || null);
         setShowFavoriteDialog(true);
       });
 
@@ -1636,7 +1666,7 @@ export default function TrainingLogPage() {
     setTrackedEntryIndexes(new Set());
     setSelectedTrackRoundByDrill({});
     setMetricInputDrafts({});
-    setWorkoutMode("track");
+    setWorkoutMode(preferredWorkoutMode);
     setActiveWorkoutTemplateId(null);
     setActiveWorkoutName("Training session");
     setPendingProgramCompletion(null);
@@ -3028,6 +3058,7 @@ export default function TrainingLogPage() {
       <Dialog open={showFavoriteDialog} onOpenChange={(open) => {
         setShowFavoriteDialog(open);
         if (!open) {
+          setShowLoggingPreferencePrompt(false);
           setWorkoutEntries([]);
           setCompletedWorkoutEntries([]);
           setSelectedDrillIds(new Set());
@@ -3035,15 +3066,49 @@ export default function TrainingLogPage() {
           setActiveView("library");
         }
       }}>
-        <DialogContent className="max-w-md overflow-hidden border border-white/10 bg-[#080808] p-0 text-white shadow-[0_28px_100px_rgba(0,0,0,.9)] sm:rounded-[28px]" data-testid="dialog-workout-complete">
-          <div className="relative overflow-hidden px-5 pb-5 pt-7 sm:px-7 sm:pb-7 sm:pt-9">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(249,115,22,.18),transparent_55%)]" />
-            <DialogHeader className="relative items-center text-center">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[.28em] text-orange-400">Session complete</p>
-              <DialogTitle className="mt-2 font-heading text-3xl font-black uppercase leading-none tracking-tight text-white sm:text-4xl">
-                Let&apos;s dive into this training session.
-              </DialogTitle>
+        <DialogContent className="max-w-md overflow-hidden border border-zinc-800 bg-black p-0 text-white shadow-2xl sm:rounded-[28px]" data-testid="dialog-workout-complete">
+          <div className="relative overflow-hidden px-5 pb-5 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Workout complete</DialogTitle>
+              <DialogDescription>Choose your default workout logging mode or continue to the workout options.</DialogDescription>
             </DialogHeader>
+
+            {showLoggingPreferencePrompt && (
+              <section className="border-b border-zinc-800 pb-4" aria-label="Choose your default workout logging mode">
+                <p className="mb-3 text-center text-sm font-semibold text-white">Which workout logging style do you prefer?</p>
+                <div className="flex w-full items-center rounded-xl border border-black/10 bg-zinc-100 p-1" aria-label="Default workout logging mode">
+                  {([
+                    { mode: "complete" as const, label: "Quick Complete", Icon: Check },
+                    { mode: "track" as const, label: "Track Stats", Icon: BarChart3 },
+                  ]).map(({ mode, label, Icon }, index) => {
+                    const selected = selectedLoggingPreference === mode;
+                    return (
+                      <Fragment key={mode}>
+                        {index > 0 && <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-zinc-300" />}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={savingLoggingPreference !== null}
+                          onClick={() => void saveWorkoutLoggingPreference(mode)}
+                          className={`h-11 flex-1 font-mono text-[11px] font-extrabold uppercase tracking-[.14em] ${
+                            selected
+                              ? "bg-zinc-950 text-white shadow-sm hover:bg-zinc-800 hover:text-white"
+                              : "text-zinc-500 hover:bg-white hover:text-black"
+                          }`}
+                          aria-pressed={selected}
+                          data-testid={`button-default-mode-${mode}`}
+                        >
+                          {savingLoggingPreference === mode ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Icon className={`mr-1.5 h-4 w-4 ${mode === "complete" ? "text-orange-500" : ""}`} />}
+                          {label}
+                        </Button>
+                      </Fragment>
+                    );
+                  })}
+                </div>
+                {selectedLoggingPreference && <p className="mt-2 text-center text-[11px] text-zinc-400">Saved as your account default.</p>}
+              </section>
+            )}
 
             {postJournalPrompt && (
               <button
@@ -3053,16 +3118,19 @@ export default function TrainingLogPage() {
                   setShowFavoriteDialog(false);
                   setLocation(target);
                 }}
-                className="group relative mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-2xl border border-orange-400/25 bg-[#111] px-5 py-7 text-center shadow-[0_0_40px_rgba(249,115,22,.12)] transition hover:border-orange-400/60 hover:bg-[#151515] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                className="group relative mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-2xl border border-zinc-800 bg-black px-5 py-7 text-center transition hover:border-zinc-600 hover:bg-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                 data-testid="button-reflect-after-workout"
               >
-                <span className="relative flex h-20 w-20 items-center justify-center rounded-[22px] border border-[#f2e6cc] bg-gradient-to-br from-[#eee1c4] to-[#c9b894] shadow-[0_0_30px_rgba(249,115,22,.2)]">
+                <span className="relative flex h-20 w-20 items-center justify-center rounded-[22px] border border-[#f2e6cc] bg-[#eee1c4]">
                   <span className="absolute inset-y-2 left-3 w-px bg-[#9c8765]/60" />
                   <BookMarked className="h-10 w-10 text-[#423727]" strokeWidth={1.8} />
                   <span className="absolute right-4 top-0 h-5 w-2 rounded-b-sm bg-orange-600" />
                 </span>
                 <span className="font-heading text-xl font-black uppercase tracking-wide text-white sm:text-2xl">Open your journal</span>
-                <span className="rounded-lg bg-orange-500 px-6 py-3 font-mono text-xs font-extrabold uppercase tracking-[.16em] text-black shadow-[0_3px_0_#a93c0d] transition group-hover:bg-orange-400">Reflect now</span>
+                <span className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition-colors group-hover:bg-orange-400 group-focus-visible:outline-none group-focus-visible:ring-2 group-focus-visible:ring-orange-300">
+                  Reflect now
+                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
               </button>
             )}
 

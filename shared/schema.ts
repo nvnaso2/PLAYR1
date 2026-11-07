@@ -353,6 +353,7 @@ export const userProfiles = pgTable("user_profiles", {
   skillLevel: varchar("skill_level").$type<DifficultyLevel>().default("beginner"),
   profilePhotoUrl: varchar("profile_photo_url"),
   activityVisibility: jsonb("activity_visibility").$type<Record<string, boolean>>().default(sql`'{}'::jsonb`),
+  preferredWorkoutLoggingMode: varchar("preferred_workout_logging_mode").$type<"complete" | "track">(),
   isAdmin: boolean("is_admin").default(false),
   subscriptionPlan: varchar("subscription_plan").default("free"), // 'free' | 'pro' | 'pro-infinity'
   initialQuizId: varchar("initial_quiz_id"),

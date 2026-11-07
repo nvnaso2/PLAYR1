@@ -5320,6 +5320,30 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
     }
   });
 
+  app.put("/api/profile/workout-logging-preference", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const mode = req.body?.mode;
+      if (mode !== "complete" && mode !== "track") {
+        return res.status(400).json({ message: "Choose quick complete or track stats." });
+      }
+      const userId = req.user.claims.sub;
+      await db.insert(userProfiles)
+        .values({ userId, preferredWorkoutLoggingMode: mode })
+        .onConflictDoUpdate({
+          target: userProfiles.userId,
+          set: { preferredWorkoutLoggingMode: mode, updatedAt: new Date() },
+        });
+      await storage.trackAnalyticsEvent(userId, "workout_logging_preference_selected", "/log", {
+        mode,
+        source: "day3_onboarding",
+      });
+      res.json({ preferredWorkoutLoggingMode: mode });
+    } catch (error) {
+      console.error("Error saving workout logging preference:", error);
+      res.status(500).json({ message: "Could not save workout preference." });
+    }
+  });
+
   // Update user profile
   app.put("/api/profile", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
