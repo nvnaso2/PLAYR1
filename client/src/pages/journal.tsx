@@ -127,8 +127,7 @@ function JournalTypePicker({ value, onChange, disabled = false }: { value: Journ
     { value: "open", label: "Open", icon: Brain },
   ];
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">Reflecting on</p>
+    <div>
       <div className="grid grid-cols-3 gap-1.5">
         {options.map(({ value: optionValue, label, icon: Icon }) => (
           <button
@@ -165,7 +164,8 @@ function EntryEditor({
 }) {
   const { toast } = useToast();
   const { openProOffer } = useProUpgrade();
-  const [selectedPromptId, setSelectedPromptId] = useState("");
+  const [selectedPromptId, setSelectedPromptId] = useState(() => PROMPTS[type][Math.floor(Math.random() * PROMPTS[type].length)]?.id || "");
+  const [freeWrite, setFreeWrite] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>(() => Object.fromEntries((entry?.responses || []).map((response) => [response.promptId, response.answer])));
   const [thoughts, setThoughts] = useState(entry?.thoughts || "");
   const [savedDraftId, setSavedDraftId] = useState<string | null>(entry?.id || null);
@@ -173,7 +173,7 @@ function EntryEditor({
   const [sourceKind, setSourceKind] = useState<SourceKind | null>(entry?.gameId ? "game" : entry?.trainingLogId ? "workout" : initialSourceKind || null);
   const [sourceId, setSourceId] = useState<string | null>(entry?.gameId || entry?.trainingLogId || initialSourceId || null);
   const [analysisPending, setAnalysisPending] = useState(false);
-  const activePrompt = PROMPTS[type].find((prompt) => prompt.id === selectedPromptId);
+  const activePrompt = !entry && !freeWrite ? PROMPTS[type].find((prompt) => prompt.id === selectedPromptId) : undefined;
   const savedPrompts = entry?.responses || [];
   const hasReflectionContent = Boolean(
     thoughts.trim() || savedPrompts.some((response) => (answers[response.promptId] || "").trim()),
@@ -233,26 +233,27 @@ function EntryEditor({
       else toast({ title: "Could not analyze reflection", description: message, variant: "destructive" });
     } finally { setAnalysisPending(false); }
   };
-  useEffect(() => { setSelectedPromptId(""); }, [type]);
+  useEffect(() => {
+    const prompts = PROMPTS[type];
+    setSelectedPromptId(prompts[Math.floor(Math.random() * prompts.length)]?.id || "");
+    setFreeWrite(false);
+  }, [type]);
   return (
     <div className="space-y-5">
       {!entry && <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-400">Reflecting on</p><h2 className="mt-1 text-lg font-semibold text-[#eee7dc]">{TYPE_LABELS[type]}</h2></div>
         {onTypeChange && <JournalTypePicker value={type} onChange={changeType} disabled={Boolean(savedDraftId && !entry)} />}
+        <Button
+          type="button"
+          variant="outline"
+          aria-pressed={freeWrite}
+          onClick={() => setFreeWrite((current) => !current)}
+          className={`min-h-10 shrink-0 border-[#675745] px-3 text-xs ${freeWrite ? "bg-orange-500 text-zinc-950 hover:bg-orange-400" : "text-[#e8ddcd] hover:bg-[#29251f]"}`}
+          data-testid="button-journal-free-write"
+        >
+          {freeWrite ? "Use a prompt" : "Free write"}
+        </Button>
       </div>}
       {entry && <div><h2 className="text-lg font-semibold">Edit reflection</h2><p className="text-sm text-zinc-500">Keep the details that matter.</p></div>}
-      {!entry && <label className="block space-y-2">
-        <span className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.14em] text-[#897d6e]"><span>Optional prompt</span><span className="font-normal normal-case tracking-normal text-zinc-500">Free writing is always open</span></span>
-        <select value={selectedPromptId} onChange={(event) => setSelectedPromptId(event.target.value)} className="h-11 w-full rounded-lg border border-[#665747] bg-[#f1e8d9] px-3 text-sm text-[#34302a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" aria-label="Choose a reflection prompt">
-          <option value="">Write freely — no prompt</option>{PROMPTS[type].map((prompt) => <option key={prompt.id} value={prompt.id}>{prompt.question}</option>)}
-        </select>
-      </label>}
-      {activePrompt && !entry && <>
-        <div className="rounded-lg border-l-2 border-orange-500 bg-[#29251f] px-4 py-3 text-sm leading-relaxed text-[#e8ddcd]">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-300">Today’s prompt</p>
-          {activePrompt.question}
-        </div>
-      </>}
       {entry && savedPrompts.length > 0 && (
         <section className="space-y-3" aria-label="Saved reflection prompts">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Saved prompt responses</p>
@@ -267,8 +268,12 @@ function EntryEditor({
       <div className="relative overflow-hidden rounded-xl border border-[#76634e] border-l-[3px] border-l-orange-500 bg-[#eee5d6] shadow-[0_14px_40px_rgba(0,0,0,.25)]">
         <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-7 border-r border-[#c9bba6] bg-[#e3d8c7]" />
         <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-[27px] top-0 w-px bg-[#d0c1ac]" />
+        {activePrompt && <div className="relative px-11 pb-1 pt-5 pr-5 text-[#38332d]">
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#8c5b2e]">A prompt to get started</p>
+          <p className="text-sm font-medium leading-6">{activePrompt.question}</p>
+        </div>}
         <label htmlFor="journal-thoughts" className="sr-only">Your thoughts</label>
-        <Textarea id="journal-thoughts" value={thoughts} onChange={(event) => setThoughts(event.target.value)} placeholder={activePrompt && !entry ? "Write your response on the page…" : "Start anywhere. What’s on your mind?"} className="relative min-h-[330px] resize-y rounded-none border-0 bg-transparent py-5 pl-11 pr-5 text-[16px] leading-[32px] text-[#38332d] placeholder:text-[#9a8d7c] shadow-none focus-visible:ring-0 sm:min-h-[390px]" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0, transparent 31px, rgba(118, 99, 78, 0.17) 32px)", backgroundPosition: "0 9px" }} data-testid="textarea-journal-thoughts" />
+        <Textarea id="journal-thoughts" value={thoughts} onChange={(event) => setThoughts(event.target.value)} placeholder={activePrompt ? "Write your response…" : "Start anywhere…"} className="relative min-h-[330px] resize-y rounded-none border-0 bg-transparent py-5 pl-11 pr-5 text-[16px] leading-[32px] text-[#38332d] placeholder:text-[#9a8d7c] shadow-none focus-visible:ring-0 sm:min-h-[390px]" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0, transparent 31px, rgba(118, 99, 78, 0.17) 32px)", backgroundPosition: "0 9px" }} data-testid="textarea-journal-thoughts" />
         <span aria-hidden="true" className="absolute right-0 top-5 h-8 w-3 rounded-l-sm bg-orange-500" />
       </div>
       <p className="text-xs text-zinc-500">Private to you. No perfect answer needed.</p>
@@ -475,26 +480,12 @@ export default function JournalPage() {
   const initialSourceKind = params.get("trainingLogId") ? "workout" : params.get("gameId") ? "game" : null;
   const initialSourceId = params.get("trainingLogId") || params.get("gameId");
   return (
-    <div className="dark min-h-[100dvh] bg-[#111110] text-zinc-100">
+    <div className="dark min-h-[100dvh] bg-black text-zinc-100">
       <div className="mx-auto w-full max-w-6xl px-4 pb-10 pt-5 sm:px-7 sm:pt-8">
-        <header className="mb-7 flex items-center justify-between border-b border-zinc-800/80 pb-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button variant="ghost" size="icon" className="shrink-0 text-zinc-400 hover:bg-zinc-900 hover:text-white" onClick={() => navigate("/hub")} aria-label="Back to Hub" data-testid="button-back-to-hub">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="min-w-0">
-              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-orange-400">PLAYR1 / PERSONAL</p>
-              <h1 className="truncate text-2xl font-bold leading-none text-zinc-100">Journal</h1>
-            </div>
-          </div>
-          <span className="hidden text-xs text-zinc-500 sm:block">A quiet place to get better.</span>
-        </header>
-
         <main className="mx-auto w-full max-w-3xl">
           {!showAllEntries ? (
             <section className="space-y-5" aria-label="Write a journal page">
-              <div className="flex items-center justify-between gap-3">
-                <div><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-orange-400">A page for today</p><p className="mt-1 text-sm text-zinc-500">Write what you want to remember.</p></div>
+              <div className="flex justify-end">
                 <Button variant="outline" className="shrink-0 border-[#51463b] bg-[#1b1a18] text-[#e9e0d4] hover:border-orange-500/60 hover:bg-[#24211d]" onClick={() => setShowAllEntries(true)} data-testid="button-past-entries"><BookOpen className="mr-2 h-4 w-4 text-orange-400" />Past Entries <span className="ml-1 tabular-nums text-zinc-500">{entries.length}</span></Button>
               </div>
               <EntryEditor
