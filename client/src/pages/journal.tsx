@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, ArrowUp, BookOpen, Brain, ChevronRight, Dumbbell,
-  Edit3, Filter, Loader2, Plus, Search,
+  Edit3, Filter, Loader2, Search,
   Sparkles, Trash2, Trophy, X,
 } from "lucide-react";
 import type { JournalEntry, TrainingLog } from "@shared/schema";
@@ -59,10 +59,6 @@ const PROMPTS: Record<JournalType, JournalPrompt[]> = {
   "post-game": getJournalPrompts("post-game"),
   open: getJournalPrompts("open"),
 };
-
-function chooseRandomPromptIds(type: JournalType, count: number) {
-  return [...PROMPTS[type]].sort(() => Math.random() - 0.5).slice(0, count).map((prompt) => prompt.id);
-}
 
 function formatDate(value?: string | Date | null, long = false) {
   if (!value) return "Unknown date";
@@ -124,7 +120,7 @@ function SourcePicker({
   );
 }
 
-function JournalTypePicker({ value, onChange }: { value: JournalType; onChange: (value: JournalType) => void }) {
+function JournalTypePicker({ value, onChange, disabled = false }: { value: JournalType; onChange: (value: JournalType) => void; disabled?: boolean }) {
   const options: Array<{ value: JournalType; label: string; icon: typeof Dumbbell }> = [
     { value: "post-workout", label: "Practice", icon: Dumbbell },
     { value: "post-game", label: "Game", icon: Trophy },
@@ -138,8 +134,9 @@ function JournalTypePicker({ value, onChange }: { value: JournalType; onChange: 
           <button
             key={optionValue}
             type="button"
+            disabled={disabled}
             onClick={() => onChange(optionValue)}
-            className={`flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition-colors ${
+            className={`flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
               value === optionValue ? "border-orange-400 bg-orange-500/10" : "border-zinc-800 bg-zinc-950 hover:border-orange-400/50"
             }`}
             data-testid={`button-journal-type-${optionValue}`}
@@ -154,152 +151,128 @@ function JournalTypePicker({ value, onChange }: { value: JournalType; onChange: 
 }
 
 function EntryEditor({
-  entry, type, initialSourceKind, initialSourceId, sources, onDone, onBack,
+  entry, type, isPro, onTypeChange, initialSourceKind, initialSourceId, sources, onDone, onSaved,
 }: {
   entry?: JournalEntry;
   type: JournalType;
+  isPro: boolean;
+  onTypeChange?: (type: JournalType) => void;
   initialSourceKind?: SourceKind | null;
   initialSourceId?: string | null;
   sources: { workouts: Source[]; games: Source[] };
   onDone: () => void;
-  onBack?: () => void;
+  onSaved?: (entry: JournalView) => void;
 }) {
   const { toast } = useToast();
-  const [promptCount, setPromptCount] = useState(() => entry ? Math.min(3, entry.responses?.length || 0) : 0);
-  const [selectionMode, setSelectionMode] = useState<"automatic" | "manual">("automatic");
-  const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>(() =>
-    entry?.responses?.map((response) => response.promptId) || [],
-  );
-  const prompts = useMemo(() => {
-    if (entry) return entry.responses?.map((response) => ({ id: response.promptId, question: response.question })) || [];
-    return selectedPromptIds
-      .map((id) => PROMPTS[type].find((prompt) => prompt.id === id))
-      .filter((prompt): prompt is JournalPrompt => Boolean(prompt));
-  }, [entry, selectedPromptIds, type]);
+  const { openProOffer } = useProUpgrade();
+  const [selectedPromptId, setSelectedPromptId] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>(() => Object.fromEntries((entry?.responses || []).map((response) => [response.promptId, response.answer])));
   const [thoughts, setThoughts] = useState(entry?.thoughts || "");
+  const [savedDraftId, setSavedDraftId] = useState<string | null>(entry?.id || null);
   const [mood, setMood] = useState<number | null>(entry?.mood ?? null);
   const [sourceKind, setSourceKind] = useState<SourceKind | null>(entry?.gameId ? "game" : entry?.trainingLogId ? "workout" : initialSourceKind || null);
   const [sourceId, setSourceId] = useState<string | null>(entry?.gameId || entry?.trainingLogId || initialSourceId || null);
-  const { data: voteData } = useQuery<{ promptIds: string[] }>({
-    queryKey: ["/api/journal/prompt-votes"],
-    enabled: !entry,
-  });
-  const votedPromptIds = voteData?.promptIds || [];
-  const voteMutation = useMutation({
-    mutationFn: async (prompt: { id: string; question: string; category?: JournalType }) => {
-      const voted = votedPromptIds.includes(prompt.id);
-      return apiRequest(voted ? "DELETE" : "POST", voted ? `/api/journal/prompt-votes/${prompt.id}` : "/api/journal/prompt-votes", voted ? undefined : { promptId: prompt.id, category: prompt.category || type });
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/journal/prompt-votes"] }),
-  });
-
-  useEffect(() => {
-    if (entry || selectionMode !== "automatic") return;
-    setSelectedPromptIds(chooseRandomPromptIds(type, promptCount));
-  }, [entry, promptCount, selectionMode, type]);
-
-  const setCount = (count: number) => {
-    setPromptCount(count);
-    if (selectionMode === "manual") {
-      setSelectedPromptIds((current) => {
-        const next = current.slice(0, count);
-        while (next.length < count) {
-          const nextPrompt = PROMPTS[type].find((prompt) => !next.includes(prompt.id));
-          if (!nextPrompt) break;
-          next.push(nextPrompt.id);
-        }
-        return next;
-      });
+  const [analysisPending, setAnalysisPending] = useState(false);
+  const activePrompt = PROMPTS[type].find((prompt) => prompt.id === selectedPromptId);
+  const savedPrompts = entry?.responses || [];
+  const hasReflectionContent = Boolean(
+    thoughts.trim() || savedPrompts.some((response) => (answers[response.promptId] || "").trim()),
+  );
+  const changeType = (nextType: JournalType) => {
+    if ((nextType === "post-game" && sourceKind !== "game") || (nextType === "post-workout" && sourceKind !== "workout") || nextType === "open") {
+      setSourceKind(null);
+      setSourceId(null);
     }
+    onTypeChange?.(nextType);
   };
-
-  const selectPrompt = (index: number, promptId: string) => {
-    setSelectedPromptIds((current) => current.map((id, currentIndex) => currentIndex === index ? promptId : id));
+  const save = async () => {
+    const existingId = entry?.id || savedDraftId;
+    const responses = entry
+      ? savedPrompts.map((response) => ({ ...response, answer: (answers[response.promptId] || "").trim() })).filter((response) => response.answer)
+      : activePrompt && thoughts.trim()
+        ? [{ promptId: activePrompt.id, question: activePrompt.question, answer: thoughts.trim() }]
+        : [];
+    const savedThoughts = !entry && activePrompt ? null : thoughts.trim() || null;
+    if (!responses.length && !savedThoughts && !hasReflectionContent) throw new Error("Write a few words before saving.");
+    const payload = {
+      ...(!existingId ? { type } : {}), mood, responses, thoughts: savedThoughts,
+      trainingLogId: sourceKind === "workout" ? sourceId : null,
+      gameId: sourceKind === "game" ? sourceId : null,
+    };
+    const response = await apiRequest(existingId ? "PUT" : "POST", existingId ? `/api/journal/${existingId}` : "/api/journal", payload);
+    const saved = await response.json() as JournalView;
+    if (!existingId) setSavedDraftId(saved.id);
+    return saved;
   };
-
   const mutation = useMutation({
-    mutationFn: async () => {
-      const responses = prompts
-        .map((prompt) => ({ promptId: prompt.id, question: prompt.question, answer: (answers[prompt.id] || "").trim() }))
-        .filter((response) => response.answer.length > 0);
-      if (!responses.length && !thoughts.trim()) throw new Error("Write a few words before saving.");
-       const payload = {
-         ...(entry ? {} : { type }), mood, responses, thoughts: thoughts.trim() || null,
-        trainingLogId: sourceKind === "workout" ? sourceId : null,
-        gameId: sourceKind === "game" ? sourceId : null,
-      };
-      const response = await apiRequest(entry ? "PUT" : "POST", entry ? `/api/journal/${entry.id}` : "/api/journal", payload);
-      return response.json();
-    },
+    mutationFn: save,
     onSuccess: (saved: JournalView) => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
       toast({ title: entry ? "Reflection updated" : "Reflection saved", description: saved.feedbackStale ? "Old Coach P feedback was cleared because your reflection changed." : undefined });
+      onSaved?.(saved);
       onDone();
     },
     onError: (error: Error) => toast({ title: "Could not save reflection", description: error.message, variant: "destructive" }),
   });
+  const analyze = async () => {
+    if (!isPro) { openProOffer("Journal analysis"); return; }
+    setAnalysisPending(true);
+    try {
+      const saved = await save();
+      setSavedDraftId(saved.id);
+      queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
+      const response = await apiRequest("POST", `/api/journal/${saved.id}/ai-coach`);
+      const analyzed = await response.json() as JournalView;
+      queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
+      toast({ title: "Coach P’s analysis is ready" });
+      onSaved?.(analyzed);
+      onDone();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not analyze this reflection.";
+      if (/402|pro|required|upgrade/i.test(message)) openProOffer("Journal analysis");
+      else toast({ title: "Could not analyze reflection", description: message, variant: "destructive" });
+    } finally { setAnalysisPending(false); }
+  };
+  useEffect(() => { setSelectedPromptId(""); }, [type]);
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        {onBack && <Button size="icon" variant="ghost" onClick={onBack}><ChevronRight className="w-4 h-4 rotate-180" /></Button>}
-        <div><h2 className="text-lg font-semibold">{entry ? "Edit reflection" : `New ${TYPE_LABELS[type].toLowerCase()} entry`}</h2><p className="text-sm text-muted-foreground">A private page for what’s on your mind.</p></div>
-      </div>
-      <div className="space-y-2">
-        <label htmlFor="journal-thoughts" className="text-sm font-medium">Your thoughts</label>
-        <div className="overflow-hidden rounded-xl border border-[#51463b] border-l-2 border-l-orange-500/80 bg-[#201e1b]">
-          <Textarea id="journal-thoughts" value={thoughts} onChange={(event) => setThoughts(event.target.value)} placeholder="Start anywhere. What’s on your mind?" className="min-h-[250px] resize-y rounded-none border-0 bg-transparent px-4 py-4 text-base leading-8 text-[#eee8df] placeholder:text-zinc-600 shadow-none focus-visible:ring-0" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0, transparent 31px, rgba(168, 145, 119, 0.11) 32px)", backgroundPosition: "0 13px" }} data-testid="textarea-journal-thoughts" />
-        </div>
-        <p className="text-xs text-zinc-500">Just for you. No perfect answer needed.</p>
-      </div>
-      {!entry && <details className="group rounded-xl border border-zinc-800 bg-zinc-950/60">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3.5 text-sm font-medium marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
-          Add a prompt <span className="text-xs font-normal text-zinc-500">optional</span>
-        </summary>
-      {!entry && <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div><p className="text-sm font-semibold">A little help getting started</p><p className="text-xs text-muted-foreground">Skip it if you’d rather write freely.</p></div>
-        </div>
-          {promptCount > 0 && prompts.map((prompt, index) => (
-          <div key={`${prompt.id}-${index}`} className="space-y-2 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
-            <div className="flex items-start justify-between gap-2">
-              {selectionMode === "manual" ? <select value={prompt.id} onChange={(event) => selectPrompt(index, event.target.value)} aria-label={`Reflection question ${index + 1}`} className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm"><option value={prompt.id}>{prompt.question}</option>{PROMPTS[type].filter((candidate) => candidate.id === prompt.id || !selectedPromptIds.includes(candidate.id)).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.question}</option>)}</select> : <p className="flex-1 text-sm font-semibold leading-relaxed">{prompt.question}</p>}
-              <Button type="button" variant="ghost" size="icon" className={`h-8 w-8 shrink-0 ${votedPromptIds.includes(prompt.id) ? "text-primary" : "text-muted-foreground"}`} onClick={() => voteMutation.mutate(prompt)} aria-label={votedPromptIds.includes(prompt.id) ? "Remove question upvote" : "Upvote question"}><ArrowUp className="h-3.5 w-3.5" /></Button>
-            </div>
-            <Textarea value={answers[prompt.id] || ""} onChange={(event) => setAnswers((current) => ({ ...current, [prompt.id]: event.target.value }))} placeholder="Write what is actually true..." className="min-h-[88px] resize-y border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" data-testid={`textarea-journal-${prompt.id}`} />
-          </div>
-        ))}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-3">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div><p className="text-xs font-medium">Optional prompts</p><p className="text-xs text-zinc-400">Add a question if it helps.</p></div>
-              <div className="flex rounded-lg border border-zinc-800 bg-zinc-950 p-0.5">
-                {[0, 1].map((count) => <button key={count} type="button" onClick={() => setCount(count)} aria-pressed={promptCount === count} className={`min-w-9 rounded-md px-2 py-1.5 text-xs transition-colors ${promptCount === count ? "bg-orange-500 text-zinc-950" : "text-zinc-400 hover:text-zinc-100"}`} data-testid={`button-journal-prompt-count-${count}`}>{count === 0 ? "Off" : "Add one"}</button>)}
-              </div>
-            </div>
-            {promptCount > 0 && <div className="flex items-center justify-between gap-2">
-              <div className="flex rounded-lg border border-zinc-800 bg-zinc-950 p-0.5">
-                <button type="button" onClick={() => setSelectionMode("automatic")} className={`rounded-md px-2.5 py-1.5 text-xs ${selectionMode === "automatic" ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400"}`}>Pick for me</button>
-                <button type="button" onClick={() => setSelectionMode("manual")} className={`rounded-md px-2.5 py-1.5 text-xs ${selectionMode === "manual" ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400"}`}>I’ll choose</button>
-              </div>
-              {selectionMode === "automatic" && <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setSelectedPromptIds(chooseRandomPromptIds(type, promptCount))}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Shuffle</Button>}
-            </div>}
-          </div>
-        </div>
+      {!entry && <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-400">Reflecting on</p><h2 className="mt-1 text-lg font-semibold text-[#eee7dc]">{TYPE_LABELS[type]}</h2></div>
+        {onTypeChange && <JournalTypePicker value={type} onChange={changeType} disabled={Boolean(savedDraftId && !entry)} />}
       </div>}
-      </details>}
-      {entry && prompts.length > 0 && (
+      {entry && <div><h2 className="text-lg font-semibold">Edit reflection</h2><p className="text-sm text-zinc-500">Keep the details that matter.</p></div>}
+      {!entry && <label className="block space-y-2">
+        <span className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.14em] text-[#897d6e]"><span>Optional prompt</span><span className="font-normal normal-case tracking-normal text-zinc-500">Free writing is always open</span></span>
+        <select value={selectedPromptId} onChange={(event) => setSelectedPromptId(event.target.value)} className="h-11 w-full rounded-lg border border-[#665747] bg-[#f1e8d9] px-3 text-sm text-[#34302a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" aria-label="Choose a reflection prompt">
+          <option value="">Write freely — no prompt</option>{PROMPTS[type].map((prompt) => <option key={prompt.id} value={prompt.id}>{prompt.question}</option>)}
+        </select>
+      </label>}
+      {activePrompt && !entry && <>
+        <div className="rounded-lg border-l-2 border-orange-500 bg-[#29251f] px-4 py-3 text-sm leading-relaxed text-[#e8ddcd]">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-300">Today’s prompt</p>
+          {activePrompt.question}
+        </div>
+      </>}
+      {entry && savedPrompts.length > 0 && (
         <section className="space-y-3" aria-label="Saved reflection prompts">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Saved prompts</p>
-          {prompts.map((prompt) => (
-            <div key={prompt.id} className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
-              <p className="text-sm font-medium leading-relaxed">{prompt.question}</p>
-              <Textarea value={answers[prompt.id] || ""} onChange={(event) => setAnswers((current) => ({ ...current, [prompt.id]: event.target.value }))} placeholder="Your response (optional)" className="min-h-[84px] resize-y border-zinc-700 bg-zinc-950 text-zinc-100" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Saved prompt responses</p>
+          {savedPrompts.map((prompt) => (
+            <div key={prompt.promptId} className="space-y-2 rounded-lg border border-[#51463b] bg-[#29251f] p-3">
+              <p className="text-sm font-medium leading-relaxed text-[#e8ddcd]">{prompt.question}</p>
+              <Textarea value={answers[prompt.promptId] || ""} onChange={(event) => setAnswers((current) => ({ ...current, [prompt.promptId]: event.target.value }))} placeholder="Your response (optional)" className="min-h-[84px] border-zinc-700 bg-[#1b1a18] text-zinc-100" />
             </div>
           ))}
         </section>
       )}
-      <details open={Boolean(entry && (mood || sourceId))} className="group rounded-xl border border-zinc-800 bg-zinc-950/60">
+      <div className="relative overflow-hidden rounded-xl border border-[#76634e] border-l-[3px] border-l-orange-500 bg-[#eee5d6] shadow-[0_14px_40px_rgba(0,0,0,.25)]">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-7 border-r border-[#c9bba6] bg-[#e3d8c7]" />
+        <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-[27px] top-0 w-px bg-[#d0c1ac]" />
+        <label htmlFor="journal-thoughts" className="sr-only">Your thoughts</label>
+        <Textarea id="journal-thoughts" value={thoughts} onChange={(event) => setThoughts(event.target.value)} placeholder={activePrompt && !entry ? "Write your response on the page…" : "Start anywhere. What’s on your mind?"} className="relative min-h-[330px] resize-y rounded-none border-0 bg-transparent py-5 pl-11 pr-5 text-[16px] leading-[32px] text-[#38332d] placeholder:text-[#9a8d7c] shadow-none focus-visible:ring-0 sm:min-h-[390px]" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0, transparent 31px, rgba(118, 99, 78, 0.17) 32px)", backgroundPosition: "0 9px" }} data-testid="textarea-journal-thoughts" />
+        <span aria-hidden="true" className="absolute right-0 top-5 h-8 w-3 rounded-l-sm bg-orange-500" />
+      </div>
+      <p className="text-xs text-zinc-500">Private to you. No perfect answer needed.</p>
+      <details open={Boolean((entry && (mood || sourceId)) || initialSourceId)} className="group rounded-xl border border-zinc-800 bg-zinc-950/60">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3.5 text-sm font-medium marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
           Add details <span className="text-xs font-normal text-zinc-500">mood or link a session · optional</span>
         </summary>
@@ -308,9 +281,12 @@ function EntryEditor({
           <MoodPicker value={mood} onChange={setMood} />
         </div>
       </details>
-      <div className="sticky bottom-0 flex gap-2 border-t border-zinc-800 bg-zinc-950/95 py-3">
-        <Button variant="outline" className="min-h-11 flex-1" onClick={onDone}>Cancel</Button>
-        <Button className="min-h-11 flex-1 bg-orange-500 font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending} onClick={() => mutation.mutate()} data-testid="button-save-journal">
+      <div className="flex flex-wrap gap-2 border-t border-zinc-800 pt-3">
+        {entry && <Button variant="outline" className="min-h-11" onClick={onDone}>Cancel</Button>}
+        <Button variant="outline" className="min-h-11 flex-1 border-[#675745] text-[#e8ddcd] hover:bg-[#29251f]" disabled={analysisPending || mutation.isPending || !hasReflectionContent} onClick={analyze} data-testid="button-analyze-journal">
+          {analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-orange-400" />}Analyze with Coach P{!isPro && <Badge variant="outline" className="ml-2 border-zinc-700 text-[10px]">Pro</Badge>}
+        </Button>
+        <Button className="min-h-11 flex-1 bg-orange-500 font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending || analysisPending || !hasReflectionContent} onClick={() => mutation.mutate()} data-testid="button-save-journal">
           {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}{entry ? "Save changes" : "Save page"}
         </Button>
       </div>
@@ -388,7 +364,7 @@ function CoachPanel({ entry, isPro }: { entry: JournalEntry; isPro: boolean }) {
   );
 }
 
-function EntryDetail({ entry, isPro, onEdit, onDelete, onClose }: { entry: JournalEntry; isPro: boolean; onEdit: () => void; onDelete: () => void; onClose: () => void }) {
+function EntryDetail({ entry, isPro, onEdit, onDelete, onClose, onAnalyzed }: { entry: JournalEntry; isPro: boolean; onEdit: () => void; onDelete: () => void; onClose: () => void; onAnalyzed: (entry: JournalView) => void }) {
   const { data: source } = useQuery<any>({
     queryKey: ["/api/journal/source", entry.gameId ? "game" : "workout", entry.gameId || entry.trainingLogId],
     queryFn: async () => {
@@ -399,20 +375,39 @@ function EntryDetail({ entry, isPro, onEdit, onDelete, onClose }: { entry: Journ
     enabled: !!entry.gameId || !!entry.trainingLogId,
   });
   const [followUpAnswer, setFollowUpAnswer] = useState(entry.aiFollowUpAnswer || "");
+  const [savedFollowUp, setSavedFollowUp] = useState(entry.aiFollowUpAnswer || "");
   const { toast } = useToast();
+  const { openProOffer } = useProUpgrade();
+  const [analysisPending, setAnalysisPending] = useState(false);
+  const analyze = async () => {
+    if (!isPro) { openProOffer("Journal analysis"); return; }
+    setAnalysisPending(true);
+    try {
+      const response = await apiRequest("POST", `/api/journal/${entry.id}/ai-coach`);
+      const analyzed = await response.json() as JournalView;
+      queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
+      onAnalyzed(analyzed);
+      toast({ title: "Coach P’s analysis is ready" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not analyze this reflection.";
+      if (/402|pro|required|upgrade/i.test(message)) openProOffer("Journal analysis");
+      else toast({ title: "Could not analyze reflection", description: message, variant: "destructive" });
+    } finally { setAnalysisPending(false); }
+  };
   const followUpMutation = useMutation({
     mutationFn: () => apiRequest("PUT", `/api/journal/${entry.id}`, { aiFollowUpAnswer: followUpAnswer.trim() }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/journal"] }); toast({ title: "Follow-up saved" }); },
+    onSuccess: () => { setSavedFollowUp(followUpAnswer.trim()); queryClient.invalidateQueries({ queryKey: ["/api/journal"] }); toast({ title: "Follow-up saved" }); },
   });
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{TYPE_LABELS[entry.type as JournalType]}</h2><p className="text-sm text-muted-foreground">{formatDate(entry.createdAt, true)}</p></div><div className="flex gap-1"><Button size="icon" variant="ghost" onClick={onEdit} aria-label="Edit"><Edit3 className="w-4 h-4" /></Button><Button size="icon" variant="ghost" onClick={onDelete} aria-label="Delete"><Trash2 className="w-4 h-4" /></Button><Button size="icon" variant="ghost" onClick={onClose} aria-label="Close"><X className="w-4 h-4" /></Button></div></div>
+      <Button variant="outline" className="w-full border-[#675745] text-[#e8ddcd] hover:bg-[#29251f]" onClick={analyze} disabled={analysisPending}>{analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-orange-400" />}{entry.aiCoachFeedback ? "Refresh Coach P analysis" : "Analyze with Coach P"}{!isPro && <Badge variant="outline" className="ml-2 border-zinc-700">Pro</Badge>}</Button>
       {entry.mood && <div className="text-sm text-muted-foreground">Mood · {MOODS[entry.mood - 1]?.label}</div>}
       <div className="space-y-4">{(entry.responses || []).map((response) => <div key={response.promptId}><p className="text-sm font-medium text-muted-foreground">{response.question}</p><p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{response.answer}</p></div>)}{entry.thoughts && <div><p className="text-sm font-medium text-muted-foreground">Your thoughts</p><p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{entry.thoughts}</p></div>}</div>
       {source && <Card className="bg-muted/40"><CardContent className="p-4 text-sm"><div className="flex items-center gap-2 font-medium mb-2">{source.kind === "game" ? <Trophy className="w-4 h-4 text-primary" /> : <Dumbbell className="w-4 h-4 text-primary" />}{source.kind === "game" ? `${formatDate(source.gameDate)} · vs ${source.opponent || "opponent"}` : `Workout · ${formatDate(source.date)}`}</div>{source.kind === "game" ? <p className="text-muted-foreground">Stats: {source.points || 0} PTS · {source.rebounds || 0} REB · {source.assists || 0} AST</p> : <p className="text-muted-foreground">{source.duration || 0} minutes · {source.logs?.map((log: any) => log.drillTitle).join(", ")}</p>}</CardContent></Card>}
       {(entry as JournalView).feedbackStale && <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-muted-foreground">Your reflection changed, so the previous Coach P feedback was cleared. Start a fresh conversation for the updated version.</div>}
       {entry.aiCoachFeedback && <div className="rounded-lg border border-primary/20 bg-primary/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold mb-2"><Sparkles className="w-4 h-4 text-primary" />Previous Coach P feedback</div><p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.aiCoachFeedback}</p></div>}
-      {entry.aiFollowUpQuestion && <div className="space-y-2"><p className="text-sm font-medium">{entry.aiFollowUpQuestion}</p>{entry.aiFollowUpAnswer ? <p className="text-sm text-muted-foreground whitespace-pre-wrap">{entry.aiFollowUpAnswer}</p> : <><Textarea value={followUpAnswer} onChange={(event) => setFollowUpAnswer(event.target.value)} placeholder="Your response..." /><Button size="sm" disabled={!followUpAnswer.trim() || followUpMutation.isPending} onClick={() => followUpMutation.mutate()}>Save follow-up</Button></>}</div>}
+       {entry.aiFollowUpQuestion && <div className="space-y-2"><p className="text-sm font-medium">{entry.aiFollowUpQuestion}</p>{savedFollowUp ? <p className="text-sm text-muted-foreground whitespace-pre-wrap">{savedFollowUp}</p> : <><Textarea value={followUpAnswer} onChange={(event) => setFollowUpAnswer(event.target.value)} placeholder="Your response..." /><Button size="sm" disabled={!followUpAnswer.trim() || followUpMutation.isPending} onClick={() => followUpMutation.mutate()}>Save follow-up</Button></>}</div>}
       <CoachPanel entry={entry} isPro={isPro} />
     </div>
   );
@@ -420,6 +415,8 @@ function EntryDetail({ entry, isPro, onEdit, onDelete, onClose }: { entry: Journ
 
 export default function JournalPage() {
   const [location, navigate] = useLocation();
+  const initialParams = new URLSearchParams(location.split("?")[1] || "");
+  const initialType = initialParams.get("type") as JournalType | null;
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -429,18 +426,20 @@ export default function JournalPage() {
   const [linkedSource, setLinkedSource] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [newOpen, setNewOpen] = useState(false);
-  const [selectedType, setSelectedType] = useState<JournalType>("open");
+  const [selectedType, setSelectedType] = useState<JournalType>(() =>
+    initialType && ["post-workout", "post-game", "open"].includes(initialType) ? initialType : "open",
+  );
   const [selectedEntry, setSelectedEntry] = useState<JournalView | null>(null);
   const [editing, setEditing] = useState<JournalEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [showAllEntries, setShowAllEntries] = useState(false);
+  const [draftRevision, setDraftRevision] = useState(0);
+   const [showAllEntries, setShowAllEntries] = useState(false);
   useEffect(() => { const timer = window.setTimeout(() => setDebouncedSearch(search), 300); return () => window.clearTimeout(timer); }, [search]);
   useEffect(() => {
     const params = new URLSearchParams(location.split("?")[1] || "");
     const requestedType = params.get("type") as JournalType | null;
     if (requestedType && ["post-workout", "post-game", "open"].includes(requestedType)) {
-      setSelectedType(requestedType); setNewOpen(true);
+      setSelectedType(requestedType);
     }
   }, [location]);
   const query = new URLSearchParams();
@@ -465,10 +464,13 @@ export default function JournalPage() {
   });
   const clearFilters = () => { setSearch(""); setType(""); setMood(""); setCoached(""); setLinkedSource(""); setFrom(""); setTo(""); };
   const hasFilters = !!(search || type || mood || coached || linkedSource || from || to);
-  useEffect(() => { setShowAllEntries(false); }, [debouncedSearch, type, mood, coached, linkedSource, from, to]);
-  const visibleEntries = showAllEntries ? entries : entries.slice(0, 3);
-  const openNew = (nextType: JournalType = "open") => { setEditing(null); setSelectedType(nextType); setNewOpen(true); };
-  const closeEditor = () => { setNewOpen(false); setEditing(null); if (location.includes("?")) navigate("/journal"); };
+  const visibleEntries = entries;
+  const openNew = (nextType: JournalType = "open") => { setEditing(null); setSelectedType(nextType); setShowAllEntries(false); };
+  const resetDraft = () => {
+    setDraftRevision((current) => current + 1);
+    setSelectedType("open");
+    if (location.includes("?")) navigate("/journal");
+  };
   const params = new URLSearchParams(location.split("?")[1] || "");
   const initialSourceKind = params.get("trainingLogId") ? "workout" : params.get("gameId") ? "game" : null;
   const initialSourceId = params.get("trainingLogId") || params.get("gameId");
@@ -488,14 +490,33 @@ export default function JournalPage() {
           <span className="hidden text-xs text-zinc-500 sm:block">A quiet place to get better.</span>
         </header>
 
-        <main className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_330px] lg:gap-12">
+        <main className="mx-auto w-full max-w-3xl">
+          {!showAllEntries ? (
+            <section className="space-y-5" aria-label="Write a journal page">
+              <div className="flex items-center justify-between gap-3">
+                <div><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-orange-400">A page for today</p><p className="mt-1 text-sm text-zinc-500">Write what you want to remember.</p></div>
+                <Button variant="outline" className="shrink-0 border-[#51463b] bg-[#1b1a18] text-[#e9e0d4] hover:border-orange-500/60 hover:bg-[#24211d]" onClick={() => setShowAllEntries(true)} data-testid="button-past-entries"><BookOpen className="mr-2 h-4 w-4 text-orange-400" />Past Entries <span className="ml-1 tabular-nums text-zinc-500">{entries.length}</span></Button>
+              </div>
+              <EntryEditor
+                key={`new-journal-editor-${draftRevision}`}
+                type={selectedType}
+                isPro={isPro}
+                onTypeChange={setSelectedType}
+                initialSourceKind={initialSourceKind}
+                initialSourceId={initialSourceId}
+                sources={sources}
+                onDone={resetDraft}
+                onSaved={(saved) => { queryClient.invalidateQueries({ queryKey: ["/api/journal"] }); setSelectedEntry(saved); }}
+              />
+            </section>
+          ) : <>
           <section className="min-w-0" aria-labelledby="saved-reflections-heading">
             <div className="mb-4 flex items-end justify-between gap-3">
               <div>
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">The notebook</p>
-                <h2 id="saved-reflections-heading" className="text-xl font-bold">Saved pages</h2>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">The archive</p>
+                <h2 id="saved-reflections-heading" className="text-xl font-bold">Past entries</h2>
               </div>
-              <span className="pb-1 text-xs tabular-nums text-zinc-500">{entries.length} {entries.length === 1 ? "page" : "pages"}</span>
+              <Button variant="outline" className="border-[#51463b] bg-[#1b1a18] text-[#e9e0d4]" onClick={() => setShowAllEntries(false)}>Back to notebook</Button>
             </div>
 
             <div className="mb-4 flex items-center gap-2">
@@ -603,59 +624,22 @@ export default function JournalPage() {
               })}
             </div>
           )}
-              {entries.length > 3 && <Button variant="ghost" className="mt-2 h-9 w-full text-xs font-semibold text-zinc-400 hover:bg-zinc-900 hover:text-orange-200" onClick={() => setShowAllEntries((current) => !current)}>{showAllEntries ? "Show fewer pages" : `Show all ${entries.length} pages`}</Button>}
             </div>
           </section>
-          <aside className="order-first lg:order-last">
-            <div className="relative overflow-hidden rounded-2xl border border-[#4c4035] bg-[#211f1c] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] sm:p-6">
-              <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-orange-500/70" />
-              <div className="mb-8 flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300">A fresh page</span>
-                <BookOpen className="h-4 w-4 text-orange-400/80" />
-              </div>
-              <h2 className="max-w-[15rem] text-2xl font-semibold leading-tight text-[#eee7dc]">Take a minute. Get it down.</h2>
-              <p className="mt-3 max-w-[17rem] text-sm leading-relaxed text-zinc-400">Practice, game day, or anything you want to remember. This space is yours.</p>
-              <Button
-                onClick={() => openNew()}
-                className="mt-7 h-11 w-full justify-between rounded-lg bg-orange-500 px-4 font-semibold text-zinc-950 hover:bg-orange-400"
-                data-testid="button-new-journal-entry"
-              >
-                <span className="inline-flex items-center"><Plus className="mr-2 h-4 w-4" />Write a page</span><ArrowUp className="h-4 w-4 rotate-45" />
-              </Button>
-              <div className="mt-5 flex items-center gap-2 border-t border-zinc-700/70 pt-4 text-[11px] text-zinc-500">
-                <Sparkles className="h-3.5 w-3.5 text-orange-400/80" />
-                <span>{isPro ? "Coach P is ready when you are." : "Open any page to hear from Coach P."}</span>
-                {!isPro && <Badge variant="outline" className="ml-auto border-zinc-700 px-1.5 py-0 text-[9px] text-zinc-400">Pro</Badge>}
-              </div>
-            </div>
-            <p className="mt-4 px-1 text-[10px] uppercase tracking-[0.16em] text-zinc-600">PLAYR1 · Keep showing up</p>
-          </aside>
+           </>}
         </main>
       </div>
 
-      <Dialog open={newOpen} onOpenChange={(open) => { if (!open) closeEditor(); else setNewOpen(true); }}>
-        <DialogContent className="dark max-h-[90vh] overflow-y-auto rounded-2xl border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-xl">
-          <DialogHeader><DialogTitle>New reflection</DialogTitle><DialogDescription>Pick the moment, then capture one thing you want to remember.</DialogDescription></DialogHeader>
-          <div className="space-y-4">
-            <JournalTypePicker value={selectedType} onChange={setSelectedType} />
-            <Separator />
-            {(() => {
-              const compatibleSource = (selectedType === "post-game" && initialSourceKind === "game") || (selectedType === "post-workout" && initialSourceKind === "workout");
-              return <EntryEditor key={`${selectedType}-${compatibleSource ? initialSourceKind : "none"}-${compatibleSource ? initialSourceId : "none"}`} type={selectedType} initialSourceKind={compatibleSource ? initialSourceKind : null} initialSourceId={compatibleSource ? initialSourceId : null} sources={sources} onDone={closeEditor} onBack={() => setNewOpen(false)} />;
-            })()}
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
         <DialogContent className="dark max-h-[90vh] overflow-y-auto rounded-2xl border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-xl">
           <DialogHeader><DialogTitle>Journal reflection</DialogTitle><DialogDescription>Private to you</DialogDescription></DialogHeader>
-          {selectedEntry && <EntryDetail entry={selectedEntry} isPro={isPro} onClose={() => setSelectedEntry(null)} onDelete={() => setDeletingId(selectedEntry.id)} onEdit={() => { setEditing(selectedEntry); setSelectedEntry(null); }} />}
+           {selectedEntry && <EntryDetail entry={selectedEntry} isPro={isPro} onAnalyzed={setSelectedEntry} onClose={() => setSelectedEntry(null)} onDelete={() => setDeletingId(selectedEntry.id)} onEdit={() => { setEditing(selectedEntry); setSelectedEntry(null); }} />}
         </DialogContent>
       </Dialog>
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="dark max-h-[90vh] overflow-y-auto rounded-2xl border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-xl">
           <DialogHeader className="sr-only"><DialogTitle>Edit journal entry</DialogTitle></DialogHeader>
-          {editing && <EntryEditor entry={editing} type={editing.type as JournalType} sources={sources} onDone={() => setEditing(null)} />}
+           {editing && <EntryEditor entry={editing} type={editing.type as JournalType} isPro={isPro} sources={sources} onDone={() => setEditing(null)} onSaved={setSelectedEntry} />}
         </DialogContent>
       </Dialog>
       {selectedEntry && <div className="sr-only"><button onClick={() => setDeletingId(selectedEntry.id)}>Delete</button></div>}
