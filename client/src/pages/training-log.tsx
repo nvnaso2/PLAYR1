@@ -1266,6 +1266,12 @@ export default function TrainingLogPage() {
     });
   };
 
+  const selectTrackRoundForInput = (drillId: string, entryIndex: number) => {
+    setSelectedTrackRoundByDrill((current) => (
+      current[drillId] === entryIndex ? current : { ...current, [drillId]: entryIndex }
+    ));
+  };
+
   const metricDraftKey = (entryIndex: number, metricTemplateId: string) => `${entryIndex}:${metricTemplateId}`;
   const getMetricInputValue = (entryIndex: number, metricTemplateId: string, value: number | string | undefined) => {
     const key = metricDraftKey(entryIndex, metricTemplateId);
@@ -1808,7 +1814,7 @@ export default function TrainingLogPage() {
         {madeMetric && attemptsMetric || isShootingDrill ? (
           <div className="flex min-w-0 items-center justify-end gap-1 sm:justify-start">
               <label className="sr-only" htmlFor={`track-made-${index}`}>Makes</label>
-              <Input id={`track-made-${index}`} type="text" inputMode="numeric" placeholder="Made" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} makes`} value={madeMetric ? getMetricInputValue(index, madeMetric.metricTemplateId, entry.metrics[madeMetric.metricTemplateId]) : entry.shotsMade ? String(entry.shotsMade) : ""} onFocus={(event) => event.currentTarget.select()} onChange={(event) => {
+              <Input id={`track-made-${index}`} type="text" inputMode="numeric" placeholder="Made" aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} makes`} value={madeMetric ? getMetricInputValue(index, madeMetric.metricTemplateId, entry.metrics[madeMetric.metricTemplateId]) : entry.shotsMade ? String(entry.shotsMade) : ""} onFocus={(event) => { selectTrackRoundForInput(drillId, index); event.currentTarget.select(); }} onChange={(event) => {
                 const value = event.target.value.replace(/\D/g, "");
                 if (madeMetric) handleMetricInputChange(index, madeMetric.metricTemplateId, value);
                 else {
@@ -1818,7 +1824,7 @@ export default function TrainingLogPage() {
               }} className="h-9 min-w-0 flex-1 border-zinc-200 bg-white px-2 text-center font-mono text-sm font-bold tabular-nums text-zinc-950 placeholder:text-[10px] placeholder:text-zinc-400 sm:h-8 sm:w-[54px] sm:flex-none" data-testid={`track-made-input-${index}`} />
               <span className="font-heading text-base font-black text-orange-600">/</span>
               <label className="sr-only" htmlFor={`track-attempts-${index}`}>Attempts</label>
-              <Input id={`track-attempts-${index}`} type="text" inputMode="numeric" placeholder="Att." aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} attempts`} value={attemptsMetric ? getMetricInputValue(index, attemptsMetric.metricTemplateId, entry.metrics[attemptsMetric.metricTemplateId]) : entry.shotsAttempted ? String(entry.shotsAttempted) : ""} onFocus={(event) => event.currentTarget.select()} onChange={(event) => {
+              <Input id={`track-attempts-${index}`} type="text" inputMode="numeric" placeholder="Att." aria-label={`${locationLabel(selectedRow, rows.findIndex((row) => row.index === index))} attempts`} value={attemptsMetric ? getMetricInputValue(index, attemptsMetric.metricTemplateId, entry.metrics[attemptsMetric.metricTemplateId]) : entry.shotsAttempted ? String(entry.shotsAttempted) : ""} onFocus={(event) => { selectTrackRoundForInput(drillId, index); event.currentTarget.select(); }} onChange={(event) => {
                 const value = event.target.value.replace(/\D/g, "");
                 if (attemptsMetric) handleMetricInputChange(index, attemptsMetric.metricTemplateId, value);
                 else {
@@ -1834,7 +1840,7 @@ export default function TrainingLogPage() {
                     inputMode="numeric"
                     aria-label={metric.template.label}
                     value={getMetricInputValue(index, metric.metricTemplateId, entry.metrics[metric.metricTemplateId])}
-                    onFocus={(event) => event.currentTarget.select()}
+                    onFocus={(event) => { selectTrackRoundForInput(drillId, index); event.currentTarget.select(); }}
                     onChange={(event) => handleMetricInputChange(index, metric.metricTemplateId, event.target.value)}
                     className="h-8 w-[42px] border-zinc-200 bg-white px-1 text-center font-mono text-xs font-bold tabular-nums text-zinc-950"
                     data-testid={`input-metric-${index}-${metric.metricTemplateId}`}
@@ -1847,7 +1853,7 @@ export default function TrainingLogPage() {
             {metricColumns.filter((metric) => metric !== madeMetric && metric !== attemptsMetric).map((metric) => (
               <label key={metric.metricTemplateId} className="min-w-0">
                 <span className="sr-only">{metric.template.label}</span>
-                <Input type="text" inputMode="numeric" placeholder={metric.template.label.slice(0, 1)} value={getMetricInputValue(index, metric.metricTemplateId, entry.metrics[metric.metricTemplateId])} onFocus={(event) => event.currentTarget.select()} onChange={(event) => handleMetricInputChange(index, metric.metricTemplateId, event.target.value)} className="h-8 w-[44px] border-zinc-200 bg-white text-center font-mono text-sm font-bold tabular-nums text-zinc-950" data-testid={`input-metric-${index}-${metric.metricTemplateId}`} />
+                <Input type="text" inputMode="numeric" placeholder={metric.template.label.slice(0, 1)} value={getMetricInputValue(index, metric.metricTemplateId, entry.metrics[metric.metricTemplateId])} onFocus={(event) => { selectTrackRoundForInput(drillId, index); event.currentTarget.select(); }} onChange={(event) => handleMetricInputChange(index, metric.metricTemplateId, event.target.value)} className="h-8 w-[44px] border-zinc-200 bg-white text-center font-mono text-sm font-bold tabular-nums text-zinc-950" data-testid={`input-metric-${index}-${metric.metricTemplateId}`} />
               </label>
             ))}
           </div>
