@@ -67,60 +67,15 @@ function formatDate(value?: string | Date | null, long = false) {
     : { month: "short", day: "numeric", year: "numeric" });
 }
 
-function MoodPicker({ value, onChange }: { value: number | null; onChange: (value: number | null) => void }) {
-  return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium">How are you feeling?</p>
-      <div className="grid grid-cols-5 gap-1.5">
-        {MOODS.map((mood) => (
-          <button
-            key={mood.value}
-            type="button"
-            onClick={() => onChange(value === mood.value ? null : mood.value)}
-            aria-pressed={value === mood.value}
-            aria-label={`Mood: ${mood.label}${value === mood.value ? ", selected" : ""}`}
-            className={`rounded-lg border p-2 text-center transition-colors ${value === mood.value ? "border-orange-400 bg-orange-500/10" : "border-zinc-800 bg-zinc-950 hover:border-orange-400/50"}`}
-            data-testid={`button-mood-${mood.value}`}
-          >
-            <span aria-hidden="true" className={`mx-auto mb-1 block h-2.5 w-2.5 rounded-full ${value === mood.value ? "bg-orange-400" : "bg-zinc-700"}`} />
-            <span className="block text-[10px] text-zinc-400">{mood.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SourcePicker({
-  kind, sourceId, sources, onChange,
-}: { kind: JournalType; sourceId: string | null; sources: { workouts: Source[]; games: Source[] }; onChange: (kind: SourceKind | null, id: string | null) => void }) {
-  const options = kind === "post-game" ? sources.games : kind === "post-workout" ? sources.workouts : [...sources.workouts, ...sources.games];
-  return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium">Link a performance record <span className="font-normal text-muted-foreground">(optional)</span></p>
-      <select
-        value={sourceId ? `${options.find((option) => option.sourceId === sourceId)?.kind}:${sourceId}` : ""}
-        onChange={(event) => {
-          const [selectedKind, id] = event.target.value.split(":");
-          onChange((selectedKind as SourceKind) || null, id || null);
-        }}
-        className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100"
-        data-testid="select-journal-source"
-      >
-        <option value="">No linked source</option>
-        {options.map((source) => (
-          <option key={`${source.kind}:${source.sourceId}`} value={`${source.kind}:${source.sourceId}`}>
-            {source.kind === "game"
-              ? `${formatDate(source.gameDate)} · vs ${source.opponent || "opponent"}`
-              : `${formatDate(source.date)} · ${source.duration || 0} min workout (${source.count || 1} drill${source.count === 1 ? "" : "s"})`}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function JournalTypePicker({ value, onChange, disabled = false }: { value: JournalType; onChange: (value: JournalType) => void; disabled?: boolean }) {
+function JournalTypePicker({
+  value, onChange, freeWrite, onFreeWriteChange, disabled = false,
+}: {
+  value: JournalType;
+  onChange: (value: JournalType) => void;
+  freeWrite: boolean;
+  onFreeWriteChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
   const options: Array<{ value: JournalType; label: string; icon: typeof Dumbbell }> = [
     { value: "post-workout", label: "Practice", icon: Dumbbell },
     { value: "post-game", label: "Game", icon: Trophy },
@@ -128,29 +83,43 @@ function JournalTypePicker({ value, onChange, disabled = false }: { value: Journ
   ];
   return (
     <div>
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="grid grid-cols-4 gap-1">
         {options.map(({ value: optionValue, label, icon: Icon }) => (
           <button
             key={optionValue}
             type="button"
             disabled={disabled}
+            aria-pressed={!freeWrite && value === optionValue}
             onClick={() => onChange(optionValue)}
-            className={`flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
-              value === optionValue ? "border-orange-400 bg-orange-500/10" : "border-zinc-800 bg-zinc-950 hover:border-orange-400/50"
+            className={`flex items-center justify-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-1.5 text-[10px] transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+              !freeWrite && value === optionValue ? "border-orange-400 bg-orange-500/10" : "border-zinc-800 bg-zinc-950 hover:border-orange-400/50"
             }`}
             data-testid={`button-journal-type-${optionValue}`}
           >
-            <Icon className={`w-3.5 h-3.5 shrink-0 ${value === optionValue ? "text-orange-300" : "text-zinc-500"}`} />
+            <Icon className={`w-3 h-3 shrink-0 ${!freeWrite && value === optionValue ? "text-orange-300" : "text-zinc-500"}`} />
             <span className="font-medium">{label}</span>
           </button>
         ))}
+        <button
+          type="button"
+          disabled={disabled}
+          aria-pressed={freeWrite}
+          onClick={() => onFreeWriteChange(true)}
+          className={`flex items-center justify-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-1.5 text-[10px] transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+            freeWrite ? "border-orange-400 bg-orange-500/10" : "border-zinc-800 bg-zinc-950 hover:border-orange-400/50"
+          }`}
+          data-testid="button-journal-free-write"
+        >
+          <Edit3 className={`w-3 h-3 shrink-0 ${freeWrite ? "text-orange-300" : "text-zinc-500"}`} />
+          <span className="font-medium">Free write</span>
+        </button>
       </div>
     </div>
   );
 }
 
 function EntryEditor({
-  entry, type, isPro, onTypeChange, initialSourceKind, initialSourceId, sources, onDone, onSaved,
+  entry, type, isPro, onTypeChange, initialSourceKind, initialSourceId, onDone, onSaved,
 }: {
   entry?: JournalEntry;
   type: JournalType;
@@ -158,7 +127,6 @@ function EntryEditor({
   onTypeChange?: (type: JournalType) => void;
   initialSourceKind?: SourceKind | null;
   initialSourceId?: string | null;
-  sources: { workouts: Source[]; games: Source[] };
   onDone: () => void;
   onSaved?: (entry: JournalView) => void;
 }) {
@@ -179,6 +147,7 @@ function EntryEditor({
     thoughts.trim() || savedPrompts.some((response) => (answers[response.promptId] || "").trim()),
   );
   const changeType = (nextType: JournalType) => {
+    setFreeWrite(false);
     if ((nextType === "post-game" && sourceKind !== "game") || (nextType === "post-workout" && sourceKind !== "workout") || nextType === "open") {
       setSourceKind(null);
       setSourceId(null);
@@ -240,18 +209,17 @@ function EntryEditor({
   }, [type]);
   return (
     <div className="space-y-5">
-      {!entry && <div className="flex flex-wrap items-center justify-between gap-3">
-        {onTypeChange && <JournalTypePicker value={type} onChange={changeType} disabled={Boolean(savedDraftId && !entry)} />}
-        <Button
-          type="button"
-          variant="outline"
-          aria-pressed={freeWrite}
-          onClick={() => setFreeWrite((current) => !current)}
-          className={`min-h-10 shrink-0 border-[#675745] px-3 text-xs ${freeWrite ? "bg-orange-500 text-zinc-950 hover:bg-orange-400" : "text-[#e8ddcd] hover:bg-[#29251f]"}`}
-          data-testid="button-journal-free-write"
-        >
-          {freeWrite ? "Use a prompt" : "Free write"}
+      <div className="flex flex-wrap justify-end gap-2">
+        {entry && <Button size="sm" variant="outline" className="h-9 px-3 text-xs" onClick={onDone}>Cancel</Button>}
+        <Button size="sm" variant="outline" className="h-9 border-[#675745] px-3 text-xs text-[#e8ddcd] hover:bg-[#29251f]" disabled={analysisPending || mutation.isPending || !hasReflectionContent} onClick={analyze} data-testid="button-analyze-journal">
+          {analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-orange-400" />}Analyze with Coach P{!isPro && <Badge variant="outline" className="ml-2 border-zinc-700 text-[10px]">Pro</Badge>}
         </Button>
+        <Button size="sm" className="h-9 bg-orange-500 px-3 text-xs font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending || analysisPending || !hasReflectionContent} onClick={() => mutation.mutate()} data-testid="button-save-journal">
+          {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}{entry ? "Save changes" : "Save page"}
+        </Button>
+      </div>
+      {!entry && <div className="flex flex-wrap items-center justify-between gap-3">
+        {onTypeChange && <JournalTypePicker value={type} onChange={changeType} freeWrite={freeWrite} onFreeWriteChange={setFreeWrite} disabled={Boolean(savedDraftId && !entry)} />}
       </div>}
       {entry && <div><h2 className="text-lg font-semibold">Edit reflection</h2><p className="text-sm text-zinc-500">Keep the details that matter.</p></div>}
       {entry && savedPrompts.length > 0 && (
@@ -277,24 +245,6 @@ function EntryEditor({
         <span aria-hidden="true" className="absolute right-0 top-5 h-8 w-3 rounded-l-sm bg-orange-500" />
       </div>
       <p className="text-xs text-zinc-500">Private to you. No perfect answer needed.</p>
-      <details open={Boolean((entry && (mood || sourceId)) || initialSourceId)} className="group rounded-xl border border-zinc-800 bg-zinc-950/60">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3.5 text-sm font-medium marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
-          Add details <span className="text-xs font-normal text-zinc-500">mood or link a session · optional</span>
-        </summary>
-        <div className="space-y-4 border-t border-zinc-800 px-3.5 py-4">
-          <SourcePicker kind={type} sourceId={sourceId} sources={sources} onChange={(nextKind, id) => { setSourceKind(nextKind); setSourceId(id); }} />
-          <MoodPicker value={mood} onChange={setMood} />
-        </div>
-      </details>
-      <div className="flex flex-wrap gap-2 border-t border-zinc-800 pt-3">
-        {entry && <Button variant="outline" className="min-h-11" onClick={onDone}>Cancel</Button>}
-        <Button variant="outline" className="min-h-11 flex-1 border-[#675745] text-[#e8ddcd] hover:bg-[#29251f]" disabled={analysisPending || mutation.isPending || !hasReflectionContent} onClick={analyze} data-testid="button-analyze-journal">
-          {analysisPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-orange-400" />}Analyze with Coach P{!isPro && <Badge variant="outline" className="ml-2 border-zinc-700 text-[10px]">Pro</Badge>}
-        </Button>
-        <Button className="min-h-11 flex-1 bg-orange-500 font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending || analysisPending || !hasReflectionContent} onClick={() => mutation.mutate()} data-testid="button-save-journal">
-          {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}{entry ? "Save changes" : "Save page"}
-        </Button>
-      </div>
     </div>
   );
 }
@@ -495,7 +445,6 @@ export default function JournalPage() {
                 onTypeChange={setSelectedType}
                 initialSourceKind={initialSourceKind}
                 initialSourceId={initialSourceId}
-                sources={sources}
                 onDone={resetDraft}
                 onSaved={(saved) => { queryClient.invalidateQueries({ queryKey: ["/api/journal"] }); setSelectedEntry(saved); }}
               />
@@ -630,7 +579,7 @@ export default function JournalPage() {
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="dark max-h-[90vh] overflow-y-auto rounded-2xl border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-xl">
           <DialogHeader className="sr-only"><DialogTitle>Edit journal entry</DialogTitle></DialogHeader>
-           {editing && <EntryEditor entry={editing} type={editing.type as JournalType} isPro={isPro} sources={sources} onDone={() => setEditing(null)} onSaved={setSelectedEntry} />}
+           {editing && <EntryEditor entry={editing} type={editing.type as JournalType} isPro={isPro} onDone={() => setEditing(null)} onSaved={setSelectedEntry} />}
         </DialogContent>
       </Dialog>
       {selectedEntry && <div className="sr-only"><button onClick={() => setDeletingId(selectedEntry.id)}>Delete</button></div>}
