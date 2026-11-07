@@ -69,13 +69,14 @@ function formatDate(value?: string | Date | null, long = false) {
 }
 
 function JournalTypePicker({
-  value, onChange, freeWrite, onFreeWriteChange, disabled = false,
+  value, onChange, freeWrite, onFreeWriteChange, disabled = false, className = "",
 }: {
   value: JournalType;
   onChange: (value: JournalType) => void;
   freeWrite: boolean;
   onFreeWriteChange: (value: boolean) => void;
   disabled?: boolean;
+  className?: string;
 }) {
   const options: Array<{ value: JournalType; label: string; icon: typeof Dumbbell }> = [
     { value: "post-workout", label: "Practice", icon: Dumbbell },
@@ -83,7 +84,7 @@ function JournalTypePicker({
     { value: "open", label: "Open", icon: Brain },
   ];
   return (
-    <div>
+    <div className={className}>
       <div className="grid grid-cols-4 gap-1">
         {options.map(({ value: optionValue, label, icon: Icon }) => (
           <button
@@ -120,12 +121,14 @@ function JournalTypePicker({
 }
 
 function EntryEditor({
-  entry, type, isPro, onTypeChange, initialSourceKind, initialSourceId, onDone, onSaved,
+  entry, type, isPro, onTypeChange, onOpenArchive, entryCount, initialSourceKind, initialSourceId, onDone, onSaved,
 }: {
   entry?: JournalEntry;
   type: JournalType;
   isPro: boolean;
   onTypeChange?: (type: JournalType) => void;
+  onOpenArchive?: () => void;
+  entryCount?: number;
   initialSourceKind?: SourceKind | null;
   initialSourceId?: string | null;
   onDone: () => void;
@@ -208,20 +211,51 @@ function EntryEditor({
     setSelectedPromptId(prompts[Math.floor(Math.random() * prompts.length)]?.id || "");
     setFreeWrite(false);
   }, [type]);
+  const editorActions = (
+    <div className="flex flex-wrap justify-end gap-2">
+      {entry && <Button size="sm" variant="outline" className="h-9 px-3 text-xs" onClick={onDone}>Cancel</Button>}
+      <Button size="sm" variant="outline" className="h-8 border-zinc-700 px-2.5 text-[11px] text-zinc-200 hover:border-orange-500/50 hover:bg-zinc-900" disabled={analysisPending || mutation.isPending || !hasReflectionContent} onClick={analyze} data-testid="button-analyze-journal">
+        {analysisPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <span className="relative mr-1.5 inline-flex h-4 w-4 items-center justify-center"><span className="absolute left-1/2 top-1/2 scale-[0.44] -translate-x-1/2 -translate-y-1/2"><CoachPIcon /></span></span>}Analyze with Coach P{!isPro && <Badge variant="outline" className="ml-1.5 border-zinc-700 px-1 text-[9px]">Pro</Badge>}
+      </Button>
+      <Button size="sm" className="h-8 bg-orange-500 px-3 text-[11px] font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending || analysisPending || !hasReflectionContent} onClick={() => mutation.mutate()} data-testid="button-save-journal">
+        {mutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}{entry ? "Save changes" : "Complete"}
+      </Button>
+    </div>
+  );
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap justify-end gap-2">
-        {entry && <Button size="sm" variant="outline" className="h-9 px-3 text-xs" onClick={onDone}>Cancel</Button>}
-        <Button size="sm" variant="outline" className="h-8 border-zinc-700 px-2.5 text-[11px] text-zinc-200 hover:border-orange-500/50 hover:bg-zinc-900" disabled={analysisPending || mutation.isPending || !hasReflectionContent} onClick={analyze} data-testid="button-analyze-journal">
-          {analysisPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <span className="relative mr-1.5 inline-flex h-4 w-4 items-center justify-center"><span className="absolute left-1/2 top-1/2 scale-[0.44] -translate-x-1/2 -translate-y-1/2"><CoachPIcon /></span></span>}Analyze with Coach P{!isPro && <Badge variant="outline" className="ml-1.5 border-zinc-700 px-1 text-[9px]">Pro</Badge>}
-        </Button>
-        <Button size="sm" className="h-8 bg-orange-500 px-3 text-[11px] font-semibold text-zinc-950 hover:bg-orange-400" disabled={mutation.isPending || analysisPending || !hasReflectionContent} onClick={() => mutation.mutate()} data-testid="button-save-journal">
-          {mutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}{entry ? "Save changes" : "Complete"}
-        </Button>
-      </div>
-      {!entry && <div className="flex flex-wrap items-center justify-between gap-3">
-        {onTypeChange && <JournalTypePicker value={type} onChange={changeType} freeWrite={freeWrite} onFreeWriteChange={setFreeWrite} disabled={Boolean(savedDraftId && !entry)} />}
-      </div>}
+      {!entry ? (
+        <div className="space-y-3 rounded-2xl border border-zinc-800/80 bg-zinc-950/70 p-3 shadow-sm sm:p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            {onTypeChange && (
+              <JournalTypePicker
+                value={type}
+                onChange={changeType}
+                freeWrite={freeWrite}
+                onFreeWriteChange={setFreeWrite}
+                disabled={Boolean(savedDraftId)}
+                className="min-w-0 w-full"
+              />
+            )}
+            {onOpenArchive && (
+              <Button
+                variant="outline"
+                className="group h-10 justify-self-end gap-2 rounded-xl border-zinc-800 bg-zinc-950 px-2.5 text-zinc-200 shadow-sm transition hover:border-orange-500/50 hover:bg-zinc-900"
+                onClick={onOpenArchive}
+                data-testid="button-past-entries"
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-500/10">
+                  <BookOpen className="h-3.5 w-3.5 text-orange-400" />
+                </span>
+                <span className="text-xs font-semibold">Past entries</span>
+                <span className="rounded-full bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-zinc-400">{entryCount ?? 0}</span>
+                <ChevronRight className="h-3 w-3 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-300" />
+              </Button>
+            )}
+          </div>
+          {editorActions}
+        </div>
+      ) : editorActions}
       {entry && <div><h2 className="text-lg font-semibold">Edit reflection</h2><p className="text-sm text-zinc-500">Keep the details that matter.</p></div>}
       {entry && savedPrompts.length > 0 && (
         <section className="space-y-3" aria-label="Saved reflection prompts">
@@ -435,26 +469,13 @@ export default function JournalPage() {
         <main className="mx-auto w-full max-w-3xl">
           {!showAllEntries ? (
             <section className="space-y-5" aria-label="Write a journal page">
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  className="group h-11 shrink-0 gap-2 rounded-xl border-zinc-800 bg-zinc-950 px-3 text-zinc-200 shadow-sm transition hover:border-orange-500/50 hover:bg-zinc-900"
-                  onClick={() => setShowAllEntries(true)}
-                  data-testid="button-past-entries"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500/10">
-                    <BookOpen className="h-4 w-4 text-orange-400" />
-                  </span>
-                  <span className="text-xs font-semibold">Past entries</span>
-                  <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium tabular-nums text-zinc-400">{entries.length}</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-300" />
-                </Button>
-              </div>
               <EntryEditor
                 key={`new-journal-editor-${draftRevision}`}
                 type={selectedType}
                 isPro={isPro}
                 onTypeChange={setSelectedType}
+                onOpenArchive={() => setShowAllEntries(true)}
+                entryCount={entries.length}
                 initialSourceKind={initialSourceKind}
                 initialSourceId={initialSourceId}
                 onDone={resetDraft}
