@@ -46,11 +46,11 @@ Day 3 introduces the Volume Workout in manual Track Stats mode, then sends playe
 
 **How to apply:** preserve the order workout → Dashboard → Journal, keep Day 3 separate from the live onboarding until rollout is requested, and use the exact provided Volume Workout drill artwork and instructions. Match the Day 2 white court-template card composition; manual Track Stats should share Quick Complete's white background, faint court lines, orange accents, and fixed save action while preserving every existing metric and round control.
 
-Day 4 begins with a question that lets the player choose which existing Game Insight lead magnet interests them most, then runs that lead magnet and continues to a Day 4 Hub with Game Insights, Drill Library, and Build a Workout actions. Keep this flow in the onboarding preview until rollout is requested, and do not save preview quiz answers as real player submissions.
+Day 4 begins with a Player Profile-style interest question (Game Insights heading, “Which area interests you most?”) using short orange-outline choices: Game Speed, Footwork, Shooting, Confidence. It then runs the selected existing lead magnet. The Day 4 Hub mirrors Day 3's icon row and white workout-preview card, with distinct Game Insights and Drill Library app art. The Build a Workout card's supporting lines are “Create a Custom Workout” and “Unlimited drills to improve your game.” Keep the flow in the onboarding preview until rollout is requested, and do not save preview quiz answers as real player submissions.
 
 **Why:** the user defined Day 4 as a personalized Game Insights introduction followed by a Hub that makes building a workout the primary next action.
 
-**How to apply:** reuse the four existing lead magnets and their real quiz questions/results, then route the completed preview to the Day 4 Hub; keep the selected quiz and its completion behavior isolated from production onboarding and account submissions.
+**How to apply:** reuse the four existing lead magnets and their real quiz questions/results; keep the interest page's centered logo, uppercase hierarchy, rounded orange-outline controls, and concise labels. Route the completed preview to the Day 4 Hub, preserve Day 3's app-icon and workout-card composition, keep the specified card copy exact, and isolate preview completion from production onboarding and account submissions.
 
 ## Retired setup answers
 
