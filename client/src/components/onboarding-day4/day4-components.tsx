@@ -78,18 +78,20 @@ export function Day4HubActionSurface({
           className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           aria-label="Game Insights"
         >
-          <span className="relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-[20px] border border-white bg-gradient-to-br from-white to-zinc-200 shadow-[0_7px_22px_rgba(255,255,255,0.12)] transition group-hover:scale-[1.04] group-hover:shadow-[0_9px_26px_rgba(255,255,255,0.2)]">
+          <span className="relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-[20px] border border-white bg-white shadow-[0_7px_22px_rgba(255,255,255,0.12)] transition group-hover:scale-[1.04] group-hover:shadow-[0_9px_26px_rgba(255,255,255,0.2)]">
             <svg viewBox="0 0 68 68" className="h-full w-full" fill="none" aria-hidden="true">
-              <path d="M13 48.5a22 22 0 0 1 42 0" stroke="#18181b" strokeOpacity=".2" strokeWidth="1.2" />
-              <path d="M19 48.5a16 16 0 0 1 30 0" stroke="#18181b" strokeOpacity=".34" strokeWidth="1.2" />
-              <path d="M25 48.5a10 10 0 0 1 18 0" stroke="#18181b" strokeOpacity=".5" strokeWidth="1.2" />
-              <path d="M14 43.5h40M18 36.5h32M24 30h20" stroke="#18181b" strokeOpacity=".12" strokeWidth="1" />
-              <path d="M17 46 27 38l8 4 15-17" stroke="#09090b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="17" cy="46" r="2.4" fill="#09090b" />
-              <circle cx="27" cy="38" r="2.4" fill="#09090b" />
-              <circle cx="35" cy="42" r="2.4" fill="#09090b" />
-              <circle cx="50" cy="25" r="3.8" fill="#09090b" stroke="#fff" strokeWidth="1.6" />
-              <path d="M22 54h24" stroke="#09090b" strokeOpacity=".72" strokeWidth="1.5" strokeLinecap="round" />
+              <rect x="9.5" y="9.5" width="49" height="49" rx="10" stroke="#111111" strokeWidth="2.8" />
+              <path d="M24 10v12h20V10M24 22h20v11a10 10 0 0 1-20 0V22Z" stroke="#111111" strokeWidth="2.6" strokeLinejoin="round" />
+              <path d="M29 22a5 5 0 0 0 10 0" stroke="#111111" strokeWidth="2" />
+              <path d="M13 49a21 21 0 0 1 42 0" stroke="#111111" strokeWidth="2.4" strokeLinecap="round" />
+              <path d="M18 50h32" stroke="#111111" strokeWidth="2.4" strokeLinecap="round" />
+              <path d="M20 46c2-8 6-14 12-19" stroke="#f97316" strokeWidth="3.2" strokeLinecap="round" />
+              <path d="m28 26 5-1-1 5" stroke="#f97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="20" cy="46" r="3.2" fill="#111111" />
+              <circle cx="48" cy="45" r="2.8" fill="#111111" />
+              <circle cx="34" cy="51" r="2.8" fill="#f97316" />
+              <circle cx="43" cy="37" r="7.2" fill="white" stroke="#111111" strokeWidth="2.8" />
+              <path d="M36 37h14M43 30c-3 3-3 11 0 14M39 31.3c2 3.6 6 7.2 8.3 10.7" stroke="#111111" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </span>
           <span className="text-[10px] font-bold leading-tight text-zinc-300">Game Insights</span>
