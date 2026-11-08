@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "@/components/lead-magnets/lead-magnets.css";
 import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,7 +72,7 @@ export function GameSpeedShootingQuiz() {
   };
 
   return (
-    <div>
+    <div className="lm-quiz">
       <header className="mb-6">
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Game-speed shooting</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">

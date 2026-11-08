@@ -40,6 +40,7 @@
 - [Journal design direction](journal-design-direction.md) — use a blank notebook landing page, with saved entries under Past Entries and existing prompts
 - [Workout logging preference](workout-logging-preference.md) — ask after Day 3 whether players prefer Quick Complete or Track Stats; persist the account default and report it in admin analytics
 - [Lead magnet result privacy](lead-magnet-result-privacy.md) — keep submissions stored for Coach P while hiding saved-result history from players
+- [Game Insights design direction](game-insights-design.md) — keep the lead-magnet catalog, quizzes, and results concise and consistent with PLAYR1
 - [Settings family controls](settings-family-controls.md) — remove family and parent-invite controls from Settings only; retain related routes, stored data, and backend flows
 - [Founder-led shooting cohort](founder-shooting-cohort.md) — member-only portal, private Founder messaging, dated shooting progress, assigned workouts, and outstanding-review counts
 - [Mockup Vite preview cache](mockup-vite-preview-cache.md) — after an `Outdated Optimize Dep` 504, check stale sandbox prebundle metadata before changing dependencies

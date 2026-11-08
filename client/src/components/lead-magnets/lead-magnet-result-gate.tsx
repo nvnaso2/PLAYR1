@@ -145,7 +145,7 @@ export function LeadMagnetResultGate({
           )}
         </>
       ) : (
-        <section className="rounded-xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-zinc-950 p-5 sm:p-6">
+        <section className="lm-result-gate rounded-xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-zinc-950 p-5 sm:p-6">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/10 text-orange-300">
               <LockKeyhole className="h-4 w-4" />

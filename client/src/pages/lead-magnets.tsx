@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "@/components/lead-magnets/lead-magnets.css";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, ArrowRight, Brain, Check, Crosshair, RotateCcw, Target, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -159,7 +160,7 @@ export default function LeadMagnetsPage({
 
   if (!routeMagnetId && !onboardingPreview) {
     return (
-      <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-5 text-white sm:px-6 sm:pt-7">
+      <main className="lm-page min-h-full bg-zinc-950 px-4 pb-10 pt-5 text-white sm:px-6 sm:pt-7">
         <div className="mx-auto max-w-5xl">
           <Link href="/hub">
             <Button
@@ -173,7 +174,7 @@ export default function LeadMagnetsPage({
             </Button>
           </Link>
 
-          <header className="mb-6 mt-5 max-w-2xl sm:mb-7">
+          <header className="lm-catalog-heading mb-6 mt-5 max-w-2xl sm:mb-7">
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-orange-400">PLAYR1 · Player tools</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl" data-testid="text-game-insights-title">
               Game Insights
@@ -184,7 +185,7 @@ export default function LeadMagnetsPage({
           </header>
 
           <section aria-label="Game insight tools">
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+            <div className="lm-catalog-grid grid gap-3 sm:grid-cols-2 sm:gap-4">
               {leadMagnetCards.map((magnet) => {
                 const Icon = magnet.icon;
                 return (
@@ -224,7 +225,7 @@ export default function LeadMagnetsPage({
   }
 
   return (
-    <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10">
+    <main className="lm-page min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10">
       <div className="mx-auto max-w-3xl">
         <header className="mb-5">
           {onboardingPreview ? (
@@ -247,7 +248,7 @@ export default function LeadMagnetsPage({
         </header>
 
         <div className="mx-auto max-w-2xl">
-          <div className="min-w-0 max-w-2xl">
+          <div className="lm-quiz min-w-0 max-w-2xl">
             <div id="shooting-mechanics" hidden={activeLeadMagnet !== "shooting-mechanics"}>
               <header className="mb-6">
                 <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Shooting mechanics</p>
