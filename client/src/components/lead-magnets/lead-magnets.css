@@ -103,6 +103,20 @@
   background: #fff;
 }
 
+.lm-quiz-artwork-orange {
+  background: #f36a2b;
+  color: #111;
+}
+
+.lm-quiz-artwork-mono {
+  background: #fff;
+  color: #111;
+}
+
+.lm-speed-arrow {
+  color: currentColor;
+}
+
 .lm-quiz-tile-title {
   z-index: 1;
   background: linear-gradient(0deg, rgb(12 12 12 / 98%) 0%, rgb(12 12 12 / 86%) 62%, transparent 100%);
