@@ -10,15 +10,15 @@ export type LeadMagnetOption = {
 export const DAY4_LEAD_MAGNET_OPTIONS: readonly LeadMagnetOption[] = [
   {
     id: "game-speed-shooting",
-    title: "Game Speed",
+    title: "Game Speed Practice",
   },
   {
     id: "footwork-open-shots",
-    title: "Footwork",
+    title: "Shooting Footwork",
   },
   {
     id: "shooting-mechanics",
-    title: "Shooting",
+    title: "Shooting Mechanics",
   },
   {
     id: "confidence-reality-check",

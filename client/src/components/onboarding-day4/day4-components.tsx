@@ -31,7 +31,7 @@ export function Day4LeadMagnetInterestStep({
           </h1>
           <fieldset className="m-0 w-full border-0 p-0">
             <legend className="mb-3 text-[12px] font-bold uppercase tracking-[0.18em] text-zinc-300">
-              Which area interests you most?
+              Which part of your game would you like to work on the most?
             </legend>
             <div className="space-y-3">
               {options.map(({ id, title }) => (
@@ -39,11 +39,11 @@ export function Day4LeadMagnetInterestStep({
                   key={id}
                   type="button"
                   onClick={() => onSelect(id)}
-                  className="group flex min-h-[60px] w-full items-center justify-between rounded-full border border-orange-400/70 bg-[#090909] px-6 text-left text-zinc-200 shadow-[0_0_14px_rgba(249,115,22,0.08)] transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-orange-300 hover:bg-[#100d0b] hover:shadow-[0_0_20px_rgba(249,115,22,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black active:translate-y-0 sm:min-h-[66px] sm:px-7"
+                  className="group flex min-h-[60px] w-full items-center justify-between rounded-full border border-[#f97316] bg-[#090909] px-6 text-left text-zinc-200 transition-[border-color,background-color,transform] duration-200 hover:-translate-y-px hover:border-[#fb923c] hover:bg-[#100d0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f97316] focus-visible:ring-offset-2 focus-visible:ring-offset-black active:translate-y-0 sm:min-h-[66px] sm:px-7"
                   aria-label={`Choose ${title}`}
                 >
                   <span className="text-sm font-semibold tracking-[0.04em] sm:text-base">{title}</span>
-                  <span aria-hidden="true" className="ml-4 text-xl leading-none text-zinc-600 transition-colors group-hover:text-orange-300">›</span>
+                  <span aria-hidden="true" className="ml-4 text-xl leading-none text-zinc-600 transition-colors group-hover:text-[#f97316]">›</span>
                 </button>
               ))}
             </div>
@@ -78,18 +78,18 @@ export function Day4HubActionSurface({
           className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           aria-label="Game Insights"
         >
-          <span className="relative flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-orange-200/80 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 shadow-[0_7px_22px_rgba(249,115,22,0.24)] transition group-hover:scale-[1.04]">
+          <span className="relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-[20px] border border-white/30 bg-[linear-gradient(145deg,#292929,#080808_72%)] shadow-[0_6px_18px_rgba(0,0,0,0.42)] transition group-hover:scale-[1.04] group-hover:border-white/50">
             <svg viewBox="0 0 68 68" className="h-full w-full" fill="none" aria-hidden="true">
-              <path d="M13 48.5a22 22 0 0 1 42 0" stroke="#351708" strokeOpacity=".3" strokeWidth="1.2" />
-              <path d="M19 48.5a16 16 0 0 1 30 0" stroke="#351708" strokeOpacity=".44" strokeWidth="1.2" />
-              <path d="M25 48.5a10 10 0 0 1 18 0" stroke="#351708" strokeOpacity=".6" strokeWidth="1.2" />
-              <path d="M14 43.5h40M18 36.5h32M24 30h20" stroke="#351708" strokeOpacity=".2" strokeWidth="1" />
-              <path d="M17 46 27 38l8 4 15-17" stroke="#351708" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="17" cy="46" r="2.2" fill="#351708" />
-              <circle cx="27" cy="38" r="2.2" fill="#351708" />
-              <circle cx="35" cy="42" r="2.2" fill="#351708" />
-              <circle cx="50" cy="25" r="3.5" fill="#fff1dc" stroke="#7c2d12" strokeWidth="1.5" />
-              <path d="M22 54h24" stroke="#351708" strokeOpacity=".85" strokeWidth="1.4" strokeLinecap="round" />
+              <rect x="10.5" y="10.5" width="47" height="47" rx="10" stroke="#fff" strokeOpacity=".15" />
+              <path d="M16 48V22h36v26H16Z" stroke="#fff" strokeWidth="1.35" />
+              <path d="M16 36h36M27 22v8a7 7 0 0 0 14 0v-8" stroke="#fff" strokeOpacity=".72" strokeWidth="1.1" />
+              <path d="M16 48a18 18 0 0 1 36 0" stroke="#fff" strokeOpacity=".76" strokeWidth="1.15" />
+              <path d="M24 48a10 10 0 0 1 20 0" stroke="#fff" strokeOpacity=".52" strokeWidth="1.05" />
+              <circle cx="21" cy="42" r="2.1" fill="#fff" />
+              <circle cx="34" cy="39" r="2.1" fill="#fff" />
+              <circle cx="47" cy="42" r="2.1" fill="#fff" />
+              <circle cx="34" cy="50" r="2.1" fill="#fff" />
+              <path d="M19 54h5m4 0h5m4 0h5m4 0h3" stroke="#fff" strokeOpacity=".46" strokeWidth="1.2" strokeLinecap="round" />
             </svg>
           </span>
           <span className="text-[10px] font-bold leading-tight text-zinc-300">Game Insights</span>
