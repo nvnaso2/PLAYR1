@@ -50,6 +50,7 @@ import {
   Share2,
   Settings2,
   ChevronDown,
+  Plus,
 } from "lucide-react";
 
 const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444"];
@@ -80,14 +81,13 @@ const TRAINING_STAT_DEFS: TrainingStatDef[] = [
   { key: "totalShotsMade", title: "Total Shots Made", icon: <Target className="h-7 w-7" />, testId: "stats-total-shots", skillType: "shooting" },
   { key: "threePointersMade", title: "3-Pointers Made", icon: <CircleDot className="h-7 w-7" />, testId: "stats-three-pointers", skillType: "shooting" },
   { key: "freeThrowsMade", title: "Free Throws Made", icon: <Zap className="h-7 w-7" />, testId: "stats-free-throws", skillType: "shooting" },
-  { key: "fieldGoalsMade", title: "Field Goals Made", icon: <TrendingUp className="h-7 w-7" />, testId: "stats-field-goals", skillType: "shooting" },
-  { key: "formShotsMade", title: "Form Shots Made", icon: <Target className="h-7 w-7" />, testId: "stats-form-shots", skillType: "shooting" },
+  { key: "fgPct", title: "Field Goal %", icon: <TrendingUp className="h-7 w-7" />, format: (v) => `${v}%`, testId: "stats-field-goal-pct", skillType: "shooting" },
+  { key: "midRangeMade", title: "Mid-Range Shots", icon: <Target className="h-7 w-7" />, testId: "stats-mid-range", skillType: "shooting" },
   { key: "layupsMade", title: "Layups Made", icon: <Flame className="h-7 w-7" />, testId: "stats-layups", skillType: "finishing" },
   { key: "timeBallHandling", title: "Ball Handling", icon: <HandMetal className="h-7 w-7" />, testId: "stats-ball-handling", skillType: "ball-handling" },
   { key: "leftHandBallHandling", title: "Left-Hand Handling", icon: <HandMetal className="h-7 w-7" />, testId: "stats-left-hand", skillType: "ball-handling" },
   { key: "rightHandBallHandling", title: "Right-Hand Handling", icon: <HandMetal className="h-7 w-7" />, testId: "stats-right-hand", skillType: "ball-handling" },
   { key: "passesMade", title: "Passes Made", icon: <Crosshair className="h-7 w-7" />, testId: "stats-passes", skillType: "passing" },
-  { key: "fgPct", title: "FG%", icon: <Target className="h-7 w-7" />, format: (v) => `${v}%`, testId: "stats-fg-pct", skillType: "shooting" },
 ];
 
 type SkillTab = { key: string; label: string };
@@ -113,6 +113,7 @@ const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
 type TrendPoint = {
   label: string;
   shotsMade: number; shotsAttempted: number;
+  fieldGoalsMade: number; fieldGoalsAttempted: number;
   threesMade: number; threesAttempted: number;
   freeThrowsMade: number; freeThrowsAttempted: number;
   layupsMade: number; layupsAttempted: number;
@@ -178,7 +179,7 @@ const METRIC_DEFS: MetricDef[] = [
   },
   {
     key: "fgPct", label: "FG%", color: "#ef4444", isPercent: true,
-    getValue: p => p.shotsAttempted > 0 ? Math.round((p.shotsMade / p.shotsAttempted) * 100) : 0,
+    getValue: p => p.fieldGoalsAttempted > 0 ? Math.round((p.fieldGoalsMade / p.fieldGoalsAttempted) * 100) : 0,
     formatTooltip: v => `${v}%`,
   },
   {
@@ -430,7 +431,7 @@ export default function ProgressPage() {
             <Button
               size="icon"
               onClick={() => setShareOpen(true)}
-              className="h-9 w-9 border border-orange-400/30 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 hover:text-orange-200"
+              className="h-10 w-10 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-200 shadow-md transition hover:-translate-y-0.5 hover:border-zinc-500 hover:bg-zinc-800 hover:text-white"
               data-testid="button-share-dashboard"
               aria-label="Share dashboard"
             >
@@ -494,7 +495,7 @@ export default function ProgressPage() {
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:gap-3" data-testid="shooting-stat-breakdown">
-              {TRAINING_STAT_DEFS.filter((stat) => ["totalShotsMade", "threePointersMade", "freeThrowsMade", "fieldGoalsMade", "formShotsMade", "layupsMade"].includes(stat.key)).map((stat) => {
+              {TRAINING_STAT_DEFS.filter((stat) => ["totalShotsMade", "threePointersMade", "freeThrowsMade", "fgPct", "midRangeMade", "layupsMade"].includes(stat.key)).map((stat) => {
                 const value = trainingStats?.[stat.key] ?? 0;
                 return <StatsCard key={stat.key} title={stat.title} value={stat.format ? stat.format(value) : value.toLocaleString()} icon={<Target className="h-5 w-5 text-primary" />} testId={stat.testId} compact />;
               })}
@@ -512,18 +513,20 @@ export default function ProgressPage() {
           onPointerCancel={() => { chartDragStart.current = null; }}
           onWheel={handleChartWheel}
         >
-          <Card className="flex min-h-0 flex-1 flex-col border-zinc-800 bg-zinc-950/70 shadow-none">
-            <CardHeader className="shrink-0 pb-2">
+          <Card className={`flex min-h-0 flex-1 flex-col ${chartIndex === 0 ? "border-0 bg-transparent shadow-none" : "border-zinc-800 bg-zinc-950/70 shadow-none"}`}>
+            <CardHeader className={`shrink-0 pb-2 ${chartIndex === 0 ? "px-0 pt-0" : ""}`}>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   {chartIndex === 1 ? <BarChart3 className="h-5 w-5 text-primary" /> : chartIndex === 2 ? <Activity className="h-5 w-5 text-primary" /> : null}
-                  {["Road to Elite Shooting", "Training Activity", "Time by Category"][chartIndex]}
+                  {["Road to Elite Shooting", "Training Activity", "Training Summary"][chartIndex]}
                 </CardTitle>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{chartIndex + 1} / 3</span>
+                <div className="flex items-center gap-2">
+                  {chartIndex === 0 && <Button size="icon" variant="outline" onClick={() => setLocation("/hub?baseline=1")} className="h-10 w-10 rounded-full border border-zinc-500 bg-zinc-900 text-white shadow-md transition hover:border-zinc-300 hover:bg-zinc-800" aria-label="Log shooting baseline again" title="Log baseline again" data-testid="button-log-baseline-again"><Plus className="h-5 w-5" /></Button>}
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{chartIndex + 1} / 3</span>
+                </div>
               </div>
-              {chartIndex === 0 && <p className="text-xs text-zinc-500">Your Day 1 baseline with a 12-month projection.</p>}
             </CardHeader>
-            <CardContent className="min-h-0 flex-1 px-2 pb-3 sm:px-5">
+            <CardContent className={`min-h-0 flex-1 pb-3 ${chartIndex === 0 ? "px-0" : "px-2 sm:px-5"}`}>
               {chartIndex === 0 && (
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="mb-1 flex shrink-0 flex-wrap items-center gap-3 text-[9px] font-black tracking-wide">
@@ -567,29 +570,31 @@ export default function ProgressPage() {
                 </div>
               )}
               {chartIndex === 1 && (
-                weeklyStats?.length ? (
+                trendsData?.some((point) => point.shotsAttempted > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={weeklyStats ?? []} margin={{ left: -12, right: 8, top: 12, bottom: 0 }}>
+                    <BarChart data={trendsData ?? []} margin={{ left: -12, right: 8, top: 12, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(value) => new Date(value).toLocaleDateString("en-US", { weekday: "short" })} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={32} />
-                      <Tooltip formatter={(value: number) => [`${value} min`, "Training time"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
-                      <Bar dataKey="minutes" fill="#f97316" radius={[5, 5, 0, 0]} />
+                      <Tooltip formatter={(value: number) => [`${value} shots`, "Shots taken"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
+                      <Bar dataKey="shotsAttempted" name="Shots taken" fill="#f97316" radius={[5, 5, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
-                ) : <div className="flex h-full items-center justify-center text-sm text-zinc-500">Training activity will appear here as you log workouts.</div>
+                ) : <div className="flex h-full items-center justify-center text-sm text-zinc-500">Shots taken will appear here as you log shooting drills.</div>
               )}
               {chartIndex === 2 && (
-                pieData.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={pieData} cx="50%" cy="50%" innerRadius="45%" outerRadius="72%" paddingAngle={3} dataKey="value" strokeWidth={0}>
-                        {pieData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => [`${value} min`, "Training time"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <div className="flex h-full items-center justify-center text-sm text-zinc-500">Category totals will appear as you log training.</div>
+                <div className="grid h-full min-h-[180px] grid-cols-3 items-stretch gap-2 sm:gap-4">
+                  {[
+                    { label: "Hours Trained", value: (Math.round((totalMinutes / 60) * 10) / 10).toLocaleString(), icon: <Clock className="h-5 w-5" />, color: "#fb923c", hint: "time on court" },
+                    { label: "Workouts", value: (trainingStats?.workoutsCompleted ?? 0).toLocaleString(), icon: <PlayCircle className="h-5 w-5" />, color: "#facc15", hint: "sessions finished" },
+                    { label: "Drills", value: (trainingStats?.drillsCompleted ?? 0).toLocaleString(), icon: <Target className="h-5 w-5" />, color: "#4ade80", hint: "drills completed" },
+                  ].map((metric) => (
+                    <div key={metric.label} className="flex flex-col justify-between rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/80 to-black p-3 sm:p-5">
+                      <div className="flex items-center gap-2 text-zinc-400"><span style={{ color: metric.color }}>{metric.icon}</span><span className="text-[9px] font-bold uppercase tracking-wider sm:text-xs">{metric.label}</span></div>
+                      <div><p className="font-heading text-3xl font-black tabular-nums text-white sm:text-5xl">{metric.value}</p><p className="mt-1 text-[9px] text-zinc-500 sm:text-xs">{metric.hint}</p><div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-800"><div className="h-full w-2/3 rounded-full" style={{ backgroundColor: metric.color }} /></div></div>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -599,7 +604,7 @@ export default function ProgressPage() {
         </div>
       ) : activeDashboardPage === "shooting" ? (
         <div
-          className="flex min-h-0 flex-1 flex-col touch-pan-y select-none"
+          className="flex min-h-0 flex-1 flex-col touch-pan-y select-none overflow-y-auto"
           data-testid="shooting-chart-carousel"
           onPointerDown={handleChartPointerDown}
           onPointerUp={handleChartPointerUp}
@@ -612,7 +617,7 @@ export default function ProgressPage() {
                 <ShootingHeatmap
                     shotData={shotHeatmapData}
                     title="Shooting Heatmap"
-                    compact
+                    className="shrink-0"
                     personalizedScale
                     personalBaselines={shotHeatmapBaselines?.sections ?? EMPTY_SHOT_HEATMAP_BASELINES}
                     baselineLoading={shotHeatmapBaselinesLoading}

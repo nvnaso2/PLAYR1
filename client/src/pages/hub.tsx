@@ -183,11 +183,20 @@ export default function HubPage() {
   const previewPage = new URLSearchParams(search).get("page");
   const dayTwoProfileStep = location.split("?")[0] === "/admin/onboarding-preview" && previewPage === "player-profile";
   const dayTwoProfileOpen = dayTwoProfileStep;
-  const onboardingPreview = new URLSearchParams(search).get("preview") === "onboarding"
+  const reopenBaseline = new URLSearchParams(search).get("baseline") === "1";
+  const onboardingPreview = reopenBaseline || new URLSearchParams(search).get("preview") === "onboarding"
     || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2", "day3"].includes(previewPage || ""));
   const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
-  const [baselinePickerOpen, setBaselinePickerOpen] = useState(false);
+  const [baselinePickerOpen, setBaselinePickerOpen] = useState(reopenBaseline);
   const [baselineLogging, setBaselineLogging] = useState(false);
+  const closeBaselinePicker = () => {
+    setBaselinePickerOpen(false);
+    if (reopenBaseline) navigate("/dashboard");
+  };
+  const closeBaselineLogging = () => {
+    setBaselineLogging(false);
+    if (reopenBaseline) navigate("/dashboard");
+  };
   const [baselineComplete, setBaselineComplete] = useState(false);
   const [baselineSaving, setBaselineSaving] = useState(false);
   const [baselineSaveError, setBaselineSaveError] = useState("");
@@ -1466,7 +1475,7 @@ export default function HubPage() {
                       );
                     })()}
                   {previewDay === 1 && baselinePickerOpen && (
-                    <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/80 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setBaselinePickerOpen(false)}>
+                    <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/80 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={closeBaselinePicker}>
                       <section role="dialog" aria-modal="true" aria-labelledby="baseline-picker-title" className="max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-white/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
                         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700 sm:hidden" />
                         <div className="mb-4 flex items-start justify-between gap-3">
@@ -1474,7 +1483,7 @@ export default function HubPage() {
                             <h3 id="baseline-picker-title" className="font-heading text-lg font-black uppercase text-white sm:text-xl">Choose your baseline</h3>
                             <p className="mt-1 text-[10px] text-zinc-400">Pick one workout to start.</p>
                           </div>
-                          <button type="button" onClick={() => setBaselinePickerOpen(false)} aria-label="Close baseline choices" className="rounded-full border border-white/10 p-2 text-zinc-400 transition hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
+                          <button type="button" onClick={closeBaselinePicker} aria-label="Close baseline choices" className="rounded-full border border-white/10 p-2 text-zinc-400 transition hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-3" role="group" aria-label="Choose baseline workout size">
                           {onboardingBaselines.map((option) => {
@@ -1511,7 +1520,7 @@ export default function HubPage() {
                   )}
 
                   {previewDay === 1 && baselineLogging && !baselineComplete && (
-                    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/80 px-0 pt-10 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setBaselineLogging(false)}>
+                    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/80 px-0 pt-10 backdrop-blur-sm sm:items-center sm:p-4" onClick={closeBaselineLogging}>
                       <section role="dialog" aria-modal="true" aria-labelledby="baseline-log-title" className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-orange-400/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
                         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700 sm:hidden" />
                         <div className="mb-5 flex items-start justify-between gap-3">
@@ -1520,7 +1529,7 @@ export default function HubPage() {
                             <h3 id="baseline-log-title" className="mt-1 font-heading text-xl font-black uppercase text-white">Log your makes</h3>
                             <p className="mt-1 text-[11px] text-zinc-400">{baselineTotal} attempts · {selectedBaseline.name}</p>
                           </div>
-                          <button type="button" onClick={() => setBaselineLogging(false)} aria-label="Close baseline logger" className="rounded-full border border-white/10 p-2 text-zinc-400 transition hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
+                          <button type="button" onClick={closeBaselineLogging} aria-label="Close baseline logger" className="rounded-full border border-white/10 p-2 text-zinc-400 transition hover:bg-white/5 hover:text-white"><X className="h-4 w-4" /></button>
                         </div>
                         <div className="space-y-2.5">
                           {previewShotTypes.map(({ key, label, color }) => {
@@ -1578,6 +1587,7 @@ export default function HubPage() {
                               setBaselineComplete(true);
                               setBaselineLogging(false);
                               queryClient.invalidateQueries({ queryKey: ["/api/player-setup"] });
+                              if (reopenBaseline) navigate("/dashboard");
                             } catch {
                               setBaselineSaveError("Your baseline could not be saved. Please try again.");
                             } finally {

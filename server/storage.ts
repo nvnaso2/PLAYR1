@@ -205,7 +205,7 @@ export interface IStorage {
   getCategoryStats(userId: string, period?: string): Promise<{ category: string; minutes: number; sessions: number }[]>;
   getDashboardTrainingStats(userId: string, period?: string): Promise<Record<string, number>>;
   getProgressTrends(userId: string, period?: string): Promise<{
-    label: string; shotsMade: number; shotsAttempted: number;
+    label: string; shotsMade: number; shotsAttempted: number; workouts: number;
     threesMade: number; threesAttempted: number;
     freeThrowsMade: number; freeThrowsAttempted: number;
     layupsMade: number; layupsAttempted: number;
@@ -1618,6 +1618,7 @@ export class DatabaseStorage {
 
   async getProgressTrends(userId: string, period: string = "weekly", startTs?: number): Promise<{
     label: string; shotsMade: number; shotsAttempted: number;
+    fieldGoalsMade: number; fieldGoalsAttempted: number;
     threesMade: number; threesAttempted: number;
     freeThrowsMade: number; freeThrowsAttempted: number;
     layupsMade: number; layupsAttempted: number;
@@ -1676,9 +1677,14 @@ export class DatabaseStorage {
       eq(trainingLogs.userId, userId),
       gte(trainingLogs.completedAt, startDate)
     ));
+    const locationRows = await db.select({ slug: shotLocations.slug, classification: shotLocations.classification }).from(shotLocations);
+    const locationClassifications = new Map(locationRows.map((row) => [row.slug, row.classification]));
+    const classifyLocation = (location: string) =>
+      LOCATION_CLASSIFICATIONS[location as ShotLocation] ?? locationClassifications.get(location);
 
     type TrendBucket = {
-      label: string; shotsMade: number; shotsAttempted: number;
+      label: string; shotsMade: number; shotsAttempted: number; workouts: number;
+      fieldGoalsMade: number; fieldGoalsAttempted: number;
       threesMade: number; threesAttempted: number;
       freeThrowsMade: number; freeThrowsAttempted: number;
       layupsMade: number; layupsAttempted: number;
@@ -1689,7 +1695,8 @@ export class DatabaseStorage {
     const bucketMap: Record<string, TrendBucket> = {};
     for (const b of buckets) {
       bucketMap[b.key] = {
-        label: b.label, shotsMade: 0, shotsAttempted: 0,
+        label: b.label, shotsMade: 0, shotsAttempted: 0, workouts: 0,
+        fieldGoalsMade: 0, fieldGoalsAttempted: 0,
         threesMade: 0, threesAttempted: 0,
         freeThrowsMade: 0, freeThrowsAttempted: 0,
         layupsMade: 0, layupsAttempted: 0,
@@ -1697,6 +1704,7 @@ export class DatabaseStorage {
         minutes: 0, sessions: 0,
       };
     }
+    const workoutIdsByBucket = new Map<string, Set<string>>();
 
     for (const log of logs) {
       if (!log.completedAt) continue;
@@ -1715,6 +1723,14 @@ export class DatabaseStorage {
       const bk = bucketMap[bucketKey];
       bk.sessions += 1;
       bk.minutes += log.duration || 0;
+      if (log.workoutSessionId) {
+        const workoutIds = workoutIdsByBucket.get(bucketKey) ?? new Set<string>();
+        if (!workoutIds.has(log.workoutSessionId)) {
+          workoutIds.add(log.workoutSessionId);
+          bk.workouts += 1;
+        }
+        workoutIdsByBucket.set(bucketKey, workoutIds);
+      }
 
       const made = log.shotsMade || 0;
       const attempted = log.shotsAttempted || 0;
@@ -1722,8 +1738,12 @@ export class DatabaseStorage {
         bk.shotsMade += made;
         bk.shotsAttempted += attempted;
         if (log.shotLocation) {
-          const classification = LOCATION_CLASSIFICATIONS[log.shotLocation as ShotLocation];
+          const classification = classifyLocation(log.shotLocation);
           const loc = log.shotLocation as string;
+          if (classification === "2-pointer" || classification === "3-pointer") {
+            bk.fieldGoalsMade += made;
+            bk.fieldGoalsAttempted += attempted;
+          }
           if (classification === "3-pointer") {
             bk.threesMade += made; bk.threesAttempted += attempted;
           } else if (classification === "free-throw") {
@@ -1789,14 +1809,18 @@ export class DatabaseStorage {
         eq(trainingLogs.userId, userId),
         gte(trainingLogs.completedAt, startDate)
       ));
+    const locationRows = await db.select({ slug: shotLocations.slug, classification: shotLocations.classification }).from(shotLocations);
+    const locationClassifications = new Map(locationRows.map((row) => [row.slug, row.classification]));
+    const classifyLocation = (location: string) =>
+      LOCATION_CLASSIFICATIONS[location as ShotLocation] ?? locationClassifications.get(location);
     result["drillsCompleted"] = logs.length;
 
     let totalShotsMade = 0;
     let threePointersMade = 0;
     let freeThrowsMade = 0;
-    let fieldGoalsMade = 0;
     let fieldGoalsAttempted = 0;
     let fieldGoalsMadeIncludingThrees = 0;
+    let midRangeMade = 0;
     let layupsMade = 0;
     const completedWorkoutSessions = new Set<string>();
 
@@ -1804,34 +1828,23 @@ export class DatabaseStorage {
       if (log.workoutSessionId) {
         completedWorkoutSessions.add(log.workoutSessionId);
       }
-      if (log.shotsMade && log.shotsMade > 0) {
-        // Count ALL made shots regardless of location
-        totalShotsMade += log.shotsMade;
-        if (log.shotLocation) {
-          const classification = LOCATION_CLASSIFICATIONS[log.shotLocation as ShotLocation];
-          const loc = log.shotLocation as string;
-          if (classification === "3-pointer") threePointersMade += log.shotsMade;
-          else if (classification === "free-throw") freeThrowsMade += log.shotsMade;
-          else if (classification === "2-pointer") {
-            if (loc.includes("block") || loc.includes("layup")) {
-              layupsMade += log.shotsMade;
-            } else {
-              fieldGoalsMade += log.shotsMade;
-            }
-          } else if (!classification) {
-            // Locations not in LOCATION_CLASSIFICATIONS (e.g. left-hand-layup, right-hand-layup)
-            if (loc.includes("layup")) {
-              layupsMade += log.shotsMade;
-            }
-            // All other unrecognised locations are left uncategorised (total still counts)
-          }
+      const made = log.shotsMade || 0;
+      const attempted = log.shotsAttempted || 0;
+      totalShotsMade += made;
+      if (log.shotLocation) {
+        const location = log.shotLocation as string;
+        const classification = classifyLocation(location);
+        if (classification === "3-pointer") threePointersMade += made;
+        else if (classification === "free-throw") freeThrowsMade += made;
+        else if (classification === "2-pointer") {
+          if (location.includes("block") || location.includes("layup")) layupsMade += made;
+          else midRangeMade += made;
+        } else if (location.includes("layup")) {
+          layupsMade += made;
         }
-      }
-      if (log.shotLocation && (log.shotsAttempted || log.shotsMade)) {
-        const classification = LOCATION_CLASSIFICATIONS[log.shotLocation as ShotLocation];
         if (classification === "2-pointer" || classification === "3-pointer") {
-          fieldGoalsAttempted += log.shotsAttempted || 0;
-          fieldGoalsMadeIncludingThrees += log.shotsMade || 0;
+          fieldGoalsAttempted += attempted;
+          fieldGoalsMadeIncludingThrees += made;
         }
       }
     }
@@ -1839,7 +1852,8 @@ export class DatabaseStorage {
     if (totalShotsMade > 0) result["totalShotsMade"] = totalShotsMade;
     if (threePointersMade > 0) result["threePointersMade"] = threePointersMade;
     if (freeThrowsMade > 0) result["freeThrowsMade"] = freeThrowsMade;
-    if (fieldGoalsMade > 0) result["fieldGoalsMade"] = fieldGoalsMade;
+    if (fieldGoalsMadeIncludingThrees > 0) result["fieldGoalsMade"] = fieldGoalsMadeIncludingThrees;
+    if (midRangeMade > 0) result["midRangeMade"] = midRangeMade;
     if (fieldGoalsAttempted > 0) {
       result["fieldGoalsAttempted"] = fieldGoalsAttempted;
       result["fgPct"] = Math.round((fieldGoalsMadeIncludingThrees / fieldGoalsAttempted) * 100);
