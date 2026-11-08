@@ -83,9 +83,9 @@ function GuideArtwork({ cover }: { cover: Guide["cover"] }) {
   if (cover === "mind") {
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-white" aria-hidden="true">
-        <div className="flex h-[72%] w-[72%] items-center justify-center rounded-full border-[12px] border-black bg-white">
-          <Brain className="h-[72%] w-[72%] text-black" strokeWidth={2.8} />
-        </div>
+        <Brain className="h-[68%] w-[68%] text-black" strokeWidth={2.2} />
+        <span className="absolute right-[13%] top-[12%] h-10 w-10 rounded-full bg-black" />
+        <span className="absolute bottom-[14%] left-[14%] h-6 w-6 rounded-full bg-black" />
       </div>
     );
   }
@@ -124,7 +124,7 @@ export function LeadMagnetCatalog({ onSelect }: { onSelect: (id: GuideId) => voi
               Back
             </Button>
           </Link>
-          <h1 data-testid="text-game-insights-title" className="m-0 text-lg font-black uppercase tracking-wide text-white sm:text-xl">Game Insights</h1>
+          <h1 data-testid="text-game-insights-title" className="m-0 text-2xl font-black uppercase tracking-wide text-white sm:text-3xl">Game Insights</h1>
         </header>
 
         <section aria-label="Game insight quizzes" className="lm-book-grid mt-6 grid grid-cols-2 items-start gap-x-3 gap-y-5 sm:mt-8 sm:gap-x-5 sm:gap-y-7 lg:grid-cols-4">
@@ -133,15 +133,15 @@ export function LeadMagnetCatalog({ onSelect }: { onSelect: (id: GuideId) => voi
               key={guide.id}
               type="button"
               onClick={() => onSelect(guide.id)}
-              className={`lm-quiz-tile lm-quiz-tile-${guide.palette} group min-w-0 appearance-none overflow-hidden rounded-2xl border p-0 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-4 focus-visible:ring-offset-black`}
+              className={`lm-quiz-tile lm-quiz-tile-${guide.palette} group relative min-w-0 appearance-none overflow-hidden rounded-[18px] border p-0 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-4 focus-visible:ring-offset-black`}
               data-testid={`card-lead-magnet-${guide.id}`}
               aria-label={`Start the ${guide.title} quiz`}
             >
-              <div className="lm-quiz-tile-art relative aspect-[.88] w-full">
+              <div className="lm-quiz-tile-art absolute inset-0">
                 <GuideArtwork cover={guide.cover} />
               </div>
-              <div className="lm-quiz-tile-title px-3 py-3 sm:px-4 sm:py-4">
-                <h2 className="m-0 text-base font-black uppercase leading-[.92] tracking-[-.025em] sm:text-xl">
+              <div className="lm-quiz-tile-title absolute inset-x-0 bottom-0 px-3 pb-4 pt-14 sm:px-4 sm:pb-5">
+                <h2 className="m-0 text-[1.35rem] font-black uppercase leading-[.98] tracking-[-.015em] sm:text-[1.65rem]">
                   {guide.title}
                 </h2>
               </div>
