@@ -4,7 +4,7 @@ import { Link, useLocation } from "wouter";
 import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { LeadMagnetCatalog } from "@/components/lead-magnets/lead-magnet-catalog";
+import { LeadMagnetCatalog } from "@/components/lead-magnets/scouting-report-catalog";
 import { ConfidenceRealityCheckQuiz } from "@/components/lead-magnets/confidence-reality-check-quiz";
 import { FootworkOpenShotsQuiz } from "@/components/lead-magnets/footwork-open-shots-quiz";
 import { GameSpeedShootingQuiz } from "@/components/lead-magnets/game-speed-shooting-quiz";
