@@ -11,8 +11,8 @@ For the quiz catalog, show both book-effect and full-bleed versions of all four 
 
 **Why:** the user wants to compare the book-effect and full-bleed approaches side by side; their reference favors PLAYR1's bold condensed typography, basketball graphics, and high-contrast black, white, and orange.
 
-Use a wrench for Shooting Mechanics, a footprint for Footwork, a clean brain for Confidence, and three speed arrows for Game-Speed in both treatments.
+Keep the simple wrench, footprint, brain, and speed-arrow symbols on the book covers. Use court-based scouting art only on the four full-bleed covers.
 
-**Why:** the user requested simple, direct graphics that fit the quiz topics and rejected the previous abstract artwork.
+**Why:** the user wants to compare the book-symbol covers against a full-bleed scouting-card direction.
 
-**How to apply:** use this direction when extending the catalog, quizzes, or results; preserve diagnostic behavior and answer content, and keep the two cover treatments visibly distinct without adding descriptive cover copy.
+**How to apply:** keep the four quiz topics and palettes matched between sets; preserve the distinct art treatments until the user chooses a preferred direction.
