@@ -46,6 +46,12 @@ Day 3 introduces the Volume Workout in manual Track Stats mode, then sends playe
 
 **How to apply:** preserve the order workout → Dashboard → Journal, keep Day 3 separate from the live onboarding until rollout is requested, and use the exact provided Volume Workout drill artwork and instructions. Match the Day 2 white court-template card composition; manual Track Stats should share Quick Complete's white background, faint court lines, orange accents, and fixed save action while preserving every existing metric and round control.
 
+Day 4 begins with a question that lets the player choose which existing Game Insight lead magnet interests them most, then runs that lead magnet and continues to a Day 4 Hub with Game Insights, Drill Library, and Build a Workout actions. Keep this flow in the onboarding preview until rollout is requested, and do not save preview quiz answers as real player submissions.
+
+**Why:** the user defined Day 4 as a personalized Game Insights introduction followed by a Hub that makes building a workout the primary next action.
+
+**How to apply:** reuse the four existing lead magnets and their real quiz questions/results, then route the completed preview to the Day 4 Hub; keep the selected quiz and its completion behavior isolated from production onboarding and account submissions.
+
 ## Retired setup answers
 
 When a setup field is retired, remove it from the current prompts, validation, and new completion payloads, but preserve its previously saved value when completing setup.

@@ -29,12 +29,17 @@ export function LeadMagnetResultGate({
 }: LeadMagnetResultGateProps) {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
+  const day4Preview = new URLSearchParams(window.location.search).get("day4Preview") === "1";
   const answersJson = useMemo(() => JSON.stringify(answers), [answers]);
   const [draft, setDraft] = useState<LeadMagnetDraft | null>(() => readLeadMagnetDraft(leadMagnetId));
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error" | "account-mismatch">("idle");
   const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
+    if (day4Preview) {
+      setStatus("idle");
+      return;
+    }
     const current = readLeadMagnetDraft(leadMagnetId);
     const matchesResult = current?.resultId === resultId && JSON.stringify(current.answers) === answersJson;
     const matchingDraft = matchesResult ? current : null;
@@ -82,7 +87,7 @@ export function LeadMagnetResultGate({
     return () => {
       cancelled = true;
     };
-  }, [answersJson, isAuthenticated, isLoading, leadMagnetId, resultId, retryNonce, user]);
+  }, [answersJson, day4Preview, isAuthenticated, isLoading, leadMagnetId, resultId, retryNonce, user]);
 
   const openAuth = () => {
     const existing = readLeadMagnetDraft(leadMagnetId);
@@ -108,13 +113,21 @@ export function LeadMagnetResultGate({
     setRetryNonce((current) => current + 1);
   };
 
-  const unlocked = !!user && status === "saved" && draft?.userId === user.id;
+  const unlocked = day4Preview || (!!user && status === "saved" && draft?.userId === user.id);
 
   return (
     <div className="mt-6">
       {unlocked ? (
         <>
           {children}
+          {day4Preview ? (
+            <div className="mt-5 flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-zinc-300">Your Day 4 insight is ready.</p>
+              <Button type="button" onClick={() => navigate("/admin/onboarding-preview?page=day4-hub")} className="bg-orange-500 font-black text-black hover:bg-orange-400">
+                Continue to Day 4 Hub <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
           <div className="mt-5 flex flex-col gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="flex items-center gap-2 text-sm font-semibold text-emerald-300">
               <Check className="h-4 w-4 shrink-0" />
@@ -129,6 +142,7 @@ export function LeadMagnetResultGate({
               Get PLAYR1 for iPhone or iPad <ArrowRight className="ml-1 inline h-4 w-4" />
             </a>
           </div>
+          )}
         </>
       ) : (
         <section className="rounded-xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-zinc-950 p-5 sm:p-6">

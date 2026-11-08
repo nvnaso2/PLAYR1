@@ -9,6 +9,11 @@ import logoLandscape from "@assets/PNG_image_auth_trimmed.png";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
 import HubPage from "./hub";
 import { OnboardingTrailerStep } from "@/components/onboarding-trailer-step";
+import LeadMagnetsPage from "./lead-magnets";
+import { clearLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
+import { Day4LeadMagnetInterestStep } from "@/components/onboarding-day4/day4-components";
+import { DAY4_LEAD_MAGNET_OPTIONS } from "@/components/onboarding-day4/day4-lead-magnet-options";
+import type { LeadMagnetId } from "@shared/lead-magnet-submissions";
 
 function tomorrowAtFive() {
   const date = new Date();
@@ -32,9 +37,11 @@ export default function OnboardingPreviewPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const requestedPage = new URLSearchParams(search).get("page");
-  const page = (["login", "register", "profile", "welcome", "hub", "player-profile", "day2", "day3"].includes(requestedPage || "")
+  const page = (["login", "register", "profile", "welcome", "hub", "player-profile", "day2", "day3", "day4-interest", "day4-magnet", "day4-hub"].includes(requestedPage || "")
     ? requestedPage
-    : "login") as "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2" | "day3";
+    : "login") as "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2" | "day3" | "day4-interest" | "day4-magnet" | "day4-hub";
+  const requestedMagnet = new URLSearchParams(search).get("magnet") as LeadMagnetId | null;
+  const selectedMagnet = DAY4_LEAD_MAGNET_OPTIONS.find((option) => option.id === requestedMagnet)?.id ?? DAY4_LEAD_MAGNET_OPTIONS[0].id;
   const [playerName, setPlayerName] = useState("");
   const [trainingFrequency, setTrainingFrequency] = useState("");
   const [frequencyUnit, setFrequencyUnit] = useState<"week" | "month">("week");
@@ -79,7 +86,32 @@ export default function OnboardingPreviewPage() {
     return <OnboardingTrailerStep previewMode />;
   }
 
-  if (page === "hub" || page === "player-profile" || page === "day2" || page === "day3") {
+  if (page === "day4-interest") {
+    return (
+      <main className="min-h-[100dvh] bg-black pb-10 pt-[calc(env(safe-area-inset-top,0px)+2.75rem)] text-white">
+        <OnboardingPreviewMenu page="day4-interest" />
+        <Day4LeadMagnetInterestStep onSelect={(magnetId) => {
+          clearLeadMagnetDraft(magnetId);
+          navigate(`/admin/onboarding-preview?page=day4-magnet&magnet=${magnetId}&day4Preview=1`);
+        }} />
+      </main>
+    );
+  }
+
+  if (page === "day4-magnet") {
+    return (
+      <div className="min-h-[100dvh] bg-black pb-10 pt-[calc(env(safe-area-inset-top,0px)+2.75rem)] text-white">
+        <OnboardingPreviewMenu page="day4-magnet" />
+        <LeadMagnetsPage
+          onboardingPreview
+          initialLeadMagnetId={selectedMagnet}
+          onPreviewBack={() => navigate("/admin/onboarding-preview?page=day4-interest")}
+        />
+      </div>
+    );
+  }
+
+  if (page === "hub" || page === "player-profile" || page === "day2" || page === "day3" || page === "day4-hub") {
     return <HubPage />;
   }
 

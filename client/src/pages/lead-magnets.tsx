@@ -72,7 +72,15 @@ const leadMagnetCards = [
   },
 ] as const;
 
-export default function LeadMagnetsPage() {
+export default function LeadMagnetsPage({
+  onboardingPreview = false,
+  initialLeadMagnetId,
+  onPreviewBack,
+}: {
+  onboardingPreview?: boolean;
+  initialLeadMagnetId?: LeadMagnetId;
+  onPreviewBack?: () => void;
+} = {}) {
   const pathParts = window.location.pathname.split("/");
   const routeMagnetId = pathParts[1] === "lead-magnets" ? pathParts[2] : undefined;
   const { isAuthenticated } = useAuth();
@@ -92,15 +100,18 @@ export default function LeadMagnetsPage() {
       ? getShootingMechanicsOutcome(initialBranch, initialSecondAnswer)
       : null,
   );
-  const [activeLeadMagnet, setActiveLeadMagnet] = useState<LeadMagnetId>(validRouteMagnet ?? "shooting-mechanics");
+  const [activeLeadMagnet, setActiveLeadMagnet] = useState<LeadMagnetId>(initialLeadMagnetId ?? validRouteMagnet ?? "shooting-mechanics");
 
   useEffect(() => {
-    if (isAuthenticated) track("lead_magnets_browse_view");
-  }, [isAuthenticated]);
+    if (isAuthenticated && !onboardingPreview) track("lead_magnets_browse_view");
+  }, [isAuthenticated, onboardingPreview]);
 
   useEffect(() => {
     if (validRouteMagnet) setActiveLeadMagnet(validRouteMagnet);
   }, [validRouteMagnet]);
+  useEffect(() => {
+    if (onboardingPreview && initialLeadMagnetId) setActiveLeadMagnet(initialLeadMagnetId);
+  }, [initialLeadMagnetId, onboardingPreview]);
 
   const resetQuiz = () => {
     clearLeadMagnetDraft("shooting-mechanics");
@@ -132,7 +143,7 @@ export default function LeadMagnetsPage() {
   const result = outcome ? shootingMechanicsResults[outcome] : null;
   const secondQuestion = branch ? shootingMechanicsBranches[branch] : null;
 
-  if (routeMagnetId && !validRouteMagnet) {
+  if (!onboardingPreview && routeMagnetId && !validRouteMagnet) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 text-white">
         <div className="max-w-md text-center">
@@ -146,7 +157,7 @@ export default function LeadMagnetsPage() {
     );
   }
 
-  if (!routeMagnetId) {
+  if (!routeMagnetId && !onboardingPreview) {
     return (
       <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-5 text-white sm:px-6 sm:pt-7">
         <div className="mx-auto max-w-5xl">
@@ -216,6 +227,11 @@ export default function LeadMagnetsPage() {
     <main className="min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10">
       <div className="mx-auto max-w-3xl">
         <header className="mb-5">
+          {onboardingPreview ? (
+            <Button type="button" variant="ghost" onClick={onPreviewBack} className="h-9 gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 text-zinc-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white">
+              <ArrowLeft className="h-4 w-4" /> Back to your choice
+            </Button>
+          ) : (
           <Link href="/hub">
             <Button
               type="button"
@@ -227,6 +243,7 @@ export default function LeadMagnetsPage() {
               Back to Hub
             </Button>
           </Link>
+          )}
         </header>
 
         <div className="mx-auto max-w-2xl">

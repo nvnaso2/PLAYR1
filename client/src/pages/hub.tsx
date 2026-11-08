@@ -52,6 +52,7 @@ import { selectDailyDrillSuggestions } from "@shared/daily-drill-recommendations
 import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
+import { Day4HubActionSurface } from "@/components/onboarding-day4/day4-components";
 import {
   PLAYER_SETUP_GOALS,
   PLAYER_SETUP_SITUATIONS,
@@ -185,7 +186,7 @@ export default function HubPage() {
   const dayTwoProfileOpen = dayTwoProfileStep;
   const reopenBaseline = new URLSearchParams(search).get("baseline") === "1";
   const onboardingPreview = reopenBaseline || new URLSearchParams(search).get("preview") === "onboarding"
-    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2", "day3"].includes(previewPage || ""));
+    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2", "day3", "day4-hub"].includes(previewPage || ""));
   const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
   const [baselinePickerOpen, setBaselinePickerOpen] = useState(reopenBaseline);
   const [baselineLogging, setBaselineLogging] = useState(false);
@@ -207,15 +208,19 @@ export default function HubPage() {
   const [scheduleDatePickerOpen, setScheduleDatePickerOpen] = useState(false);
   const [trainingPlanOpen, setTrainingPlanOpen] = useState(false);
   const [nextSessionOpen, setNextSessionOpen] = useState(false);
-  const [previewDay, setPreviewDay] = useState(() => new URLSearchParams(search).get("page") === "day3" ? 3 : new URLSearchParams(search).get("page") === "day2" ? 2 : 1);
+  const [previewDay, setPreviewDay] = useState(() => {
+    const page = new URLSearchParams(search).get("page");
+    return page === "day4-hub" ? 4 : page === "day3" ? 3 : page === "day2" ? 2 : 1;
+  });
   useEffect(() => {
     if (location.split("?")[0] === "/admin/onboarding-preview") {
-      setPreviewDay(previewPage === "day3" ? 3 : previewPage === "day2" ? 2 : 1);
+      setPreviewDay(previewPage === "day4-hub" ? 4 : previewPage === "day3" ? 3 : previewPage === "day2" ? 2 : 1);
     }
   }, [location, previewPage]);
   const fitOnboardingHub = onboardingPreview && previewDay === 1 && !dayTwoProfileStep;
   const fitOnboardingDayTwo = onboardingPreview && previewDay === 2 && !dayTwoProfileStep;
   const fitOnboardingDayThree = onboardingPreview && previewDay === 3 && !dayTwoProfileStep;
+  const fitOnboardingDayFour = onboardingPreview && previewDay === 4 && !dayTwoProfileStep;
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
   const [dayThreeWorkoutOpen, setDayThreeWorkoutOpen] = useState(false);
   const [dayTwoCoachDraft, setDayTwoCoachDraft] = useState("");
@@ -848,14 +853,14 @@ export default function HubPage() {
   );
 
   return (
-    <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree
+    <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour
       ? "flex h-[100dvh] flex-col overflow-hidden bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
       : onboardingPreview
         ? "min-h-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
         : "min-h-full bg-background pb-6"}>
       {/* Greeting Header */}
       <div className="shrink-0 px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
-        {onboardingPreview && <OnboardingPreviewMenu page={dayTwoProfileStep ? "player-profile" : previewDay === 3 ? "day3" : previewDay === 2 ? "day2" : "hub"} showFeedback />}
+        {onboardingPreview && <OnboardingPreviewMenu page={dayTwoProfileStep ? "player-profile" : previewDay === 4 ? "day4-hub" : previewDay === 3 ? "day3" : previewDay === 2 ? "day2" : "hub"} showFeedback />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
@@ -1135,7 +1140,7 @@ export default function HubPage() {
         )}
       </div>
 
-      <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree
+      <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour
         ? "min-h-0 flex flex-1 flex-col overflow-hidden px-4 mt-1"
         : "px-4 space-y-5 mt-4"}>
         {onboardingPreview ? (
@@ -1734,6 +1739,14 @@ export default function HubPage() {
                   </div>
                 </button>
               </section>
+            )}
+
+            {previewDay === 4 && (
+              <Day4HubActionSurface
+                onGameInsights={() => navigate("/lead-magnets")}
+                onDrillLibrary={() => navigate("/drills")}
+                onBuildWorkout={() => navigate("/drills?build=1")}
+              />
             )}
 
             {dayThreeWorkoutOpen && <div className="fixed inset-0 z-[86] flex items-center justify-center bg-black/85 p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] backdrop-blur-sm sm:p-6" onClick={() => setDayThreeWorkoutOpen(false)}>

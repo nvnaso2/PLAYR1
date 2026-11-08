@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { ChevronDown, MessageSquarePlus, X } from "lucide-react";
 
-type PreviewPage = "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2" | "day3";
+type PreviewPage = "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2" | "day3" | "day4-interest" | "day4-magnet" | "day4-hub";
 
 const previewPages: Array<{ value: PreviewPage; label: string }> = [
   { value: "login", label: "Sign in" },
@@ -12,6 +12,9 @@ const previewPages: Array<{ value: PreviewPage; label: string }> = [
   { value: "player-profile", label: "Day 2 profile questions" },
   { value: "day2", label: "Day 2 Hub" },
   { value: "day3", label: "Day 3 Hub" },
+  { value: "day4-interest", label: "Day 4 · Choose Insight" },
+  { value: "day4-magnet", label: "Day 4 · Lead Magnet" },
+  { value: "day4-hub", label: "Day 4 Hub" },
 ];
 
 export function OnboardingPreviewMenu({ page, inline = false, showFeedback = false }: { page: PreviewPage; inline?: boolean; showFeedback?: boolean }) {
