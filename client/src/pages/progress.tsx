@@ -570,27 +570,30 @@ export default function ProgressPage() {
                 </div>
               )}
               {chartIndex === 1 && (
-                <div className="relative h-full min-h-0 overflow-hidden rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-950 via-zinc-950 to-black p-2 pt-8">
+                <div className="relative h-full min-h-[220px] min-w-0 overflow-hidden rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-950 via-zinc-950 to-black p-2 pt-8">
                   <span className="absolute right-3 top-2 z-10 rounded-full border border-zinc-700/80 bg-black/80 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-zinc-300">
                     {(trendsData ?? []).reduce((total, point) => total + point.shotsAttempted, 0).toLocaleString()} shots · {TIME_PERIOD_LABELS[timePeriod]}
                   </span>
-                  {trendsData?.some((point) => point.shotsAttempted > 0) ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={trendsData} margin={{ left: -15, right: 4, top: 8, bottom: 0 }} barCategoryGap="24%">
-                        <defs>
-                          <linearGradient id="shotsActivityGradient" x1="0" x2="0" y1="0" y2="1">
-                            <stop offset="0%" stopColor="#fafafa" />
-                            <stop offset="100%" stopColor="#52525b" />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid vertical={false} strokeDasharray="3 5" stroke="rgba(255,255,255,0.08)" />
-                        <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#a1a1aa" }} axisLine={false} tickLine={false} tickMargin={8} />
-                        <YAxis tick={{ fontSize: 9, fill: "#71717a" }} axisLine={false} tickLine={false} width={30} />
-                        <Tooltip cursor={{ fill: "rgba(255,255,255,0.05)" }} formatter={(value: number) => [`${value} shots`, "Taken"]} contentStyle={{ backgroundColor: "#111", borderColor: "#3f3f46", borderRadius: 10, color: "#fff" }} />
-                        <Bar dataKey="shotsAttempted" name="Shots taken" fill="url(#shotsActivityGradient)" radius={[6, 6, 1, 1]} maxBarSize={42} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : <div className="flex h-full items-center justify-center text-sm text-zinc-500">Shots taken will appear here as you log shooting drills.</div>}
+                  {trendsData?.length && !trendsData.some((point) => point.shotsAttempted > 0) ? (
+                    <span className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-800 bg-black/80 px-3 py-1.5 text-[10px] font-medium text-zinc-500">
+                      No shots logged in this period
+                    </span>
+                  ) : null}
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={trendsData ?? []} margin={{ left: -15, right: 4, top: 8, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="shotsActivityGradient" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#fafafa" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#71717a" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid vertical={false} strokeDasharray="3 5" stroke="rgba(255,255,255,0.08)" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#a1a1aa" }} axisLine={false} tickLine={false} tickMargin={8} />
+                      <YAxis domain={[0, "auto"]} allowDecimals={false} tick={{ fontSize: 9, fill: "#71717a" }} axisLine={false} tickLine={false} width={30} />
+                      <Tooltip cursor={{ stroke: "rgba(255,255,255,0.2)", strokeDasharray: "3 3" }} formatter={(value: number) => [`${value} shots`, "Taken"]} contentStyle={{ backgroundColor: "#111", borderColor: "#3f3f46", borderRadius: 10, color: "#fff" }} />
+                      <Area type="monotone" dataKey="shotsAttempted" name="Shots taken" stroke="#e4e4e7" strokeWidth={3} fill="url(#shotsActivityGradient)" dot={{ r: 3, fill: "#fafafa", stroke: "#18181b", strokeWidth: 2 }} activeDot={{ r: 5, fill: "#fff", stroke: "#18181b", strokeWidth: 2 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               )}
               {chartIndex === 2 && (
