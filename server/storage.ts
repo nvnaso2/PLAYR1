@@ -1617,7 +1617,7 @@ export class DatabaseStorage {
   }
 
   async getProgressTrends(userId: string, period: string = "weekly", startTs?: number): Promise<{
-    label: string; shotsMade: number; shotsAttempted: number;
+    label: string; shotsMade: number; shotsAttempted: number; workouts: number;
     fieldGoalsMade: number; fieldGoalsAttempted: number;
     threesMade: number; threesAttempted: number;
     freeThrowsMade: number; freeThrowsAttempted: number;

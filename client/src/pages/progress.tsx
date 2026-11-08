@@ -112,7 +112,7 @@ const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
 
 type TrendPoint = {
   label: string;
-  shotsMade: number; shotsAttempted: number;
+  shotsMade: number; shotsAttempted: number; workouts: number;
   fieldGoalsMade: number; fieldGoalsAttempted: number;
   threesMade: number; threesAttempted: number;
   freeThrowsMade: number; freeThrowsAttempted: number;
@@ -570,28 +570,44 @@ export default function ProgressPage() {
                 </div>
               )}
               {chartIndex === 1 && (
-                trendsData?.some((point) => point.shotsAttempted > 0) ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={trendsData ?? []} margin={{ left: -12, right: 8, top: 12, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={32} />
-                      <Tooltip formatter={(value: number) => [`${value} shots`, "Shots taken"]} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "rgba(249,115,22,0.3)", borderRadius: 8, color: "hsl(var(--foreground))" }} />
-                      <Bar dataKey="shotsAttempted" name="Shots taken" fill="#f97316" radius={[5, 5, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <div className="flex h-full items-center justify-center text-sm text-zinc-500">Shots taken will appear here as you log shooting drills.</div>
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className="mb-2 flex shrink-0 items-end justify-between rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2">
+                    <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500">Shots taken</p><p className="font-heading text-2xl font-black tabular-nums text-white">{(trendsData ?? []).reduce((total, point) => total + point.shotsAttempted, 0).toLocaleString()}</p></div>
+                    <span className="rounded-full border border-zinc-700 px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-zinc-400">{TIME_PERIOD_LABELS[timePeriod]}</span>
+                  </div>
+                  <div className="min-h-0 flex-1 rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-950 to-black p-2">
+                    {trendsData?.some((point) => point.shotsAttempted > 0) ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={trendsData} margin={{ left: -15, right: 4, top: 12, bottom: 0 }} barCategoryGap="28%">
+                          <defs><linearGradient id="shotsActivityGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#f4f4f5" /><stop offset="100%" stopColor="#71717a" /></linearGradient></defs>
+                          <CartesianGrid vertical={false} strokeDasharray="3 5" stroke="rgba(255,255,255,0.07)" />
+                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#a1a1aa" }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 9, fill: "#71717a" }} axisLine={false} tickLine={false} width={30} />
+                          <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(value: number) => [`${value} shots`, "Taken"]} contentStyle={{ backgroundColor: "#111", borderColor: "#3f3f46", borderRadius: 10, color: "#fff" }} />
+                          <Bar dataKey="shotsAttempted" name="Shots taken" fill="url(#shotsActivityGradient)" radius={[5, 5, 1, 1]} maxBarSize={30} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <div className="flex h-full items-center justify-center text-sm text-zinc-500">Shots taken will appear here as you log shooting drills.</div>}
+                  </div>
+                </div>
               )}
               {chartIndex === 2 && (
                 <div className="grid h-full min-h-[180px] grid-cols-3 items-stretch gap-2 sm:gap-4">
                   {[
-                    { label: "Hours Trained", value: (Math.round((totalMinutes / 60) * 10) / 10).toLocaleString(), icon: <Clock className="h-5 w-5" />, color: "#fb923c", hint: "time on court" },
-                    { label: "Workouts", value: (trainingStats?.workoutsCompleted ?? 0).toLocaleString(), icon: <PlayCircle className="h-5 w-5" />, color: "#facc15", hint: "sessions finished" },
-                    { label: "Drills", value: (trainingStats?.drillsCompleted ?? 0).toLocaleString(), icon: <Target className="h-5 w-5" />, color: "#4ade80", hint: "drills completed" },
+                    { label: "Hours", value: (Math.round((totalMinutes / 60) * 10) / 10).toLocaleString(), icon: <Clock className="h-5 w-5" />, color: "#e4e4e7", hint: "trained", values: (trendsData ?? []).map((point) => point.minutes / 60) },
+                    { label: "Workouts", value: (trainingStats?.workoutsCompleted ?? 0).toLocaleString(), icon: <PlayCircle className="h-5 w-5" />, color: "#a1a1aa", hint: "completed", values: (trendsData ?? []).map((point) => point.workouts) },
+                    { label: "Drills", value: (trainingStats?.drillsCompleted ?? 0).toLocaleString(), icon: <Target className="h-5 w-5" />, color: "#71717a", hint: "completed", values: (trendsData ?? []).map((point) => point.sessions) },
                   ].map((metric) => (
-                    <div key={metric.label} className="flex flex-col justify-between rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/80 to-black p-3 sm:p-5">
-                      <div className="flex items-center gap-2 text-zinc-400"><span style={{ color: metric.color }}>{metric.icon}</span><span className="text-[9px] font-bold uppercase tracking-wider sm:text-xs">{metric.label}</span></div>
-                      <div><p className="font-heading text-3xl font-black tabular-nums text-white sm:text-5xl">{metric.value}</p><p className="mt-1 text-[9px] text-zinc-500 sm:text-xs">{metric.hint}</p><div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-800"><div className="h-full w-2/3 rounded-full" style={{ backgroundColor: metric.color }} /></div></div>
+                    <div key={metric.label} className="flex min-w-0 flex-col justify-between rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/80 to-black p-3 sm:p-5">
+                      <div className="flex items-center gap-1.5 text-zinc-400"><span style={{ color: metric.color }}>{metric.icon}</span><span className="text-[9px] font-bold uppercase tracking-wider sm:text-xs">{metric.label}</span></div>
+                      <div><p className="font-heading text-2xl font-black tabular-nums text-white sm:text-4xl">{metric.value}</p><p className="text-[9px] text-zinc-500 sm:text-xs">{metric.hint}</p></div>
+                      <div className="mt-3 flex h-12 items-end gap-[3px]" aria-label={`${metric.label} trend`}>
+                        {metric.values.map((value, index) => {
+                          const maxValue = Math.max(1, ...metric.values);
+                          const height = value > 0 ? Math.max(12, (value / maxValue) * 100) : 4;
+                          return <span key={index} title={`${value} ${metric.hint}`} className="min-w-[2px] flex-1 rounded-t-sm" style={{ height: `${height}%`, backgroundColor: metric.color, opacity: value > 0 ? 0.9 : 0.2 }} />;
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
