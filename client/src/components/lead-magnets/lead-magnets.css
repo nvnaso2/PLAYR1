@@ -29,9 +29,55 @@
   transition: transform 180ms ease, border-color 180ms ease;
 }
 
+.lm-quiz-bleed {
+  border-radius: 18px;
+}
+
+.lm-quiz-book {
+  border-radius: 4px;
+  box-shadow:
+    5px 4px 0 #474747,
+    9px 8px 0 #272727,
+    0 18px 28px rgb(0 0 0 / 48%);
+  transform: perspective(900px) rotateY(-1.8deg);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.lm-quiz-book:hover {
+  transform: perspective(900px) rotateY(0deg) translateY(-3px);
+  box-shadow:
+    6px 4px 0 #505050,
+    10px 8px 0 #2c2c2c,
+    0 22px 32px rgb(0 0 0 / 58%);
+}
+
+.lm-book-spine {
+  z-index: 2;
+  width: 9px;
+  background: linear-gradient(90deg, rgb(0 0 0 / 48%), rgb(255 255 255 / 22%), rgb(0 0 0 / 10%));
+  box-shadow: 2px 0 6px rgb(0 0 0 / 24%);
+  pointer-events: none;
+}
+
+.lm-book-page-edge {
+  z-index: 2;
+  width: 7px;
+  background: repeating-linear-gradient(180deg, #f7f1e5 0 2px, #c9c0b1 2px 3px);
+  box-shadow: -2px 0 4px rgb(0 0 0 / 28%);
+  pointer-events: none;
+}
+
 .lm-quiz-tile:hover {
   transform: translateY(-2px);
   border-color: #888;
+}
+
+.lm-quiz-book:hover {
+  transform: perspective(900px) rotateY(0deg) translateY(-3px);
+  box-shadow:
+    6px 4px 0 #505050,
+    10px 8px 0 #2c2c2c,
+    0 22px 32px rgb(0 0 0 / 58%);
 }
 
 .lm-quiz-tile:active {
@@ -69,7 +115,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lm-quiz-tile {
+  .lm-quiz-tile,
+  .lm-quiz-book {
     transition-duration: .01ms;
   }
 }
