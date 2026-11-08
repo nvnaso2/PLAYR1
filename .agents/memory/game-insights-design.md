@@ -7,12 +7,10 @@ Keep Game Insights clean, concise, visually polished, and consistent with the re
 
 **Why:** the user explicitly asked for the lead magnets to match the app's overall look and feel while making the questions and results easier to use.
 
-For the quiz catalog, show both book-effect and full-bleed versions of all four quizzes. Each set has two black/orange and two black/white covers on a pure black page, with each quiz title as the only cover copy.
+Use one unified PLAYR1 scouting-report catalog for the four game-insight quizzes; do not restore the eight-card book/full-bleed comparison.
 
-**Why:** the user wants to compare the book-effect and full-bleed approaches side by side; their reference favors PLAYR1's bold condensed typography, basketball graphics, and high-contrast black, white, and orange.
+**Why:** the user explicitly asked to discard the previous cards and wants the catalog to feel like athletic-tech scouting, not a collection of icons or books.
 
-Keep the simple wrench, footprint, brain, and speed-arrow symbols on the book covers. Use court-based scouting art only on the four full-bleed covers.
+Use PLAYR1 typography and brand colors with court/report graphics that feel dynamic and performance-focused.
 
-**Why:** the user wants to compare the book-symbol covers against a full-bleed scouting-card direction.
-
-**How to apply:** keep the four quiz topics and palettes matched between sets; preserve the distinct art treatments until the user chooses a preferred direction.
+**How to apply:** keep the four quiz topics and their existing routes intact; use the scouting-report direction for future catalog work unless the user changes it.
