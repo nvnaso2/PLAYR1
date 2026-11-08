@@ -80,18 +80,11 @@ export function Day4HubActionSurface({
         >
           <span className="relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-[20px] border border-white bg-white shadow-[0_7px_22px_rgba(255,255,255,0.12)] transition group-hover:scale-[1.04] group-hover:shadow-[0_9px_26px_rgba(255,255,255,0.2)]">
             <svg viewBox="0 0 68 68" className="h-full w-full" fill="none" aria-hidden="true">
-              <rect x="9.5" y="9.5" width="49" height="49" rx="10" stroke="#111111" strokeWidth="2.8" />
-              <path d="M24 10v12h20V10M24 22h20v11a10 10 0 0 1-20 0V22Z" stroke="#111111" strokeWidth="2.6" strokeLinejoin="round" />
-              <path d="M29 22a5 5 0 0 0 10 0" stroke="#111111" strokeWidth="2" />
-              <path d="M13 49a21 21 0 0 1 42 0" stroke="#111111" strokeWidth="2.4" strokeLinecap="round" />
-              <path d="M18 50h32" stroke="#111111" strokeWidth="2.4" strokeLinecap="round" />
-              <path d="M20 46c2-8 6-14 12-19" stroke="#f97316" strokeWidth="3.2" strokeLinecap="round" />
-              <path d="m28 26 5-1-1 5" stroke="#f97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="20" cy="46" r="3.2" fill="#111111" />
-              <circle cx="48" cy="45" r="2.8" fill="#111111" />
-              <circle cx="34" cy="51" r="2.8" fill="#f97316" />
-              <circle cx="43" cy="37" r="7.2" fill="white" stroke="#111111" strokeWidth="2.8" />
-              <path d="M36 37h14M43 30c-3 3-3 11 0 14M39 31.3c2 3.6 6 7.2 8.3 10.7" stroke="#111111" strokeWidth="1.6" strokeLinecap="round" />
+              <rect x="14" y="39" width="9" height="15" rx="2" fill="#111111" />
+              <rect x="29.5" y="30" width="9" height="24" rx="2" fill="#111111" />
+              <rect x="45" y="20" width="9" height="34" rx="2" fill="#111111" />
+              <path d="M13 34c8-1 13-9 21-9h10" stroke="#f97316" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="m40 19 7 6-7 6" stroke="#f97316" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
           <span className="text-[10px] font-bold leading-tight text-zinc-300">Game Insights</span>
