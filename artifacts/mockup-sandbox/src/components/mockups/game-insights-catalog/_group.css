@@ -1,0 +1,284 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap");
+
+.lm-page,
+.lm-page button {
+  font-family: "DM Sans", sans-serif;
+}
+
+.lm-page {
+  --lm-bg: #0c0c0d;
+  --lm-panel: #171719;
+  --lm-panel-deep: #101011;
+  --lm-line: #303033;
+  --lm-muted: #a1a1a8;
+  --lm-orange: #ff7626;
+  background:
+    radial-gradient(ellipse at 88% 4%, rgb(255 118 38 / 7%), transparent 28rem),
+    var(--lm-bg);
+}
+
+.lm-page h1,
+.lm-page h2,
+.lm-page h3,
+.lm-page h4 {
+  font-family: "Barlow Condensed", Impact, sans-serif;
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+}
+
+.lm-page main {
+  min-height: 100dvh;
+}
+
+.lm-page > div,
+.lm-page main > div {
+  position: relative;
+}
+
+.lm-catalog-heading {
+  border-left: 3px solid var(--lm-orange);
+  padding-left: 1.1rem;
+}
+
+.lm-catalog-heading h1 {
+  font-size: clamp(2.65rem, 7vw, 4.5rem) !important;
+  line-height: .9 !important;
+  letter-spacing: -.035em !important;
+}
+
+.lm-catalog-heading > p:last-child {
+  max-width: 34rem;
+}
+
+.lm-catalog-grid {
+  counter-reset: tools;
+}
+
+.lm-catalog-grid > button {
+  position: relative;
+  min-height: 16rem !important;
+  overflow: hidden;
+  border-color: #303033 !important;
+  border-radius: 1.15rem !important;
+  background: linear-gradient(145deg, #19191b, #111112 70%) !important;
+  padding: 1.35rem !important;
+}
+
+.lm-catalog-grid > button::after {
+  position: absolute;
+  right: 1.2rem;
+  bottom: 1rem;
+  color: rgb(255 255 255 / 6%);
+  content: "0" counter(tools);
+  counter-increment: tools;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 4.8rem;
+  font-weight: 900;
+  line-height: .8;
+  pointer-events: none;
+}
+
+.lm-catalog-grid > button > div:first-child > span:first-child {
+  width: 3rem !important;
+  height: 3rem !important;
+  border-radius: .8rem !important;
+  color: #ff9a5d !important;
+}
+
+.lm-catalog-grid > button h2 {
+  max-width: 20rem;
+  font-size: 1.55rem !important;
+  line-height: 1.02 !important;
+}
+
+.lm-catalog-grid > button p {
+  max-width: 23rem;
+  font-size: .9rem !important;
+}
+
+.lm-catalog-grid > button > span:last-child {
+  position: relative;
+  z-index: 1;
+}
+
+.lm-quiz > header {
+  margin-bottom: 1.5rem !important;
+  padding: .5rem 0 .25rem;
+}
+
+.lm-quiz > header p:first-child {
+  color: #ff9254 !important;
+  letter-spacing: .23em !important;
+}
+
+.lm-quiz > header h2 {
+  max-width: 48rem;
+  font-size: clamp(2.2rem, 5vw, 3.4rem) !important;
+  line-height: .95 !important;
+}
+
+.lm-quiz > header p:last-child {
+  max-width: 39rem;
+  color: #a5a5ab !important;
+  font-size: .94rem !important;
+}
+
+.lm-quiz section {
+  overflow: hidden;
+  border: 1px solid #363639 !important;
+  border-radius: 1.2rem !important;
+  background: linear-gradient(145deg, #1a1a1c, #131314 68%) !important;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 22%);
+}
+
+.lm-quiz section[aria-labelledby$="-result"] {
+  border-color: rgb(255 118 38 / 42%) !important;
+}
+
+.lm-quiz section > div:first-child {
+  border-color: #303033 !important;
+  background: rgb(255 255 255 / 1.5%);
+  padding: 1.05rem 1.4rem !important;
+}
+
+.lm-quiz section[aria-labelledby$="-result"] > div:first-child {
+  background: linear-gradient(100deg, rgb(255 118 38 / 12%), transparent 75%) !important;
+}
+
+.lm-quiz section > div:first-child p {
+  letter-spacing: .16em;
+}
+
+.lm-quiz section > div:first-child [role="progressbar"] {
+  height: .35rem !important;
+  background: #343437 !important;
+}
+
+.lm-quiz section > div:last-child {
+  padding: clamp(1.1rem, 4vw, 1.75rem) !important;
+}
+
+.lm-quiz section h3[id$="-question"] {
+  max-width: 46rem;
+  font-size: clamp(1.65rem, 4vw, 2.25rem) !important;
+  line-height: 1.02 !important;
+}
+
+.lm-quiz section h2[id$="-question"] {
+  max-width: 46rem;
+  font-size: clamp(1.65rem, 4vw, 2.25rem) !important;
+  line-height: 1.02 !important;
+}
+
+.lm-quiz section button.group {
+  min-height: 4.5rem;
+  border-color: #343437 !important;
+  border-radius: .9rem !important;
+  background: #101011 !important;
+  padding: 1rem !important;
+}
+
+.lm-quiz section button.group:hover {
+  border-color: rgb(255 118 38 / 65%) !important;
+  background: #171412 !important;
+}
+
+.lm-quiz section button.group > span:first-child {
+  width: 2.45rem !important;
+  height: 2.45rem !important;
+  border-color: #414145 !important;
+  border-radius: .72rem !important;
+  background: #1b1b1e !important;
+  color: #ff9254 !important;
+  font-size: .78rem !important;
+}
+
+.lm-quiz section button.group > span:nth-child(2) {
+  font-size: .93rem !important;
+  line-height: 1.55 !important;
+}
+
+.lm-quiz section button.group > svg {
+  color: #88888f;
+}
+
+.lm-quiz section[aria-labelledby$="-result"] > div:last-child > p:first-child {
+  color: #a5a5ab !important;
+  letter-spacing: .2em !important;
+}
+
+.lm-quiz section h2[id$="-result"],
+.lm-quiz section h3[id$="-result"] {
+  max-width: 52rem;
+  font-size: clamp(2rem, 5vw, 3.3rem) !important;
+  line-height: .96 !important;
+}
+
+.lm-quiz section li {
+  border-color: #343437 !important;
+  border-radius: .9rem !important;
+  background: #101011 !important;
+}
+
+.lm-quiz section li > span:first-child {
+  border-color: #343437 !important;
+  border-radius: .7rem !important;
+  background: #1b1b1e !important;
+  color: #ff9254 !important;
+}
+
+.lm-quiz section a > button,
+.lm-quiz section a[class*="Button"] {
+  min-height: 2.9rem;
+}
+
+.lm-result-gate {
+  border-color: rgb(255 118 38 / 38%) !important;
+  border-radius: 1rem !important;
+  background: linear-gradient(125deg, rgb(255 118 38 / 12%), #121212 75%) !important;
+}
+
+.lm-result-gate h3 {
+  font-family: "DM Sans", sans-serif !important;
+  font-size: 1.1rem !important;
+  letter-spacing: -.02em !important;
+  text-transform: none !important;
+}
+
+.lm-quiz button:focus-visible,
+.lm-catalog-grid button:focus-visible {
+  outline: 2px solid #ff985e !important;
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .lm-catalog-grid > button {
+    min-height: 14rem !important;
+    padding: 1.1rem !important;
+  }
+
+  .lm-catalog-grid > button h2 {
+    max-width: 17rem;
+    font-size: 1.4rem !important;
+  }
+
+  .lm-quiz section button.group {
+    align-items: flex-start;
+    gap: .75rem !important;
+    padding: .9rem !important;
+  }
+
+  .lm-quiz section button.group > span:nth-child(2) {
+    padding-top: .1rem;
+    font-size: .88rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lm-page *,
+  .lm-page *::before,
+  .lm-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}

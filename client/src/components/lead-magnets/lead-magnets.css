@@ -5,6 +5,82 @@
   font-family: "DM Sans", sans-serif;
 }
 
+.lm-library,
+.lm-library button {
+  font-family: "DM Sans", sans-serif;
+}
+
+.lm-library {
+  background: #000;
+}
+
+.lm-library h1,
+.lm-library h2,
+.lm-library h3 {
+  font-family: "Barlow Condensed", Impact, sans-serif;
+}
+
+.lm-quiz-tile {
+  width: 100%;
+  border-color: #2c2c2c;
+  background: #111;
+  box-shadow: 0 12px 26px rgb(0 0 0 / 38%);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.lm-quiz-tile:hover {
+  transform: translateY(-3px);
+  border-color: #6a6a6a;
+  box-shadow: 0 16px 30px rgb(0 0 0 / 52%);
+}
+
+.lm-quiz-tile:active {
+  transform: translateY(0) scale(.99);
+}
+
+.lm-quiz-tile-orange {
+  border-color: #f36a2b;
+  background: #151515;
+}
+
+.lm-quiz-tile-mono {
+  border-color: #f1f1f1;
+  background: #fff;
+}
+
+.lm-quiz-tile-art {
+  overflow: hidden;
+  background: #111;
+}
+
+.lm-quiz-tile-mono .lm-quiz-tile-art {
+  background: #fff;
+}
+
+.lm-quiz-tile-title {
+  min-height: 4.5rem;
+  border-top: 1px solid rgb(255 255 255 / 12%);
+  background: #111;
+  color: #fff;
+}
+
+.lm-quiz-tile-orange .lm-quiz-tile-title {
+  border-top: 3px solid #f36a2b;
+  color: #fff;
+}
+
+.lm-quiz-tile-mono .lm-quiz-tile-title {
+  border-top: 3px solid #111;
+  background: #fff;
+  color: #111;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lm-quiz-tile {
+    transition-duration: .01ms;
+  }
+}
+
 .lm-page {
   --lm-bg: #0c0c0d;
   --lm-panel: #171719;
