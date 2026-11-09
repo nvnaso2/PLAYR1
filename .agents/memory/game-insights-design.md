@@ -7,10 +7,10 @@ Keep Game Insights clean, concise, visually polished, and consistent with the re
 
 **Why:** the user explicitly asked for the lead magnets to match the app's overall look and feel while making the questions and results easier to use.
 
-Use one unified PLAYR1 scouting-report catalog for the four game-insight quizzes; do not restore the eight-card book/full-bleed comparison.
+Keep the Game Insights catalog to a simple title and four compact quiz blocks; remove extra hero, scouting, and footer content.
 
-**Why:** the user explicitly asked to discard the previous cards and wants the catalog to feel like athletic-tech scouting, not a collection of icons or books.
+**Why:** the user wants the quiz choices to be the focus and has explicitly asked to remove everything else from this page.
 
-Use PLAYR1 typography and brand colors with court/report graphics that feel dynamic and performance-focused.
+Style the quiz blocks like PLAYR1 training summary blocks, using white condensed titles and restrained orange icon accents.
 
-**How to apply:** keep the four quiz topics and their existing routes intact; use the scouting-report direction for future catalog work unless the user changes it.
+**How to apply:** preserve the four quiz topics and their existing routes; keep the page concise and avoid bringing back elaborate scouting graphics or extra copy.
