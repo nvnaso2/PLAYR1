@@ -160,9 +160,15 @@
   --lm-line: #303033;
   --lm-muted: #a1a1a8;
   --lm-orange: #ff7626;
+  min-height: 100dvh;
   background:
     radial-gradient(ellipse at 88% 4%, rgb(255 118 38 / 7%), transparent 28rem),
     var(--lm-bg);
+}
+
+main.lm-page {
+  min-height: 100dvh !important;
+  background: #000 !important;
 }
 
 .lm-page h1,
@@ -279,7 +285,11 @@
 .lm-quiz section > div:first-child {
   border-color: transparent !important;
   background: transparent !important;
-  padding: 0 0 1.25rem !important;
+  padding: 0 !important;
+}
+
+.lm-quiz section[aria-labelledby$="-question"] [role="progressbar"] {
+  display: none !important;
 }
 
 .lm-quiz section[aria-labelledby$="-result"] > div:first-child {
