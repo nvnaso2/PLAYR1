@@ -1,6 +1,7 @@
 import {
   ChevronRight,
   Dumbbell,
+  Radar,
 } from "lucide-react";
 import { DAY4_LEAD_MAGNET_OPTIONS, type LeadMagnetOption } from "@/components/onboarding-day4/day4-lead-magnet-options";
 import { volumeWorkoutCardArt } from "@/lib/day-three-workout-art";
@@ -78,14 +79,8 @@ export function Day4HubActionSurface({
           className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           aria-label="Game Insights"
         >
-          <span className="relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-[20px] border border-orange-500/80 bg-white ring-2 ring-orange-500/35 shadow-[0_0_0_1px_rgba(249,115,22,0.58),0_0_18px_rgba(249,115,22,0.38)] transition group-hover:scale-[1.04] group-hover:ring-orange-500/55 group-hover:shadow-[0_0_0_1px_rgba(249,115,22,0.78),0_0_23px_rgba(249,115,22,0.5)]">
-            <svg viewBox="0 0 68 68" className="h-full w-full" fill="none" aria-hidden="true">
-              <rect x="14" y="39" width="9" height="15" rx="2" fill="#111111" />
-              <rect x="29.5" y="30" width="9" height="24" rx="2" fill="#111111" />
-              <rect x="45" y="20" width="9" height="34" rx="2" fill="#111111" />
-              <path d="M13 36 47 21" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
-              <path d="M39 21h8v8" stroke="#f97316" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <span className="relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-[20px] border border-white/45 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.1),rgba(13,13,14,0.98)_72%)] shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_20px_rgba(255,255,255,0.12)] transition group-hover:scale-[1.04] group-hover:border-white/65 group-hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_0_24px_rgba(255,255,255,0.18)]">
+            <Radar className="h-8 w-8 text-white" strokeWidth={1.8} aria-hidden="true" />
           </span>
           <span className="text-[10px] font-bold leading-tight text-zinc-300">Game Insights</span>
         </button>

@@ -2034,9 +2034,8 @@ export default function HubPage() {
               aria-label="Game Insights"
               data-testid="button-hub-game-insights"
             >
-              <span className="relative flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-orange-300/30 bg-[radial-gradient(circle_at_35%_25%,rgba(249,115,22,0.24),rgba(24,24,27,0.96)_72%)] shadow-[0_0_18px_rgba(249,115,22,0.14)] transition group-hover:scale-[1.04]">
-                <Radar className="h-8 w-8 text-orange-200" strokeWidth={1.8} />
-                <span className="absolute right-4 top-4 h-1.5 w-1.5 rounded-full bg-orange-300 shadow-[0_0_8px_rgba(253,186,116,0.9)]" />
+              <span className="relative flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-white/45 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.1),rgba(13,13,14,0.98)_72%)] shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_20px_rgba(255,255,255,0.12)] transition group-hover:scale-[1.04] group-hover:border-white/65 group-hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_0_24px_rgba(255,255,255,0.18)]">
+                <Radar className="h-8 w-8 text-white" strokeWidth={1.8} />
               </span>
               <span className="text-[10px] font-bold leading-tight text-zinc-300">Game Insights</span>
             </button>

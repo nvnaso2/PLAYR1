@@ -294,14 +294,22 @@ main.lm-page {
 
 .lm-quiz section[aria-labelledby$="-result"] > div:first-child {
   background: transparent !important;
+  display: none !important;
 }
 
 .lm-quiz section[aria-labelledby$="-question"] > div:first-child > div:first-child > p {
-  display: none;
+  display: block;
+  color: #a1a1aa !important;
+  font-size: .68rem !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase;
 }
 
 .lm-quiz section > div:first-child [role="progressbar"] {
-  height: .1rem !important;
+  height: 2px !important;
+  margin-top: .65rem !important;
+  overflow: hidden;
+  border-radius: 9999px;
   background: #252525 !important;
 }
 
@@ -397,7 +405,39 @@ main.lm-page {
 
 .lm-quiz section a > button,
 .lm-quiz section a[class*="Button"] {
-  min-height: 2.9rem;
+  min-height: 2.2rem !important;
+  border-radius: 9999px !important;
+  padding: .35rem .85rem !important;
+  font-size: .72rem !important;
+}
+
+.lm-result-actions button {
+  min-height: 2.2rem !important;
+  border-radius: 9999px !important;
+  padding: .35rem .85rem !important;
+  font-size: .72rem !important;
+}
+
+.lm-recommended-drills {
+  display: grid;
+  gap: .65rem;
+}
+
+.lm-recommended-drills > a > .group {
+  min-height: 82px;
+  border-color: rgb(255 255 255 / 12%) !important;
+  border-radius: .9rem !important;
+  background: linear-gradient(135deg, #171719, #070708 82%) !important;
+  box-shadow: none !important;
+}
+
+.lm-recommended-drills > a > .group:hover {
+  border-color: rgb(255 255 255 / 35%) !important;
+  box-shadow: 0 8px 20px rgb(255 255 255 / 5%) !important;
+}
+
+.lm-recommended-drill-fallback {
+  min-height: 82px;
 }
 
 .lm-result-gate {

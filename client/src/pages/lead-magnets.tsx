@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronRight, RotateCcw } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { LeadMagnetCatalog } from "@/components/lead-magnets/scouting-report-catalog";
+import { RecommendedDrillCards } from "@/components/lead-magnets/recommended-drill-cards";
 import { ConfidenceRealityCheckQuiz } from "@/components/lead-magnets/confidence-reality-check-quiz";
 import { FootworkOpenShotsQuiz } from "@/components/lead-magnets/footwork-open-shots-quiz";
 import { GameSpeedShootingQuiz } from "@/components/lead-magnets/game-speed-shooting-quiz";
@@ -263,7 +264,7 @@ export default function LeadMagnetsPage({
               <div className="flex items-center justify-between gap-3">
                 <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
                   <Check className="h-4 w-4" />
-                  Your focus
+                  Insight complete
                 </p>
                 <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Result</span>
               </div>
@@ -273,7 +274,7 @@ export default function LeadMagnetsPage({
             </div>
 
             <div className="p-5 sm:p-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your shooting cue</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your insight</p>
               <h2 id="shooting-result" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
                 {result.cue}
               </h2>
@@ -283,37 +284,27 @@ export default function LeadMagnetsPage({
                 resultId={outcome!}
                 answers={{ q1: branch!, [`q2-${branch}`]: secondAnswerId! }}
               >
-              <div className="mt-7">
-                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Drills to try</p>
-                <ul className="mt-3 space-y-2">
-                  {result.drills.map((drill, index) => (
-                    <li key={drill} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-[10px] font-black text-zinc-500">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <span className="text-sm font-semibold leading-relaxed text-zinc-200">{drill}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="mt-6 border-t border-zinc-800 pt-5">
-                <Link href="/drills">
-                  <Button className="w-full bg-orange-500 font-black text-black hover:bg-orange-400 sm:w-auto">
-                    Explore the Drill Library <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
+              <div className="mt-6">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Recommended drills</p>
+                <RecommendedDrillCards drills={result.drills.map((title) => ({ title }))} />
               </div>
               </LeadMagnetResultGate>
 
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <div className="lm-result-actions mt-5 flex flex-wrap items-center gap-2">
+                <Link href="/drills">
+                  <Button size="sm" variant="outline" className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white">
+                    Drill Library
+                  </Button>
+                </Link>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={resetQuiz}
-                  className="border-zinc-700 bg-zinc-950 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                  size="sm"
+                  className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white"
                 >
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Retake the quiz
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                  Retake quiz
                 </Button>
               </div>
             </div>

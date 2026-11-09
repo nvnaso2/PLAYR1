@@ -20,3 +20,9 @@ Make all four quiz question screens match PLAYR1 onboarding: a pure black page, 
 **Why:** the user supplied onboarding screenshots as the exact visual reference and said the previous card-based styling was not close enough.
 
 **How to apply:** use the same shared treatment across all four quizzes; preserve question copy, scoring, branching, results, saving, and back/reset controls.
+
+Use the radar mark for Game Insights in both Hub locations, in matte black with a restrained white glow and monochrome mark. Quiz progress must show both the question count and a thin progress bar; results should present one concise insight, matching drill-library cards, and compact Drill Library / Retake actions.
+
+**Why:** the user provided the desired icon treatment and explicitly asked for visible quiz progress and a simpler insight-to-drill result flow.
+
+**How to apply:** keep result drills connected to real library entries when available, with a clear fallback when a match is unavailable.

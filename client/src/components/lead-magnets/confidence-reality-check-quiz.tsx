@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Check, ChevronRight, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
+import { RecommendedDrillCards } from "@/components/lead-magnets/recommended-drill-cards";
 import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
 import {
   confidenceRealityQuestions,
@@ -212,7 +213,7 @@ export function ConfidenceRealityCheckQuiz() {
             <div className="flex items-center justify-between gap-3">
               <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
                 <Check className="h-4 w-4" />
-                Your confidence focus
+                Insight complete
               </p>
               <button
                 type="button"
@@ -236,89 +237,37 @@ export function ConfidenceRealityCheckQuiz() {
           </div>
 
           <div className="p-5 sm:p-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your focus</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your insight</p>
             <h3 id="confidence-result" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
               {result.title}
             </h3>
-            {"subtitle" in result && (
-              <p className="mt-1 text-sm font-semibold text-orange-300">{result.subtitle}</p>
-            )}
-            {"diagnosis" in result && (
-              <p className="mt-3 text-sm font-bold text-orange-300">{result.diagnosis}</p>
-            )}
-
-            <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Core lesson</p>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-300">{result.coreLesson}</p>
-            </div>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-300">{result.coreLesson}</p>
 
             <LeadMagnetResultGate
               leadMagnetId="confidence-reality-check"
               resultId={outcome!}
               answers={answers}
             >
-            {"protocol" in result && (
-              <div className="mt-6">
-                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">4-step pre-game protocol</p>
-                <ol className="mt-3 space-y-2">
-                  {result.protocol.map((stepItem, index) => (
-                    <li key={stepItem.title} className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-[10px] font-black text-orange-400">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <span>
-                        <span className="block text-sm font-bold text-zinc-200">{stepItem.title}</span>
-                        <span className="mt-1 block text-sm leading-relaxed text-zinc-400">{stepItem.description}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            {"masterCue" in result && (
-              <div className="mt-6 rounded-xl border border-orange-500/25 bg-orange-500/5 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Master cue</p>
-                <p className="mt-2 text-base font-bold leading-relaxed text-white">“{result.masterCue}”</p>
-              </div>
-            )}
-
             <div className="mt-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">
-                {outcome === "unearned-confidence" ? "Workouts to build your proof" : "Actionable drills"}
-              </p>
-              <ul className="mt-3 space-y-2">
-                {result.drills.map((drill, index) => (
-                  <li key={drill.title} className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-[10px] font-black text-zinc-500">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span>
-                      <span className="block text-sm font-bold text-zinc-200">{drill.title}</span>
-                      <span className="mt-1 block text-sm leading-relaxed text-zinc-400">{drill.description}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="mt-6 border-t border-zinc-800 pt-5">
-              <Link href="/drills">
-                <Button className="w-full bg-orange-500 font-black text-black hover:bg-orange-400 sm:w-auto">
-                  Explore the Drill Library <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Recommended drills</p>
+              <RecommendedDrillCards drills={result.drills.map((drill) => ({ title: drill.title, description: drill.description }))} />
             </div>
             </LeadMagnetResultGate>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <div className="lm-result-actions mt-5 flex flex-wrap items-center gap-2">
+              <Link href="/drills">
+                <Button size="sm" variant="outline" className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white">
+                  Drill Library
+                </Button>
+              </Link>
               <Button
                 type="button"
                 variant="outline"
                 onClick={resetQuiz}
-                className="border-zinc-700 bg-zinc-950 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                size="sm"
+                className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white"
               >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Retake the quiz
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Retake quiz
               </Button>
             </div>
           </div>

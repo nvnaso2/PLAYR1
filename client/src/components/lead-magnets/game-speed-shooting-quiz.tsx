@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Check, ChevronRight, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
+import { RecommendedDrillCards } from "@/components/lead-magnets/recommended-drill-cards";
 import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
 import {
   gameSpeedCategoryResults,
@@ -148,7 +149,7 @@ export function GameSpeedShootingQuiz() {
             <div className="flex items-center justify-between gap-3">
               <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
                 <Check className="h-4 w-4" />
-                Your conversion profile
+                Insight complete
               </p>
               <button
                 type="button"
@@ -165,28 +166,11 @@ export function GameSpeedShootingQuiz() {
           </div>
 
           <div className="p-5 sm:p-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
-              {result.outcome === "mixed" ? "Your conversion profile" : "Primary conversion leak"}
-            </p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your insight</p>
             <h3 id="game-speed-result" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
               {resultSummary.title}
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-zinc-300">{resultSummary.summary}</p>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              {(["fatigue", "simulation", "pressure"] as const).map((category) => (
-                <span
-                  key={category}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-bold ${
-                    result.counts[category] > 0
-                      ? "border-orange-500/25 bg-orange-500/10 text-orange-200"
-                      : "border-zinc-800 bg-zinc-950/50 text-zinc-500"
-                  }`}
-                >
-                  {CATEGORY_LABELS[category]} · {result.counts[category]}
-                </span>
-              ))}
-            </div>
 
             <LeadMagnetResultGate
               leadMagnetId="game-speed-shooting"
@@ -194,48 +178,25 @@ export function GameSpeedShootingQuiz() {
               answers={{ q1: answers.q1!, q2: answers.q2!, q3: answers.q3! }}
             >
               <div className="mt-6">
-                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">
-                  One drill matched to each answer
-                </p>
-                <ol className="mt-3 space-y-2">
-                  {result.drills.map((drill, index) => {
-                    const question = gameSpeedShootingQuestions[drill.questionId];
-                    const answer = question.answers.find((option) => option.id === drill.category);
-                    return (
-                      <li key={drill.questionId} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
-                            Question {index + 1} · {CATEGORY_LABELS[drill.category]}
-                          </p>
-                          <span className="rounded-full border border-zinc-800 px-2 py-0.5 text-[10px] text-zinc-500">
-                            Your answer
-                          </span>
-                        </div>
-                        <p className="mt-2 text-xs leading-relaxed text-zinc-400">{answer?.label}</p>
-                        <h4 className="mt-3 break-words text-sm font-black text-zinc-100">{drill.title}</h4>
-                        <p className="mt-1 text-xs leading-relaxed text-zinc-400">{drill.focus}</p>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </div>
-              <div className="mt-6 border-t border-zinc-800 pt-5">
-              <Link href="/drills">
-                <Button className="w-full bg-orange-500 font-black text-black hover:bg-orange-400 sm:w-auto">
-                  Explore the Drill Library <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Recommended drills</p>
+                <RecommendedDrillCards drills={result.drills.map((drill) => ({ title: drill.title, description: drill.focus }))} />
               </div>
             </LeadMagnetResultGate>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <div className="lm-result-actions mt-5 flex flex-wrap items-center gap-2">
+              <Link href="/drills">
+                <Button size="sm" variant="outline" className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white">
+                  Drill Library
+                </Button>
+              </Link>
               <Button
                 type="button"
                 variant="outline"
                 onClick={resetQuiz}
-                className="border-zinc-700 bg-zinc-950 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                size="sm"
+                className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white"
               >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Retake the quiz
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Retake quiz
               </Button>
             </div>
           </div>
