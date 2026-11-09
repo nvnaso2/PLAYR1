@@ -133,7 +133,7 @@ export default function LeadMagnetsPage({
   }
 
   return (
-    <main className="lm-page min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10">
+    <main className="lm-page min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10" style={{ background: "#000" }}>
       <div className="mx-auto max-w-3xl">
         <header className="mb-5">
           {onboardingPreview ? (
