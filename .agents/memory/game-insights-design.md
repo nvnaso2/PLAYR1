@@ -11,6 +11,6 @@ Keep the Game Insights catalog to a simple title and four compact quiz blocks; r
 
 **Why:** the user wants the quiz choices to be the focus and has explicitly asked to remove everything else from this page.
 
-Style the quiz blocks like PLAYR1 training summary blocks, using white condensed titles and restrained orange icon accents.
+Stack all four quiz blocks in one vertical column at every screen size. Match the dashboard training-summary gradient from charcoal at the top to black at the bottom, with white condensed titles and orange icon accents.
 
 **How to apply:** preserve the four quiz topics and their existing routes; keep the page concise and avoid bringing back elaborate scouting graphics or extra copy.

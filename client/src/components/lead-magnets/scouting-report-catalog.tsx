@@ -31,9 +31,9 @@ export function LeadMagnetCatalog({ onSelect }: { onSelect: (id: LeadMagnetId) =
           text-transform: uppercase;
         }
         .game-insights-quiz {
-          transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+          transition: border-color 160ms ease, transform 160ms ease;
         }
-        .game-insights-quiz:hover { transform: translateY(-2px); }
+        .game-insights-quiz:hover { transform: translateY(-1px); }
         @media (prefers-reduced-motion: reduce) {
           .game-insights-quiz { transition-duration: .01ms; }
         }
@@ -42,28 +42,30 @@ export function LeadMagnetCatalog({ onSelect }: { onSelect: (id: LeadMagnetId) =
         <h1 className="game-insights-title mb-5 border-l-[3px] border-orange-500 pl-3 text-[2.35rem] font-extrabold leading-none tracking-[-.02em] text-white sm:mb-6 sm:text-[2.8rem]">
           Game Insights
         </h1>
-        <section aria-label="Game insight quizzes" className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
+        <section aria-label="Game insight quizzes" className="grid grid-cols-1 gap-3">
           {quizzes.map(({ Icon, ...quiz }) => (
             <button
               key={quiz.id}
               type="button"
               onClick={() => onSelect(quiz.id)}
               aria-label={`Start ${quiz.title}`}
-              className="game-insights-quiz group flex min-h-[82px] w-full items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950/70 px-3.5 py-3 text-left shadow-none hover:border-orange-500/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400 sm:min-h-[90px] sm:px-4"
+              className="game-insights-quiz group flex min-h-[126px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/80 to-black p-4 text-left shadow-none hover:border-orange-500/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400 sm:min-h-[138px] sm:p-5"
               data-testid={`card-lead-magnet-${quiz.id}`}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-orange-500/20 bg-orange-500/10 text-orange-400 sm:h-10 sm:w-10">
-                <Icon className="h-[17px] w-[17px]" strokeWidth={1.8} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="mb-1 block truncate text-[9px] font-bold uppercase leading-tight tracking-[.12em] text-zinc-500 sm:text-[10px]">
+              <span className="flex w-full items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/25 bg-gradient-to-br from-orange-500/20 to-orange-500/[0.04] text-orange-300">
+                    <Icon className="h-[19px] w-[19px]" strokeWidth={1.8} />
+                  </span>
+                  <span className="truncate text-[10px] font-bold uppercase leading-tight tracking-[.12em] text-zinc-400 sm:text-[11px]">
                   {quiz.category}
+                  </span>
                 </span>
-                <span className="game-insights-quiz-title block text-[1.28rem] font-extrabold leading-[.98] tracking-[-.015em] text-white sm:text-[1.45rem]">
-                  {quiz.title}
-                </span>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-orange-400/70 transition-colors group-hover:text-orange-300" />
               </span>
-              <ArrowUpRight className="h-4 w-4 shrink-0 text-zinc-600 transition-colors group-hover:text-orange-400" />
+              <span className="game-insights-quiz-title block pr-2 text-[1.55rem] font-extrabold leading-[.98] tracking-[-.015em] text-white sm:text-[1.8rem]">
+                {quiz.title}
+              </span>
             </button>
           ))}
         </section>
