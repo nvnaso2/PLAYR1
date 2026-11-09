@@ -7,7 +7,7 @@ export function LeadMagnetResultActions({ onRetake }: { onRetake: () => void }) 
   return (
     <div className="lm-result-actions" aria-label="Insight actions">
       <Link href="/drills" className="lm-result-library-button" aria-label="Open Drill Library" title="Drill Library">
-        <DrillLibraryAppIcon className="h-8 w-8" />
+        <DrillLibraryAppIcon className="h-10 w-10" />
       </Link>
       <Button
         type="button"

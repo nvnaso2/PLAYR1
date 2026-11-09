@@ -137,10 +137,10 @@ export default function LeadMagnetsPage({
   return (
     <main className="lm-page min-h-full bg-zinc-950 px-4 pb-10 pt-6 text-white sm:px-6 sm:pt-10" style={{ background: "#000" }}>
       <div className="mx-auto max-w-3xl">
-        <header className="mb-5">
+        {activeLeadMagnet !== "shooting-mechanics" && <header className="mb-5">
           {onboardingPreview ? (
             <Button type="button" variant="ghost" onClick={onPreviewBack} className="h-9 gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 text-zinc-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white">
-              <ArrowLeft className="h-4 w-4" /> Back to your choice
+              <ArrowLeft className="h-4 w-4" /> Hub
             </Button>
           ) : (
           <Link href="/hub">
@@ -151,21 +151,29 @@ export default function LeadMagnetsPage({
               data-testid="button-back-to-hub"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Hub
+              Hub
             </Button>
           </Link>
           )}
-        </header>
+        </header>}
 
         <div className="mx-auto max-w-2xl">
           <div className="lm-quiz min-w-0 max-w-2xl">
             <div id="shooting-mechanics" hidden={activeLeadMagnet !== "shooting-mechanics"}>
-              <header className="mb-6">
-                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Game Insights</p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Game Insights</h2>
-                <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">
-                  Answer two quick questions to find one clear mechanics cue and the drills to work on next.
-                </p>
+              <header className="lm-quiz-topbar">
+                {onboardingPreview ? (
+                  <Button type="button" variant="ghost" onClick={onPreviewBack} className="lm-quiz-hub-button">
+                    <ArrowLeft className="h-4 w-4" />
+                    Hub
+                  </Button>
+                ) : (
+                  <Link href="/hub" className="lm-quiz-hub-button" data-testid="button-back-to-hub">
+                    <ArrowLeft className="h-4 w-4" />
+                    Hub
+                  </Link>
+                )}
+                <h2 className="lm-quiz-page-title">Game Insights</h2>
+                {result ? <LeadMagnetResultActions onRetake={resetQuiz} /> : <span aria-hidden="true" />}
               </header>
             {!result ? (
           <section
@@ -275,7 +283,6 @@ export default function LeadMagnetsPage({
             </div>
 
             <div className="p-5 sm:p-6">
-              <LeadMagnetResultActions onRetake={resetQuiz} />
               <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your insight</p>
               <h2 id="shooting-result" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
                 {result.cue}

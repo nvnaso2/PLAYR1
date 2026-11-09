@@ -32,3 +32,9 @@ On result pages, use actual Drill Library cards for recommendations, move the Dr
 **Why:** the user provided the exact drill-card reference and requested the results stay focused on the insight and next actions.
 
 **How to apply:** keep the correct recommendations and existing save behavior; change only their presentation and page actions.
+
+For Shooting Mechanics, keep the Hub arrow, “Game Insights” title, and result actions together in one compact top row; use only the app icon itself for the Drill Library link.
+
+**Why:** the user asked to remove the orange eyebrow and explanatory copy, and to simplify the header/actions into one row.
+
+**How to apply:** keep this route’s top row concise on both questions and results, with the action controls appearing alongside the title once a result is available.
