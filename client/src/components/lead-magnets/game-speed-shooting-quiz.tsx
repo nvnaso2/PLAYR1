@@ -1,10 +1,9 @@
 import { useState } from "react";
 import "@/components/lead-magnets/lead-magnets.css";
-import { Link } from "wouter";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Check, ChevronRight } from "lucide-react";
 import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
 import { RecommendedDrillCards } from "@/components/lead-magnets/recommended-drill-cards";
+import { LeadMagnetResultActions } from "@/components/lead-magnets/lead-magnet-result-actions";
 import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
 import {
   gameSpeedCategoryResults,
@@ -166,6 +165,7 @@ export function GameSpeedShootingQuiz() {
           </div>
 
           <div className="p-5 sm:p-6">
+            <LeadMagnetResultActions onRetake={resetQuiz} />
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your insight</p>
             <h3 id="game-speed-result" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
               {resultSummary.title}
@@ -182,23 +182,6 @@ export function GameSpeedShootingQuiz() {
                 <RecommendedDrillCards drills={result.drills.map((drill) => ({ title: drill.title, description: drill.focus }))} />
               </div>
             </LeadMagnetResultGate>
-            <div className="lm-result-actions mt-5 flex flex-wrap items-center gap-2">
-              <Link href="/drills">
-                <Button size="sm" variant="outline" className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white">
-                  Drill Library
-                </Button>
-              </Link>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetQuiz}
-                size="sm"
-                className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white"
-              >
-                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                Retake quiz
-              </Button>
-            </div>
           </div>
         </section>
       ) : null}

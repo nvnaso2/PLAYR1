@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import "@/components/lead-magnets/lead-magnets.css";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { LeadMagnetCatalog } from "@/components/lead-magnets/scouting-report-catalog";
 import { RecommendedDrillCards } from "@/components/lead-magnets/recommended-drill-cards";
+import { LeadMagnetResultActions } from "@/components/lead-magnets/lead-magnet-result-actions";
 import { ConfidenceRealityCheckQuiz } from "@/components/lead-magnets/confidence-reality-check-quiz";
 import { FootworkOpenShotsQuiz } from "@/components/lead-magnets/footwork-open-shots-quiz";
 import { GameSpeedShootingQuiz } from "@/components/lead-magnets/game-speed-shooting-quiz";
@@ -274,6 +275,7 @@ export default function LeadMagnetsPage({
             </div>
 
             <div className="p-5 sm:p-6">
+              <LeadMagnetResultActions onRetake={resetQuiz} />
               <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your insight</p>
               <h2 id="shooting-result" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
                 {result.cue}
@@ -290,23 +292,6 @@ export default function LeadMagnetsPage({
               </div>
               </LeadMagnetResultGate>
 
-              <div className="lm-result-actions mt-5 flex flex-wrap items-center gap-2">
-                <Link href="/drills">
-                  <Button size="sm" variant="outline" className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white">
-                    Drill Library
-                  </Button>
-                </Link>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={resetQuiz}
-                  size="sm"
-                  className="border-zinc-700 bg-transparent text-zinc-200 hover:border-white/40 hover:bg-white/[0.06] hover:text-white"
-                >
-                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                  Retake quiz
-                </Button>
-              </div>
             </div>
           </section>
             )}

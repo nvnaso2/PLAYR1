@@ -26,3 +26,9 @@ Use the radar mark for Game Insights in both Hub locations, in matte black with 
 **Why:** the user provided the desired icon treatment and explicitly asked for visible quiz progress and a simpler insight-to-drill result flow.
 
 **How to apply:** keep result drills connected to real library entries when available, with a clear fallback when a match is unavailable.
+
+On result pages, use actual Drill Library cards for recommendations, move the Drill Library app-icon link and Retake action to the top, and omit the saved-result/app-store confirmation banner.
+
+**Why:** the user provided the exact drill-card reference and requested the results stay focused on the insight and next actions.
+
+**How to apply:** keep the correct recommendations and existing save behavior; change only their presentation and page actions.

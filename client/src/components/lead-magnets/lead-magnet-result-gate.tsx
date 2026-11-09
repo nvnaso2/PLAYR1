@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, LockKeyhole } from "lucide-react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,8 +11,6 @@ import {
   type LeadMagnetDraft,
 } from "@/lib/lead-magnet-drafts";
 import type { LeadMagnetAnswers, LeadMagnetId } from "@shared/lead-magnet-submissions";
-
-const APP_STORE_URL = "https://apps.apple.com/us/app/playr1/id6760975698";
 
 interface LeadMagnetResultGateProps {
   leadMagnetId: LeadMagnetId;
@@ -127,22 +125,7 @@ export function LeadMagnetResultGate({
                 Continue to Day 4 Hub <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
-          ) : (
-          <div className="mt-5 flex flex-col gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="flex items-center gap-2 text-sm font-semibold text-emerald-300">
-              <Check className="h-4 w-4 shrink-0" />
-              Result saved to your PLAYR1 account.
-            </p>
-            <a
-              href={APP_STORE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm font-bold text-orange-300 underline-offset-4 hover:underline"
-            >
-              Get PLAYR1 for iPhone or iPad <ArrowRight className="ml-1 inline h-4 w-4" />
-            </a>
-          </div>
-          )}
+          ) : null}
         </>
       ) : (
         <section className="lm-result-gate rounded-xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-zinc-950 p-5 sm:p-6">

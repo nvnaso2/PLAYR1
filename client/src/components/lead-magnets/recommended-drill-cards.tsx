@@ -32,7 +32,7 @@ export function RecommendedDrillCards({ drills }: { drills: RecommendedDrill[] }
         });
 
         return catalogMatch ? (
-          <DrillCard key={drill.title} drill={catalogMatch} viewMode="list" />
+          <DrillCard key={drill.title} drill={catalogMatch} viewMode="grid" />
         ) : (
           <Link
             key={drill.title}
