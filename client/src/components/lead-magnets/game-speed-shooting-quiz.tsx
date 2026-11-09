@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "@/components/lead-magnets/lead-magnets.css";
 import { Link } from "wouter";
-import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
 import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
@@ -74,10 +74,8 @@ export function GameSpeedShootingQuiz() {
   return (
     <div className="lm-quiz">
       <header className="mb-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Game-speed shooting</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
-          Why Your Makes in the Empty Gym Aren’t Translating to 5v5
-        </h2>
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Game Insights</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Game Insights</h2>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">
           Find your main conversion leak—fatigue, simulation, or pressure—and get one drill matched to each answer.
         </p>
@@ -134,7 +132,7 @@ export function GameSpeedShootingQuiz() {
                     {String.fromCharCode(65 + index)}
                   </span>
                   <span className="min-w-0 flex-1 pt-1 text-sm leading-relaxed text-zinc-200">{answer.label}</span>
-                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-400" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:text-orange-400" />
                 </button>
               ))}
             </div>

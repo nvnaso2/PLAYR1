@@ -15,8 +15,8 @@ Stack all four quiz blocks in one vertical column at every screen size. Match th
 
 **How to apply:** preserve the four quiz topics and their existing routes; keep the page concise and avoid bringing back elaborate scouting graphics or extra copy.
 
-Make all four quiz question and result screens feel like standalone onboarding steps on a black page, not content embedded inside one large card. Keep clear progress, simple answer rows, and the existing quiz behavior.
+Make all four quiz question screens match PLAYR1 onboarding: a pure black page, compact “Game Insights” heading, uppercase letter-spaced question, and simple orange-outline pill answers with a right chevron. Avoid large containers and extra header copy.
 
-**Why:** the user explicitly asked the unfinished and completed quizzes to match the informational onboarding flow and apply the change consistently across all four.
+**Why:** the user supplied onboarding screenshots as the exact visual reference and said the previous card-based styling was not close enough.
 
-**How to apply:** favor open page structure with individually styled choices; preserve question copy, scoring, branching, results, saving, and back/reset controls.
+**How to apply:** use the same shared treatment across all four quizzes; preserve question copy, scoring, branching, results, saving, and back/reset controls.

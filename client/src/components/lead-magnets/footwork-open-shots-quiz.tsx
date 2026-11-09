@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "@/components/lead-magnets/lead-magnets.css";
 import { Link } from "wouter";
-import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
 import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
@@ -100,10 +100,8 @@ export function FootworkOpenShotsQuiz() {
   return (
     <div className="lm-quiz">
       <header className="mb-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Footwork and open shots</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
-          Footwork That Leads to Open Shots
-        </h2>
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Game Insights</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Game Insights</h2>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">
           Find the footwork drills that fit the way you create or find your shots.
         </p>
@@ -166,7 +164,7 @@ export function FootworkOpenShotsQuiz() {
                     <span className="block text-sm font-bold text-zinc-200">{answer.label}</span>
                     <span className="mt-1 block text-sm leading-relaxed text-zinc-400">{answer.description}</span>
                   </span>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-400" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:text-orange-400" />
                 </button>
               ))}
 
@@ -184,7 +182,7 @@ export function FootworkOpenShotsQuiz() {
                     <span className="block text-sm font-bold text-zinc-200">{answer.label}</span>
                     <span className="mt-1 block text-sm leading-relaxed text-zinc-400">{answer.description}</span>
                   </span>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-400" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:text-orange-400" />
                 </button>
               ))}
 
@@ -199,7 +197,7 @@ export function FootworkOpenShotsQuiz() {
                     0{index + 1}
                   </span>
                   <span className="min-w-0 flex-1 text-sm font-semibold leading-relaxed text-zinc-200">{answer.text}</span>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-400" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:text-orange-400" />
                 </button>
               ))}
             </div>

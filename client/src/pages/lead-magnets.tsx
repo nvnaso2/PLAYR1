@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "@/components/lead-magnets/lead-magnets.css";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { LeadMagnetCatalog } from "@/components/lead-magnets/scouting-report-catalog";
@@ -159,8 +159,8 @@ export default function LeadMagnetsPage({
           <div className="lm-quiz min-w-0 max-w-2xl">
             <div id="shooting-mechanics" hidden={activeLeadMagnet !== "shooting-mechanics"}>
               <header className="mb-6">
-                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Shooting mechanics</p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Find your shooting cue.</h2>
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Game Insights</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Game Insights</h2>
                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">
                   Answer two quick questions to find one clear mechanics cue and the drills to work on next.
                 </p>
@@ -222,7 +222,7 @@ export default function LeadMagnetsPage({
                           0{index + 1}
                         </span>
                         <span className="min-w-0 flex-1 text-sm font-semibold leading-relaxed text-zinc-200">{answer.text}</span>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-400" />
+                        <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:text-orange-400" />
                       </button>
                     ))}
                   </div>
@@ -245,7 +245,7 @@ export default function LeadMagnetsPage({
                           0{index + 1}
                         </span>
                         <span className="min-w-0 flex-1 text-sm font-semibold leading-relaxed text-zinc-200">{answer.text}</span>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-orange-400" />
+                        <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition group-hover:text-orange-400" />
                       </button>
                     ))}
                   </div>
