@@ -176,6 +176,7 @@ export default function TrainingLogPage() {
   const [isCreateDrillOpen, setIsCreateDrillOpen] = useState(() => {
     return new URLSearchParams(searchParams).get('create') === '1';
   });
+  const [isDrillDiagramOpen, setIsDrillDiagramOpen] = useState(false);
   const [isSaveWorkoutOpen, setIsSaveWorkoutOpen] = useState(false);
   const [savedWorkoutsExpanded, setSavedWorkoutsExpanded] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -1926,6 +1927,7 @@ export default function TrainingLogPage() {
           <Dialog open={isCreateDrillOpen} onOpenChange={(open) => {
             setIsCreateDrillOpen(open);
             if (!open) {
+              setIsDrillDiagramOpen(false);
               createDrillForm.reset();
               setSelectedMetricTemplateIds([]);
               setPresetRounds([]);
@@ -1933,25 +1935,26 @@ export default function TrainingLogPage() {
               setDrillVideoFile(null);
             }
           }}>
-            <DialogContent className="z-[100] box-border flex max-h-[82dvh] w-[calc(100vw-2rem)] max-w-[34rem] min-w-0 flex-col overflow-hidden border-zinc-800 bg-zinc-950 p-4 sm:p-6">
-              <DialogHeader className="min-w-0">
-                <DialogTitle>Create Your Own Drill</DialogTitle>
-                <DialogDescription>
-                  Add a custom drill to your training library
+            <DialogContent className="z-[100] box-border flex max-h-[90dvh] w-[calc(100vw-1.25rem)] max-w-[42rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-orange-500/55 bg-[#090909] p-4 text-zinc-100 shadow-[0_24px_90px_rgba(0,0,0,.72)] sm:p-7">
+              <DialogHeader className="mx-auto w-full max-w-xl min-w-0 text-center">
+                <p className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Training library / custom drill</p>
+                <DialogTitle className="font-heading text-2xl font-black uppercase tracking-wide text-zinc-50 sm:text-3xl">Create Your Own Drill</DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-zinc-400">
+                  Set the details, then map the movement on court.
                 </DialogDescription>
               </DialogHeader>
               <Form {...createDrillForm}>
-                <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
-                  <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pr-1 -mr-1">
-                    <div className="w-full min-w-0 space-y-4 pb-4">
+                <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="mx-auto flex min-h-0 w-full min-w-0 max-w-xl flex-1 flex-col">
+                  <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-0.5 pb-1">
+                    <div className="w-full min-w-0 space-y-5 py-4">
                       <FormField
                         control={createDrillForm.control}
                         name="title"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Drill Name</FormLabel>
+                          <FormItem className="space-y-2">
+                            <FormLabel className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Drill name</FormLabel>
                             <FormControl>
-                              <Input placeholder="e.g., My Custom Crossover" {...field} data-testid="input-drill-title" />
+                              <Input className="h-12 rounded-full border-orange-500/65 bg-[#0d0d0d] px-5 text-base text-zinc-100 placeholder:text-zinc-600 focus-visible:border-orange-400 focus-visible:ring-orange-400/20" placeholder="e.g., Baseline crossover series" {...field} data-testid="input-drill-title" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1961,25 +1964,37 @@ export default function TrainingLogPage() {
                         control={createDrillForm.control}
                         name="description"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Description (Optional)</FormLabel>
+                          <FormItem className="space-y-2">
+                            <FormLabel className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Description <span className="font-normal tracking-normal text-zinc-500">(optional)</span></FormLabel>
                             <FormControl>
-                              <Textarea placeholder="Describe the drill..." {...field} value={field.value ?? ''} data-testid="input-drill-description" />
+                              <Textarea className="min-h-24 resize-y rounded-2xl border-orange-500/55 bg-[#0d0d0d] px-5 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:border-orange-400 focus-visible:ring-orange-400/20" placeholder="What should the player focus on?" {...field} value={field.value ?? ''} data-testid="input-drill-description" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <section className="space-y-2">
-                        <div>
-                          <FormLabel>Drill Diagram</FormLabel>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Add court markers and drag them into position. This diagram appears on the drill card.
-                          </p>
+                      <section className="space-y-2.5">
+                        <div className="flex items-end justify-between gap-3">
+                          <div>
+                            <FormLabel className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Court diagram</FormLabel>
+                            <p className="mt-1 text-xs text-zinc-500">Show where the play begins and how it moves.</p>
+                          </div>
+                          <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                            {drillDiagramData?.elements.length ? `${drillDiagramData.elements.length} marks` : "Not set"}
+                          </span>
                         </div>
-                        <DrillDiagramBuilder value={drillDiagramData} onChange={setDrillDiagramData} />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsDrillDiagramOpen(true)}
+                          className="h-12 w-full justify-between rounded-full border-orange-500/65 bg-[#0d0d0d] px-5 text-left text-sm font-semibold text-zinc-100 hover:border-orange-400 hover:bg-orange-950/20 hover:text-orange-100"
+                          data-testid="button-open-drill-diagram"
+                        >
+                          <span>{drillDiagramData?.elements.length ? "Edit court diagram" : "Arrange court diagram"}</span>
+                          <ChevronRight className="h-4 w-4 text-orange-400" />
+                        </Button>
                         {!drillDiagramData?.elements.length && (
-                          <p className="text-xs text-orange-300">Add at least one marker before creating the drill.</p>
+                          <p className="text-xs text-orange-300/90">Add at least one court marker before creating the drill.</p>
                         )}
                       </section>
 
@@ -1989,10 +2004,10 @@ export default function TrainingLogPage() {
                           name="category"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Category</FormLabel>
+                              <FormLabel className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Category</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                              <SelectTrigger className="w-full min-w-0" data-testid="select-drill-category">
+                              <SelectTrigger className="h-11 w-full min-w-0 rounded-full border-orange-500/55 bg-[#0d0d0d] px-4 text-zinc-100 focus:ring-orange-400/25" data-testid="select-drill-category">
                                     <SelectValue />
                                   </SelectTrigger>
                                 </FormControl>
@@ -2013,10 +2028,10 @@ export default function TrainingLogPage() {
                           name="difficulty"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Difficulty</FormLabel>
+                              <FormLabel className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Difficulty</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                  <SelectTrigger className="w-full min-w-0" data-testid="select-drill-difficulty">
+                                  <SelectTrigger className="h-11 w-full min-w-0 rounded-full border-orange-500/55 bg-[#0d0d0d] px-4 text-zinc-100 focus:ring-orange-400/25" data-testid="select-drill-difficulty">
                                     <SelectValue />
                                   </SelectTrigger>
                                 </FormControl>
@@ -2246,9 +2261,10 @@ export default function TrainingLogPage() {
                     </div>
                   </div>
 
-                  <DialogFooter className="mt-4 flex-shrink-0 flex-col-reverse border-t pt-4 sm:flex-row">
-                    <Button className="w-full sm:w-auto" type="button" variant="outline" onClick={() => {
+                  <DialogFooter className="mt-3 flex-shrink-0 flex-col-reverse border-t border-zinc-800 pt-4 sm:flex-row">
+                    <Button className="w-full rounded-full border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-900 sm:w-auto" type="button" variant="outline" onClick={() => {
                       setIsCreateDrillOpen(false);
+                      setIsDrillDiagramOpen(false);
                       setSelectedMetricTemplateIds([]);
                       setPresetRounds([]);
                       setDrillDiagramData(null);
@@ -2256,12 +2272,36 @@ export default function TrainingLogPage() {
                     }}>
                       Cancel
                     </Button>
-                    <Button className="w-full sm:w-auto" type="submit" disabled={createDrillMutation.isPending || drillVideoUploading || !drillDiagramData?.elements.length} data-testid="button-save-drill">
+                    <Button className="w-full rounded-full bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 sm:w-auto" type="submit" disabled={createDrillMutation.isPending || drillVideoUploading || !drillDiagramData?.elements.length} data-testid="button-save-drill">
                       {drillVideoUploading ? "Uploading..." : createDrillMutation.isPending ? "Creating..." : "Create Drill"}
                     </Button>
                   </DialogFooter>
                 </form>
               </Form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isDrillDiagramOpen} onOpenChange={setIsDrillDiagramOpen}>
+            <DialogContent className="z-[120] flex max-h-[94dvh] w-[calc(100vw-1rem)] max-w-[76rem] flex-col overflow-hidden rounded-2xl border border-orange-500/55 bg-[#090909] p-3 text-zinc-100 shadow-[0_28px_100px_rgba(0,0,0,.8)] sm:p-6">
+              <DialogHeader className="shrink-0 border-b border-zinc-800 pb-4">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-orange-400">Custom drill / court setup</p>
+                <DialogTitle className="font-heading text-xl font-black uppercase tracking-wide text-zinc-50 sm:text-2xl">Arrange the court</DialogTitle>
+                <DialogDescription className="text-sm text-zinc-400">
+                  Add a marker, drag it into place, and adjust the details below the court.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto py-3 sm:py-4">
+                <DrillDiagramBuilder value={drillDiagramData} onChange={setDrillDiagramData} />
+              </div>
+              <DialogFooter className="shrink-0 border-t border-zinc-800 pt-3">
+                <Button
+                  type="button"
+                  onClick={() => setIsDrillDiagramOpen(false)}
+                  className="w-full rounded-full bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 sm:w-auto"
+                  data-testid="button-done-drill-diagram"
+                >
+                  Done
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
