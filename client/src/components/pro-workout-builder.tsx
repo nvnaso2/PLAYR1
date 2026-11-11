@@ -111,7 +111,7 @@ export function ProWorkoutBuilder({
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[.22em] text-orange-400">PLAYR1 Pro</p>
+            <p className="text-[10px] font-black uppercase tracking-[.22em] text-orange-400">Pro-level builder · Open to everyone</p>
             <h1 className="mt-2 font-heading text-3xl font-black uppercase sm:text-4xl">Build your workout</h1>
             <p className="mt-2 text-sm text-zinc-400">Choose your time and focus. PLAYR1 will put the session together.</p>
           </div>

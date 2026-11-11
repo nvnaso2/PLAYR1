@@ -78,7 +78,9 @@ function DrillRows({ drills, selectionMode, selectedDrillIds, onSelect }: {
   selectedDrillIds?: Set<string>;
   onSelect?: (id: string) => void;
 }) {
-  const formatTags = [...new Map(WORKOUT_FORMAT_OPTIONS.filter((tag) => tag.value !== "mix").map((tag) => [tag.value, tag])).values()];
+  const formatTags = [...new Map(WORKOUT_FORMAT_OPTIONS
+    .filter((tag) => !["mix", "shooting", "finishing", "post"].includes(tag.value))
+    .map((tag) => [tag.value, tag])).values()];
   const rows = [
     ...WORKOUT_SKILL_OPTIONS.map((skill) => ({
       key: `skill-${skill.value}`,
