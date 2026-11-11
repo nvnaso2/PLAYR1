@@ -2049,6 +2049,15 @@ export default function TrainingLogPage() {
                         />
                       </div>
 
+                      <details className="group overflow-hidden rounded-2xl border border-zinc-800 bg-[#0d0d0d]">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+                          <span>
+                            <span className="block text-sm font-semibold text-zinc-100">More options</span>
+                            <span className="mt-0.5 block text-xs text-zinc-500">Tracking, sharing, preset rounds, and video</span>
+                          </span>
+                          <Plus className="h-4 w-4 shrink-0 text-orange-400 transition-transform group-open:rotate-45" aria-hidden="true" />
+                        </summary>
+                        <div className="space-y-5 border-t border-zinc-800 p-4">
                       {/* Track Shots Checkbox */}
                       <FormField
                         control={createDrillForm.control}
@@ -2258,6 +2267,8 @@ export default function TrainingLogPage() {
                           </label>
                         )}
                       </div>
+                        </div>
+                      </details>
                     </div>
                   </div>
 

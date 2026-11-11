@@ -72,7 +72,7 @@ function DiagramMark({
       ? { width: 33, height: 31 }
       : element.type === "cone"
         ? { width: 30, height: 38 }
-        : { width: 38, height: 72 };
+        : { width: 48, height: 120 };
   const angle = element.angle ?? 0;
   const lengthScale = (element.length ?? 18) / 18;
   const bendScale = 1 + (element.bend ?? 0) / 45;
@@ -95,13 +95,12 @@ function DiagramMark({
       ) : (
         <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="none" />
       )}
-      {element.type === "shot" && (
+      {element.type === "shot" && (element.shots ?? 10) !== 10 && (
         <>
-          <circle r="10.2" fill="#171717" pointerEvents="none" />
-          <text x="0" y="4.8" textAnchor="middle" fontSize="12" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots ?? 10}</text>
+          <circle r="12.2" fill="#171717" pointerEvents="none" />
+          <text x="0" y="3.8" textAnchor="middle" fontSize="10" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots}</text>
         </>
       )}
-      {selected && <circle r="23" fill="none" stroke="#ee6b69" strokeWidth="2.5" strokeDasharray="5 4" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
     </g>
   );
 }
@@ -248,7 +247,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
   };
 
   return (
-    <section aria-label="Drill diagram editor" className="flex max-h-[58dvh] min-h-0 w-full min-w-0 flex-col overflow-y-auto overscroll-contain rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-h-[64dvh]">
+    <section aria-label="Drill diagram editor" className="flex w-full min-w-0 flex-col rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100">
       <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-800 px-3 py-2.5 sm:px-4">
         <div className="min-w-0">
           <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-100">Court diagram</h3>
@@ -281,7 +280,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       </div>
 
       <div className="min-h-[200px] min-w-0 flex-1 px-2.5 py-2.5 sm:px-4 sm:py-3">
-        <div className="relative mx-auto aspect-[189/167] w-full max-w-[380px] overflow-hidden rounded-lg border border-zinc-700 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.3)]">
+        <div className="relative mx-auto aspect-[189/167] w-full max-w-[560px] overflow-hidden rounded-lg border border-zinc-700 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.3)]">
           <svg
             ref={svgRef}
             viewBox="0 0 378 334"
