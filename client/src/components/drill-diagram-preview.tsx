@@ -1,77 +1,51 @@
 import type { DrillDiagramData, DrillDiagramElement } from "@shared/schema";
+import courtAsset from "@/assets/drill-diagram/court.png";
+import shotAsset from "@/assets/drill-diagram/shot-marker.png";
+import startAsset from "@/assets/drill-diagram/start-marker.png";
+import screenAsset from "@/assets/drill-diagram/screen-marker.png";
+import coneAsset from "@/assets/drill-diagram/cone-marker.png";
+import arrowAsset from "@/assets/drill-diagram/movement-arrow.png";
 
 function DiagramMarker({ element }: { element: DrillDiagramElement }) {
-  const x = Math.max(0, Math.min(100, element.x));
-  const y = Math.max(0, Math.min(100, element.y));
+  const x = element.x * 3.78;
+  const y = element.y * 3.34;
+  const asset = element.type === "shot" ? shotAsset : element.type === "start" ? startAsset : element.type === "screen" ? screenAsset : element.type === "cone" ? coneAsset : arrowAsset;
 
-  if (element.type === "shot") {
+  if (element.type === "arrow") {
+    const bendScale = 1 + (element.bend ?? 0) / 45;
+    const lengthScale = (element.length ?? 18) / 18;
     return (
-      <g>
-        <circle cx={x} cy={y} r="5.1" fill="#202020" stroke="#e96b28" strokeWidth="1.1" />
-        <circle cx={x} cy={y} r="3.55" fill="#f4f1e9" />
-        <text x={x} y={y + 1.05} textAnchor="middle" fontSize="3.1" fontWeight="800" fill="#252525">
-          {element.shots ?? 10}
-        </text>
+      <g transform={`translate(${x} ${y}) rotate(${element.angle ?? 0}) scale(${bendScale} ${lengthScale})`}>
+        <image href={asset} x="-19" y="-36" width="38" height="72" preserveAspectRatio="none" />
       </g>
     );
   }
 
-  if (element.type === "start") {
-    return (
-      <g transform={`translate(${x} ${y})`}>
-        <path d="M0 4.2c.2-2.7 1.25-4.1 2.7-4.1S5.2 1.4 5.4 4.2" fill="#202020" stroke="#e96b28" strokeWidth="1.1" strokeLinecap="round" />
-        <circle cy="-2.3" r="1.65" fill="#e96b28" />
-      </g>
-    );
-  }
+  const dimensions = element.type === "shot" || element.type === "start"
+    ? { width: 36, height: 36 }
+    : element.type === "screen"
+      ? { width: 33, height: 31 }
+      : { width: 30, height: 38 };
 
-  if (element.type === "screen") {
-    return <path d={`M ${x} ${y - 5.3} L ${x + 5.4} ${y + 4.6} L ${x - 5.4} ${y + 4.6} Z`} fill="#202020" stroke="#e96b28" strokeWidth="1.15" strokeLinejoin="round" />;
-  }
-
-  if (element.type === "cone") {
-    return <path d={`M ${x} ${y - 5.4} L ${x + 4.8} ${y + 4.4} L ${x - 4.8} ${y + 4.4} Z`} fill="#e96b28" stroke="#202020" strokeWidth="0.7" strokeLinejoin="round" />;
-  }
-
-  const angle = (element.angle ?? -45) * Math.PI / 180;
-  const length = element.length ?? 18;
-  const endX = x + Math.cos(angle) * length;
-  const endY = y - Math.sin(angle) * length;
-  const bend = element.bend ?? 0;
-  const controlX = (x + endX) / 2 + Math.sin(angle) * bend;
-  const controlY = (y + endY) / 2 + Math.cos(angle) * bend;
   return (
-    <path
-      d={`M ${x} ${y} Q ${controlX} ${controlY} ${endX} ${endY}`}
-      fill="none"
-      stroke="#e96b28"
-      strokeWidth="1.15"
-      strokeDasharray="1.5 1.4"
-      strokeLinecap="round"
-      markerEnd="url(#drill-diagram-arrow)"
-    />
+    <g transform={`translate(${x} ${y})`}>
+      <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="none" />
+      {element.type === "shot" && (
+        <>
+          <circle r="10.2" fill="#171717" pointerEvents="none" />
+          <text x="0" y="4.8" textAnchor="middle" fontSize="12" fontWeight="800" fill="#fff" pointerEvents="none">
+            {element.shots ?? 10}
+          </text>
+        </>
+      )}
+    </g>
   );
 }
 
 export function DrillDiagramPreview({ diagramData, className = "" }: { diagramData?: DrillDiagramData | null; className?: string }) {
   return (
-    <svg viewBox="0 0 100 100" role="img" aria-label="Basketball drill court diagram" className={`block h-full w-full ${className}`}>
-      <defs>
-        <marker id="drill-diagram-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="3.5" markerHeight="3.5" orient="auto-start-reverse">
-          <path d="M0 0 10 5 0 10Z" fill="#e96b28" />
-        </marker>
-      </defs>
-      <rect x="0" y="0" width="100" height="100" rx="2" fill="#f4f1e9" />
-      <g fill="none" stroke="#262626" strokeWidth="0.72" strokeLinejoin="round">
-        <rect x="5" y="5" width="90" height="90" rx="0.5" />
-        <path d="M5 28h17v44H5M95 28H78v44h17" />
-        <circle cx="50" cy="28" r="17" />
-        <path d="M33 28a17 17 0 0 0 34 0" />
-        <circle cx="50" cy="11.5" r="2.1" />
-        <path d="M47 14.5h6M5 5v23m90-23v23" />
-        <path d="M5 5c0 31 20.1 53 45 53S95 36 95 5" strokeDasharray="1.5 1.4" />
-        <path d="M5 95h90" />
-      </g>
+    <svg viewBox="0 0 378 334" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Basketball drill court diagram" className={`block h-full w-full ${className}`}>
+      <image href={courtAsset} x="0" y="0" width="378" height="334" preserveAspectRatio="none" />
       {diagramData?.elements?.map((element) => <DiagramMarker key={element.id} element={element} />)}
     </svg>
   );

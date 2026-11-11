@@ -1,5 +1,11 @@
 import { useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
+import courtAsset from "@/assets/drill-diagram/court.png";
+import shotAsset from "@/assets/drill-diagram/shot-marker.png";
+import startAsset from "@/assets/drill-diagram/start-marker.png";
+import screenAsset from "@/assets/drill-diagram/screen-marker.png";
+import coneAsset from "@/assets/drill-diagram/cone-marker.png";
+import arrowAsset from "@/assets/drill-diagram/movement-arrow.png";
 
 export type DrillDiagramElementType = "shot" | "start" | "screen" | "cone" | "arrow";
 
@@ -42,61 +48,8 @@ function makeId() {
 }
 
 function ToolGlyph({ type }: { type: DrillDiagramElementType }) {
-  if (type === "shot") {
-    return <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-orange-400 text-[9px] font-black text-orange-300">10</span>;
-  }
-  if (type === "start") {
-    return <span className="relative block h-5 w-5 rounded-full border-2 border-orange-400"><span className="absolute left-1/2 top-0.5 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-orange-300" /><span className="absolute bottom-0.5 left-1/2 h-1.5 w-2 -translate-x-1/2 rounded-t-full bg-orange-300" /></span>;
-  }
-  if (type === "screen") {
-    return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5"><path d="M4 16 10 4l6 12H4Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>;
-  }
-  if (type === "cone") {
-    return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5"><path d="m10 3 7 13H3L10 3Z" fill="currentColor" /></svg>;
-  }
-  return <svg aria-hidden="true" viewBox="0 0 22 20" className="h-5 w-5"><path d="M3 16 17 5M12 5h5v5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function CourtLines() {
-  return (
-    <g fill="none" stroke="#262626" strokeWidth="0.72" vectorEffect="non-scaling-stroke">
-      <rect x="5" y="5" width="90" height="90" rx="0.5" />
-      <path d="M5 28h17v44H5M95 28H78v44h17" />
-      <circle cx="50" cy="28" r="17" />
-      <path d="M33 28a17 17 0 0 0 34 0" />
-      <circle cx="50" cy="11.5" r="2.1" />
-      <path d="M47 14.5h6M5 5v23m90-23v23" />
-      <path d="M5 5c0 31 20.1 53 45 53S95 36 95 5" strokeDasharray="1.5 1.4" />
-      <path d="M5 95h90" />
-    </g>
-  );
-}
-
-function ArrowShape({ element, selected }: { element: DrillDiagramElement; selected: boolean }) {
-  const angle = ((element.angle ?? 0) * Math.PI) / 180;
-  const length = element.length ?? 18;
-  const endX = element.x + Math.cos(angle) * length;
-  const endY = element.y - Math.sin(angle) * length;
-  const bend = element.bend ?? 0;
-  const midX = (element.x + endX) / 2 + Math.sin(angle) * bend;
-  const midY = (element.y + endY) / 2 + Math.cos(angle) * bend;
-  const d = bend === 0
-    ? `M ${element.x} ${element.y} L ${endX} ${endY}`
-    : `M ${element.x} ${element.y} Q ${midX} ${midY} ${endX} ${endY}`;
-  const tangentX = endX - midX;
-  const tangentY = endY - midY;
-  const tangentAngle = Math.atan2(tangentY, tangentX);
-  const headLength = 4.2;
-  const leftX = endX - headLength * Math.cos(tangentAngle - Math.PI / 6);
-  const leftY = endY - headLength * Math.sin(tangentAngle - Math.PI / 6);
-  const rightX = endX - headLength * Math.cos(tangentAngle + Math.PI / 6);
-  const rightY = endY - headLength * Math.sin(tangentAngle + Math.PI / 6);
-  return (
-    <g fill="none" stroke="#ea6b27" strokeWidth={selected ? "1.4" : "1.15"} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke">
-      <path d={d} />
-      <path d={`M ${leftX} ${leftY} L ${endX} ${endY} L ${rightX} ${rightY}`} />
-    </g>
-  );
+  const asset = type === "shot" ? shotAsset : type === "start" ? startAsset : type === "screen" ? screenAsset : type === "cone" ? coneAsset : arrowAsset;
+  return <img src={asset} alt="" className="h-7 w-7 object-contain" />;
 }
 
 function DiagramMark({
@@ -110,10 +63,22 @@ function DiagramMark({
   onPointerDown: (event: PointerEvent<SVGGElement>) => void;
   onKeyDown: (event: KeyboardEvent<SVGGElement>) => void;
 }) {
-  const stroke = selected ? "#f3a36c" : "#e96b28";
+  const x = element.x * 3.78;
+  const y = element.y * 3.34;
+  const asset = element.type === "shot" ? shotAsset : element.type === "start" ? startAsset : element.type === "screen" ? screenAsset : element.type === "cone" ? coneAsset : arrowAsset;
+  const dimensions = element.type === "shot" || element.type === "start"
+    ? { width: 36, height: 36 }
+    : element.type === "screen"
+      ? { width: 33, height: 31 }
+      : element.type === "cone"
+        ? { width: 30, height: 38 }
+        : { width: 38, height: 72 };
+  const angle = element.angle ?? 0;
+  const lengthScale = (element.length ?? 18) / 18;
+  const bendScale = 1 + (element.bend ?? 0) / 45;
   return (
     <g
-      transform={`translate(${element.x} ${element.y})`}
+      transform={`translate(${x} ${y})`}
       className="cursor-grab outline-none active:cursor-grabbing"
       role="button"
       tabIndex={0}
@@ -124,31 +89,19 @@ function DiagramMark({
       style={{ touchAction: "none" }}
     >
       {element.type === "arrow" ? (
-        <>
-          <g transform={`translate(${-element.x} ${-element.y})`}>
-            <ArrowShape element={element} selected={selected} />
-          </g>
-          <circle r="2.35" fill="#171717" stroke={stroke} strokeWidth="1.1" vectorEffect="non-scaling-stroke" />
-          <circle r="0.7" fill={stroke} />
-        </>
-      ) : element.type === "shot" ? (
-        <>
-          <circle r="5.1" fill="#202020" stroke={stroke} strokeWidth="1.1" vectorEffect="non-scaling-stroke" />
-          <circle r="3.55" fill="#f4f1e9" />
-          <text x="0" y="1.05" textAnchor="middle" fontSize="3.1" fontWeight="800" fill="#252525" className="select-none">{element.shots ?? 10}</text>
-        </>
-      ) : element.type === "start" ? (
-        <>
-          <circle cy="-2.3" r="1.65" fill={stroke} />
-          <path d="M-2.7 4.2c.2-2.7 1.25-4.1 2.7-4.1s2.5 1.4 2.7 4.1" fill="#202020" stroke={stroke} strokeWidth="1.1" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          <circle r="6" fill="transparent" />
-        </>
-      ) : element.type === "screen" ? (
-        <path d="M0-5.3 5.4 4.6h-10.8L0-5.3Z" fill="#202020" stroke={stroke} strokeWidth="1.15" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <g transform={`rotate(${angle}) scale(${bendScale} ${lengthScale})`}>
+          <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="none" />
+        </g>
       ) : (
-        <path d="M0-5.4 4.8 4.4H-4.8L0-5.4Z" fill={stroke} stroke="#202020" strokeWidth="0.7" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="none" />
       )}
-      {selected && <circle r="7" fill="none" stroke="#ee8a4d" strokeWidth="0.55" strokeDasharray="1 1" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
+      {element.type === "shot" && (
+        <>
+          <circle r="10.2" fill="#171717" pointerEvents="none" />
+          <text x="0" y="4.8" textAnchor="middle" fontSize="12" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots ?? 10}</text>
+        </>
+      )}
+      {selected && <circle r="23" fill="none" stroke="#ee6b69" strokeWidth="2.5" strokeDasharray="5 4" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
     </g>
   );
 }
@@ -221,7 +174,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       type,
       ...locations[type],
       ...(type === "shot" ? { shots: 10 } : {}),
-      ...(type === "arrow" ? { angle: 65, length: 18, bend: 0 } : {}),
+       ...(type === "arrow" ? { angle: 0, length: 18, bend: 0 } : {}),
     };
     publishElements([...diagram.elements, element]);
     setSelectedId(element.id);
@@ -328,10 +281,10 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       </div>
 
       <div className="min-h-[200px] min-w-0 flex-1 px-2.5 py-2.5 sm:px-4 sm:py-3">
-        <div className="relative mx-auto h-full min-h-[200px] w-full max-w-[380px] overflow-hidden rounded-lg border border-zinc-700 bg-[#efede5] shadow-[inset_0_0_0_1px_rgba(255,255,255,.3)]">
+        <div className="relative mx-auto aspect-[189/167] w-full max-w-[380px] overflow-hidden rounded-lg border border-zinc-700 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.3)]">
           <svg
             ref={svgRef}
-            viewBox="0 0 100 100"
+            viewBox="0 0 378 334"
             preserveAspectRatio="none"
             role="group"
             aria-label="Basketball half court. Use the marker controls to add symbols, then drag to reposition."
@@ -341,7 +294,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
             onPointerCancel={handlePointerUp}
             style={{ touchAction: "none" }}
           >
-            <CourtLines />
+            <image href={courtAsset} x="0" y="0" width="378" height="334" preserveAspectRatio="none" />
             {diagram.elements.map((element) => (
               <DiagramMark
                 key={element.id}
