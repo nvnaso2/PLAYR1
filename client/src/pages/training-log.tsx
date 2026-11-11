@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, nativeFetch } from "@/lib/queryClient";
+import { DrillDiagramBuilder } from "@/components/drill-diagram-builder";
 import { track } from "@/lib/track";
 import { 
   Plus, 
@@ -90,7 +91,7 @@ import {
   Info,
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Drill, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
+import type { Drill, DrillDiagramData, TrainingLog, DrillMetric, MetricTemplate, Workout, WorkoutDrill, ShotLocationDB, Challenge, UserChallenge } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
 import { FreeShotMode, LiveShotCounter } from "@/components/free-shoot-mode";
@@ -141,8 +142,6 @@ const createDrillFormSchema = insertDrillSchema.pick({
 }).extend({
   title: z.string().min(1, "Title is required"),
   trackShots: z.boolean().default(false),
-  tips: z.string().optional(),
-  equipment: z.string().optional(),
   isShared: z.boolean().default(false),
 });
 
@@ -202,6 +201,7 @@ export default function TrainingLogPage() {
   const [addWorkoutDrillSearch, setAddWorkoutDrillSearch] = useState("");
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
   const [presetRounds, setPresetRounds] = useState<Array<{ shotLocation?: string; metricValues: Record<string, number> }>>([]);
+  const [drillDiagramData, setDrillDiagramData] = useState<DrillDiagramData | null>(null);
   const [drillVideoFile, setDrillVideoFile] = useState<File | null>(null);
   const [drillVideoUploading, setDrillVideoUploading] = useState(false);
   const [drillVideoProgress, setDrillVideoProgress] = useState(0);
@@ -556,8 +556,6 @@ export default function TrainingLogPage() {
       category: "ball-handling",
       difficulty: "beginner",
       trackShots: false,
-      tips: "",
-      equipment: "",
       isShared: false,
     },
   });
@@ -576,6 +574,9 @@ export default function TrainingLogPage() {
   // Create drill mutation
   const createDrillMutation = useMutation({
     mutationFn: async (data: CreateDrillFormData) => {
+      if (!drillDiagramData?.elements.length) {
+        throw new Error("Add at least one marker to the court diagram.");
+      }
       let videoUrl: string | null = null;
       if (drillVideoFile) {
         setDrillVideoUploading(true);
@@ -598,16 +599,9 @@ export default function TrainingLogPage() {
         setDrillVideoUploading(false);
         videoUrl = objectPath;
       }
-      const tipsArray = data.tips
-        ? data.tips.split("\n").map(t => t.trim()).filter(Boolean)
-        : [];
-      const equipmentArray = data.equipment
-        ? data.equipment.split(",").map(e => e.trim()).filter(Boolean)
-        : [];
       const response = await apiRequest("POST", "/api/user/drills", {
         ...data,
-        tips: tipsArray,
-        equipment: equipmentArray,
+        diagramData: drillDiagramData,
         ...(videoUrl ? { videoUrl } : {}),
         ...(presetRounds.length > 0 ? { presetRounds } : {}),
       });
@@ -627,6 +621,7 @@ export default function TrainingLogPage() {
       createDrillForm.reset();
       setSelectedMetricTemplateIds([]);
       setPresetRounds([]);
+      setDrillDiagramData(null);
       setDrillVideoFile(null);
       setDrillVideoUploading(false);
       setDrillVideoProgress(0);
@@ -1928,7 +1923,16 @@ export default function TrainingLogPage() {
             <Calendar className="w-4 h-4" />
             History
           </Button>
-          <Dialog open={isCreateDrillOpen} onOpenChange={setIsCreateDrillOpen}>
+          <Dialog open={isCreateDrillOpen} onOpenChange={(open) => {
+            setIsCreateDrillOpen(open);
+            if (!open) {
+              createDrillForm.reset();
+              setSelectedMetricTemplateIds([]);
+              setPresetRounds([]);
+              setDrillDiagramData(null);
+              setDrillVideoFile(null);
+            }
+          }}>
             <DialogContent className="z-[100] box-border flex max-h-[82dvh] w-[calc(100vw-2rem)] max-w-[34rem] min-w-0 flex-col overflow-hidden border-zinc-800 bg-zinc-950 p-4 sm:p-6">
               <DialogHeader className="min-w-0">
                 <DialogTitle>Create Your Own Drill</DialogTitle>
@@ -1966,28 +1970,18 @@ export default function TrainingLogPage() {
                           </FormItem>
                         )}
                       />
-                      {/* Equipment */}
-                      <FormField
-                        control={createDrillForm.control}
-                        name="equipment"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Equipment Needed (Optional)</FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder="e.g. Basketball, Cones, Chair"
-                                value={field.value ?? ''}
-                                data-testid="input-drill-equipment"
-                              />
-                            </FormControl>
-                            <p className="text-xs text-muted-foreground">
-                              Separate multiple items with commas.
-                            </p>
-                            <FormMessage />
-                          </FormItem>
+                      <section className="space-y-2">
+                        <div>
+                          <FormLabel>Drill Diagram</FormLabel>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Add court markers and drag them into position. This diagram appears on the drill card.
+                          </p>
+                        </div>
+                        <DrillDiagramBuilder value={drillDiagramData} onChange={setDrillDiagramData} />
+                        {!drillDiagramData?.elements.length && (
+                          <p className="text-xs text-orange-300">Add at least one marker before creating the drill.</p>
                         )}
-                      />
+                      </section>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
@@ -2177,29 +2171,6 @@ export default function TrainingLogPage() {
                         )}
                       </div>
 
-                      {/* Tips */}
-                      <FormField
-                        control={createDrillForm.control}
-                        name="tips"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Pro Tips (Optional)</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                {...field}
-                                placeholder="Enter one tip per line, e.g.&#10;Keep your elbow in&#10;Follow through on every shot"
-                                rows={3}
-                                data-testid="input-drill-tips"
-                              />
-                            </FormControl>
-                            <p className="text-xs text-muted-foreground">
-                              Each line becomes a separate tip shown on the drill detail page.
-                            </p>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
                       {/* Share to Community */}
                       <FormField
                         control={createDrillForm.control}
@@ -2280,11 +2251,12 @@ export default function TrainingLogPage() {
                       setIsCreateDrillOpen(false);
                       setSelectedMetricTemplateIds([]);
                       setPresetRounds([]);
+                      setDrillDiagramData(null);
                       setDrillVideoFile(null);
                     }}>
                       Cancel
                     </Button>
-                    <Button className="w-full sm:w-auto" type="submit" disabled={createDrillMutation.isPending || drillVideoUploading} data-testid="button-save-drill">
+                    <Button className="w-full sm:w-auto" type="submit" disabled={createDrillMutation.isPending || drillVideoUploading || !drillDiagramData?.elements.length} data-testid="button-save-drill">
                       {drillVideoUploading ? "Uploading..." : createDrillMutation.isPending ? "Creating..." : "Create Drill"}
                     </Button>
                   </DialogFooter>

@@ -376,6 +376,22 @@ export const playerSetupProfiles = pgTable("player_setup_profiles", {
 });
 
 // Drills table
+export type DrillDiagramElementType = "shot" | "start" | "screen" | "cone" | "arrow";
+export type DrillDiagramElement = {
+  id: string;
+  type: DrillDiagramElementType;
+  x: number;
+  y: number;
+  shots?: number;
+  angle?: number;
+  length?: number;
+  bend?: number;
+};
+export type DrillDiagramData = {
+  version: 1;
+  elements: DrillDiagramElement[];
+};
+
 export const drills = pgTable("drills", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: varchar("title").notNull(),
@@ -389,6 +405,7 @@ export const drills = pgTable("drills", {
   pdfLibraryId: varchar("pdf_library_id"), // Reference to PDF library
   videoUrl: varchar("video_url"),
   thumbnailUrl: varchar("thumbnail_url"),
+  diagramData: jsonb("diagram_data").$type<DrillDiagramData | null>(),
   pdfUrl: varchar("pdf_url"), // URL to linked PDF
   duration: integer("duration"), // in seconds
   equipment: text("equipment").array(),
@@ -808,6 +825,20 @@ const urlOrObjectPath = z.string().nullish().refine(
   { message: "Must be a valid URL or object storage path" }
 );
 
+export const drillDiagramSchema = z.object({
+  version: z.literal(1),
+  elements: z.array(z.object({
+    id: z.string().min(1).max(80),
+    type: z.enum(["shot", "start", "screen", "cone", "arrow"]),
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100),
+    shots: z.number().int().min(1).max(999).optional(),
+    angle: z.number().min(-360).max(360).optional(),
+    length: z.number().min(5).max(100).optional(),
+    bend: z.number().min(-60).max(60).optional(),
+  })).max(60),
+});
+
 // Public player profiles - recruiting-style profile page
 export const PLAYER_CARD_CAREER_STAT_KEYS = [
   "ppg",
@@ -1083,6 +1114,7 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ i
 export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, createdAt: true }).extend({
   videoUrl: urlOrObjectPath,
   thumbnailUrl: urlOrObjectPath,
+  diagramData: drillDiagramSchema.nullish(),
   skillTags: z.array(z.enum(WORKOUT_SKILL_OPTIONS.map((option) => option.value) as [string, ...string[]])).optional(),
   workoutTags: z.array(z.enum(WORKOUT_FORMAT_OPTIONS.map((option) => option.value) as [string, ...string[]])).optional(),
 });

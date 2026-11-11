@@ -6,6 +6,7 @@ import type { Drill } from "@shared/schema";
 import { CompactDrillRating } from "@/components/basketball-rating";
 import { getObjectUrl } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
+import { DrillDiagramPreview } from "@/components/drill-diagram-preview";
 
 interface DrillCardProps {
   drill: Drill;
@@ -102,7 +103,9 @@ export function DrillCard({
           "relative shrink-0 overflow-hidden bg-zinc-900",
           viewMode === "list" ? "h-[88px] w-28 sm:h-24 sm:w-36" : hubFeatured ? "aspect-[1.35/1] w-full" : "aspect-[11/5] w-full"
         )}>
-          {drill.videoUrl ? (
+          {drill.diagramData ? (
+            <DrillDiagramPreview diagramData={drill.diagramData} className="h-full w-full object-cover" />
+          ) : drill.videoUrl ? (
             <video
               src={getObjectUrl(drill.videoUrl)}
               poster={getObjectUrl(drill.thumbnailUrl) || undefined}
