@@ -345,7 +345,7 @@ export default function Drills() {
       const matchesSearch = !searchQuery || 
         drill.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         drill.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || drill.category === selectedCategory;
+      const matchesCategory = !!searchQuery.trim() || selectedCategory === 'all' || drill.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
   };
@@ -413,7 +413,7 @@ export default function Drills() {
             {searchOpen && !searchQuery ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
           </Button>
           {user && !selectionMode && (
-            <Button onClick={() => setLocation("/log?create=1")} variant="outline" size="icon" aria-label="Create a drill" title="Create a drill" className="h-10 w-10 shrink-0 rounded-full border-orange-400/50 bg-orange-500 text-black shadow-[0_8px_20px_rgba(249,115,22,0.18)] hover:bg-orange-400" data-testid="button-create-drill-nav">
+            <Button onClick={() => setLocation("/log?create=1")} variant="outline" size="icon" aria-label="Create a drill" title="Create a drill" className="h-10 w-10 shrink-0 rounded-full border-orange-900 bg-black text-orange-300 ring-1 ring-orange-900/80 shadow-[0_0_14px_rgba(124,45,18,0.18)] hover:bg-zinc-950 hover:text-orange-200" data-testid="button-create-drill-nav">
               <Plus className="h-5 w-5" />
             </Button>
           )}

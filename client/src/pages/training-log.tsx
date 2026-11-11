@@ -198,7 +198,8 @@ export default function TrainingLogPage() {
   };
   const [isAddDrillToWorkoutOpen, setIsAddDrillToWorkoutOpen] = useState(false);
   const [isStartWorkoutDialogOpen, setIsStartWorkoutDialogOpen] = useState(false);
-  const [drillSearchQuery, setDrillSearchQuery] = useState("");
+  const [startWorkoutDrillSearch, setStartWorkoutDrillSearch] = useState("");
+  const [addWorkoutDrillSearch, setAddWorkoutDrillSearch] = useState("");
   const [selectedMetricTemplateIds, setSelectedMetricTemplateIds] = useState<string[]>([]);
   const [presetRounds, setPresetRounds] = useState<Array<{ shotLocation?: string; metricValues: Record<string, number> }>>([]);
   const [drillVideoFile, setDrillVideoFile] = useState<File | null>(null);
@@ -2794,7 +2795,7 @@ export default function TrainingLogPage() {
               </Dialog>
 
               {/* Start Workout Dialog */}
-              <Dialog open={isStartWorkoutDialogOpen} onOpenChange={(open) => { setIsStartWorkoutDialogOpen(open); if (!open) setDrillSearchQuery(""); }}>
+              <Dialog open={isStartWorkoutDialogOpen} onOpenChange={(open) => { setIsStartWorkoutDialogOpen(open); if (!open) setStartWorkoutDrillSearch(""); }}>
                 <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
                   <DialogHeader>
                     <DialogTitle>Start Workout</DialogTitle>
@@ -2804,8 +2805,9 @@ export default function TrainingLogPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       placeholder="Search drills..."
-                      value={drillSearchQuery}
-                      onChange={(e) => setDrillSearchQuery(e.target.value)}
+                      value={startWorkoutDrillSearch}
+                      onChange={(e) => setStartWorkoutDrillSearch(e.currentTarget.value)}
+                      autoComplete="off"
                       className="pl-9"
                       data-testid="input-start-workout-search"
                     />
@@ -2820,7 +2822,7 @@ export default function TrainingLogPage() {
                           className="gap-1.5"
                           onClick={() => {
                             setIsStartWorkoutDialogOpen(false);
-                            setDrillSearchQuery("");
+                            setStartWorkoutDrillSearch("");
                             startWorkoutFromDrills("complete");
                           }}
                           data-testid="button-start-quick-complete"
@@ -2833,7 +2835,7 @@ export default function TrainingLogPage() {
                           className="gap-1.5"
                           onClick={() => {
                             setIsStartWorkoutDialogOpen(false);
-                            setDrillSearchQuery("");
+                            setStartWorkoutDrillSearch("");
                             startWorkoutFromDrills("track");
                           }}
                           data-testid="button-start-track-stats"
@@ -2855,7 +2857,7 @@ export default function TrainingLogPage() {
                         {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
                       </div>
                     ) : (() => {
-                      const searchLower = drillSearchQuery.toLowerCase().trim();
+                      const searchLower = startWorkoutDrillSearch.toLowerCase().trim();
                       const filtered = searchLower
                         ? (allDrills || []).filter(d =>
                             d.title.toLowerCase().includes(searchLower) ||
@@ -3658,7 +3660,7 @@ export default function TrainingLogPage() {
               </Button>
               
               {/* Add Drill Dialog */}
-              <Dialog open={isAddDrillToWorkoutOpen} onOpenChange={(open) => { setIsAddDrillToWorkoutOpen(open); if (!open) setDrillSearchQuery(""); }}>
+              <Dialog open={isAddDrillToWorkoutOpen} onOpenChange={(open) => { setIsAddDrillToWorkoutOpen(open); if (!open) setAddWorkoutDrillSearch(""); }}>
                 <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
                   <DialogHeader>
                     <DialogTitle>Add Drill to Workout</DialogTitle>
@@ -3668,15 +3670,16 @@ export default function TrainingLogPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       placeholder="Search drills..."
-                      value={drillSearchQuery}
-                      onChange={(e) => setDrillSearchQuery(e.target.value)}
+                      value={addWorkoutDrillSearch}
+                      onChange={(e) => setAddWorkoutDrillSearch(e.currentTarget.value)}
+                      autoComplete="off"
                       className="pl-9"
                       data-testid="input-add-drill-search"
                     />
                   </div>
                   <div className="flex-1 overflow-y-auto space-y-2 pr-2">
                     {(() => {
-                      const searchLower = drillSearchQuery.toLowerCase().trim();
+                      const searchLower = addWorkoutDrillSearch.toLowerCase().trim();
                       const filtered = searchLower
                         ? (allDrills || []).filter(d =>
                             d.title.toLowerCase().includes(searchLower) ||
@@ -3701,7 +3704,7 @@ export default function TrainingLogPage() {
                         <div
                           key={drill.id}
                           className="flex items-center justify-between p-3 rounded-md border hover-elevate cursor-pointer"
-                          onClick={() => { addDrillToWorkout(drill.id); setDrillSearchQuery(""); }}
+                          onClick={() => { addDrillToWorkout(drill.id); setAddWorkoutDrillSearch(""); }}
                           data-testid={`add-drill-option-${drill.id}`}
                         >
                           <div>
