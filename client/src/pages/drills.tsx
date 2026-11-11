@@ -399,19 +399,6 @@ export default function Drills() {
   }
 
   if (showProBuilder) {
-    const isPro = subscription?.plan === "pro" || subscription?.plan === "pro-infinity";
-    if (subscriptionLoading) return <div className="min-h-screen bg-black p-6 text-zinc-400">Loading your plan…</div>;
-    if (!isPro) return (
-      <main className="flex min-h-full items-center justify-center bg-black px-4 py-10 text-white">
-        <section className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-black p-6 text-center">
-          <p className="text-[10px] font-black uppercase tracking-[.2em] text-orange-400">PLAYR1 Pro</p>
-          <h1 className="mt-2 font-heading text-3xl font-black uppercase">Build a workout for you</h1>
-          <p className="mt-3 text-sm leading-6 text-zinc-400">Choose your time, focus, and level. PLAYR1 builds the session from matching drills.</p>
-          <Button className="mt-5 w-full bg-orange-500 font-bold text-black hover:bg-orange-400" onClick={() => openProOffer("Pro workout builder")}>Explore Pro</Button>
-          <Button variant="ghost" className="mt-2 w-full text-zinc-300" onClick={() => { setShowProBuilder(false); setSelectionMode(true); setLocation("/drills?build=1"); }}>Choose drills myself</Button>
-        </section>
-      </main>
-    );
     return <ProWorkoutBuilder
       drills={adminDrills}
       onBuildYourOwn={() => { setShowProBuilder(false); setSelectionMode(true); setLocation("/drills?build=1"); }}

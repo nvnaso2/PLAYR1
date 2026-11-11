@@ -119,6 +119,9 @@ export function Day4HubActionSurface({
                 <span className="block font-heading text-3xl font-black uppercase leading-none tracking-tight sm:text-4xl">
                   Build <span className="text-orange-600">A</span> Workout
                 </span>
+                <span className="mt-2 inline-flex rounded-full border border-orange-300/50 bg-orange-100 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.14em] text-orange-900 sm:text-[9px]">
+                  Pro builder · Open to everyone
+                </span>
                 <span className="mt-2 block font-heading text-base font-black uppercase leading-tight sm:text-lg">Create a Custom Workout</span>
                 <span className="mt-1.5 block text-xs font-semibold leading-snug text-zinc-600 sm:text-sm">Unlimited drills to improve your game</span>
               </span>
