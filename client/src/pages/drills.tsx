@@ -403,7 +403,6 @@ export default function Drills() {
   if (showProBuilder) {
     return <ProWorkoutBuilder
       drills={adminDrills}
-      onBuildYourOwn={() => { setShowProBuilder(false); setSelectionMode(true); setLocation("/drills?build=1"); }}
       onUseWorkout={(ids) => { setSelectedDrillIds(new Set(ids)); setShowProBuilder(false); setSelectionMode(true); setLocation("/drills?build=1"); }}
     />;
   }

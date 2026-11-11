@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { ArrowRight, Check, Clock3, Shuffle } from "lucide-react";
+import { ArrowRight, Clock3, Shuffle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DrillCard } from "@/components/drill-card";
 import { DrillLibraryCard } from "@/components/drill-library-card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getWorkoutFormatTags, getWorkoutSkillTags, WORKOUT_FORMAT_OPTIONS, WORKOUT_SKILL_OPTIONS, type WorkoutSkillTag } from "@shared/workout-builder-taxonomy";
 import type { DifficultyLevel, Drill } from "@shared/schema";
 
@@ -39,11 +39,9 @@ function randomize<T>(items: T[]): T[] {
 export function ProWorkoutBuilder({
   drills,
   onUseWorkout,
-  onBuildYourOwn,
 }: {
   drills: Drill[];
   onUseWorkout: (ids: string[]) => void;
-  onBuildYourOwn: () => void;
 }) {
   const [minutes, setMinutes] = useState(30);
   const [skills, setSkills] = useState<WorkoutSkillTag[]>([]);
@@ -51,6 +49,7 @@ export function ProWorkoutBuilder({
   const [level, setLevel] = useState<DifficultyLevel>("intermediate");
   const [result, setResult] = useState<Drill[]>([]);
   const [unavailable, setUnavailable] = useState<string[]>([]);
+  const [resultOpen, setResultOpen] = useState(false);
 
   const toggleSkill = (skill: WorkoutSkillTag) => {
     setSkills((current) => current.includes(skill) ? current.filter((item) => item !== skill) : [...current, skill]);
@@ -101,6 +100,7 @@ export function ProWorkoutBuilder({
     }
     setUnavailable(missing);
     setResult(chosen);
+    setResultOpen(true);
   };
 
   const activeSkills = useMemo(() => WORKOUT_SKILL_OPTIONS.filter((item) => skills.includes(item.value)), [skills]);
@@ -108,44 +108,46 @@ export function ProWorkoutBuilder({
 
   return (
     <main className="min-h-full bg-black px-4 py-6 text-white sm:px-6">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[.22em] text-orange-400">Pro-level builder · Open to everyone</p>
-            <h1 className="mt-2 font-heading text-3xl font-black uppercase sm:text-4xl">Build your workout</h1>
-            <p className="mt-2 text-sm text-zinc-400">Choose your time and focus. PLAYR1 will put the session together.</p>
-          </div>
-          <Button variant="ghost" onClick={onBuildYourOwn} className="text-zinc-300">Choose drills yourself</Button>
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-8 text-center">
+          <h1 className="font-heading text-3xl font-black uppercase sm:text-4xl">Build your workout</h1>
         </div>
 
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,.8fr)]">
-          <div className="space-y-6">
+        <section className="space-y-8">
             <div>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-200"><Clock3 className="h-4 w-4 text-orange-400" />How long is your workout?</h2>
-              <div className="flex flex-wrap gap-2">{DURATIONS.map((value) => <button key={value} type="button" onClick={() => { setMinutes(value); setResult([]); }} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${minutes === value ? "border-orange-400 bg-orange-500 text-black" : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-zinc-500"}`}>{value} min</button>)}</div>
+              <h2 className="mb-4 flex items-center justify-center gap-2 text-center font-heading text-base font-black uppercase tracking-wide text-zinc-100"><Clock3 className="h-4 w-4 text-orange-400" />How long is your workout?</h2>
+              <div className="flex flex-wrap justify-center gap-2.5">{DURATIONS.map((value) => <button key={value} type="button" onClick={() => { setMinutes(value); setResult([]); }} className={`min-w-24 rounded-full border px-5 py-3 text-sm font-semibold transition sm:text-base ${minutes === value ? "border-orange-400 bg-orange-500 text-black shadow-[0_0_18px_rgba(249,115,22,.22)]" : "border-orange-500/70 bg-zinc-950 text-zinc-200 hover:bg-orange-500/10"}`}>{value} min</button>)}</div>
             </div>
 
             <div>
-              <h2 className="mb-1 text-sm font-bold uppercase tracking-wider text-zinc-200">What skills do you want to work on?</h2>
-              <p className="mb-3 text-xs text-zinc-500">Select as many as you like, then choose a style for each.</p>
-              <div className="flex flex-wrap gap-2">{WORKOUT_SKILL_OPTIONS.map((item) => <button key={item.value} type="button" onClick={() => toggleSkill(item.value)} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${skills.includes(item.value) ? "border-orange-400 bg-orange-500/15 text-orange-200" : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-zinc-500"}`}>{item.label}</button>)}</div>
-              <div className="mt-4 space-y-4">{activeSkills.map((skill) => <div key={skill.value} className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3"><p className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-400">{skill.label}</p><div className="flex flex-wrap gap-2">{formatsForSkill(skill.value).map((option) => <button key={option.value} type="button" onClick={() => toggleFormat(skill.value, option.value)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${formats[skill.value]?.includes(option.value) ? "border-white bg-white text-black" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"}`}>{option.label}</button>)}</div></div>)}</div>
+              <h2 className="mb-4 text-center font-heading text-base font-black uppercase tracking-wide text-zinc-100">What skills do you want to work on?</h2>
+              <div className="flex flex-wrap justify-center gap-2.5">{WORKOUT_SKILL_OPTIONS.map((item) => <button key={item.value} type="button" onClick={() => toggleSkill(item.value)} className={`rounded-full border px-5 py-3 text-sm font-semibold transition sm:text-base ${skills.includes(item.value) ? "border-orange-400 bg-orange-500 text-black shadow-[0_0_18px_rgba(249,115,22,.2)]" : "border-orange-500/70 bg-zinc-950 text-zinc-200 hover:bg-orange-500/10"}`}>{item.label}</button>)}</div>
+              <div className="mt-5 space-y-3">{activeSkills.map((skill) => <div key={skill.value} className="rounded-2xl border border-orange-500/55 bg-zinc-950/90 px-4 py-4 shadow-[0_0_24px_rgba(249,115,22,.06)]"><p className="mb-3 text-center text-xs font-black uppercase tracking-[.16em] text-orange-300">{skill.label} style</p><div className="flex flex-wrap justify-center gap-2">{formatsForSkill(skill.value).map((option) => <button key={option.value} type="button" onClick={() => toggleFormat(skill.value, option.value)} className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${formats[skill.value]?.includes(option.value) ? "border-orange-400 bg-orange-500 text-black" : "border-orange-500/60 bg-black text-zinc-200 hover:bg-orange-500/10"}`}>{option.label}</button>)}</div></div>)}</div>
             </div>
 
             <div>
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-zinc-200">Choose a level</h2>
-              <div className="grid grid-cols-3 gap-2">{LEVELS.map((value) => <button key={value} type="button" onClick={() => { setLevel(value); setResult([]); }} className={`rounded-lg border px-3 py-3 text-sm font-bold capitalize ${level === value ? "border-orange-400 bg-orange-500 text-black" : "border-zinc-700 bg-zinc-950 text-zinc-300"}`}>{value}</button>)}</div>
-              <p className="mt-2 text-xs text-zinc-500">Your selected level is the highest used; easier drills can be included.</p>
+              <h2 className="mb-4 text-center font-heading text-base font-black uppercase tracking-wide text-zinc-100">Choose a level</h2>
+              <div className="mx-auto grid max-w-xl grid-cols-3 gap-2.5">{LEVELS.map((value) => <button key={value} type="button" onClick={() => { setLevel(value); setResult([]); }} className={`rounded-full border px-3 py-3 text-sm font-bold capitalize transition ${level === value ? "border-orange-400 bg-orange-500 text-black shadow-[0_0_18px_rgba(249,115,22,.2)]" : "border-orange-500/70 bg-zinc-950 text-zinc-200 hover:bg-orange-500/10"}`}>{value}</button>)}</div>
             </div>
 
-            <Button onClick={build} disabled={!skills.length || skills.some((skill) => !formats[skill]?.length)} className="h-12 w-full bg-orange-500 font-black uppercase tracking-wide text-black hover:bg-orange-400"><Shuffle className="mr-2 h-4 w-4" />Build my workout</Button>
-          </div>
-
-          <aside className="min-h-64 rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-black p-4 sm:p-5">
-            {!result.length ? <div className="flex h-full min-h-56 flex-col justify-end"><p className="text-[10px] font-black uppercase tracking-[.2em] text-zinc-500">Your session</p><h2 className="mt-2 text-2xl font-black text-white">{minutes} minutes</h2><p className="mt-2 max-w-sm text-sm leading-6 text-zinc-400">{skills.length ? `${skills.length} skill${skills.length === 1 ? "" : "s"} selected` : "Your selected drills will appear here."}</p>{unavailable.length > 0 && <p className="mt-4 text-xs leading-5 text-amber-300">No matching drills yet for {unavailable.join(", ")}. Try another style or tag more drills in the library.</p>}</div> : <><div className="mb-4 flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-[.2em] text-orange-300">{minutes} minute workout</p><h2 className="mt-1 text-xl font-black">{result.length} drills</h2></div><Check className="h-5 w-5 text-orange-400" /></div><div className="grid grid-cols-2 gap-3">{result.map((drill) => <DrillLibraryCard key={drill.id} drill={drill} link={false} />)}</div>{unavailable.length > 0 && <p className="mt-4 text-xs text-amber-300">No matching drills yet for: {unavailable.join(", ")}.</p>}<Button onClick={() => onUseWorkout(result.map((drill) => drill.id))} className="mt-4 w-full bg-white font-bold text-black hover:bg-zinc-200">Use this workout <ArrowRight className="ml-2 h-4 w-4" /></Button></>}
-          </aside>
+            <Button onClick={build} disabled={!skills.length || skills.some((skill) => !formats[skill]?.length)} className="mx-auto flex h-12 w-full max-w-xl justify-center bg-orange-500 font-black uppercase tracking-wide text-black hover:bg-orange-400"><Shuffle className="mr-2 h-4 w-4" />Build my workout</Button>
         </section>
       </div>
+      <Dialog open={resultOpen} onOpenChange={setResultOpen}>
+        <DialogContent className="max-h-[88dvh] max-w-3xl overflow-y-auto border border-orange-500/45 bg-zinc-950 text-white shadow-[0_0_50px_rgba(249,115,22,.12)]">
+          <DialogHeader className="text-center">
+            <p className="text-[10px] font-black uppercase tracking-[.2em] text-orange-400">Workout generated</p>
+            <DialogTitle className="font-heading text-2xl font-black uppercase">{minutes}-minute workout</DialogTitle>
+            <DialogDescription className="text-zinc-400">{result.length ? `${result.length} drills matched to your choices.` : "There are no matching drills for these choices yet."}</DialogDescription>
+          </DialogHeader>
+          {result.length ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{result.map((drill) => <DrillLibraryCard key={drill.id} drill={drill} link={false} />)}</div> : <p className="rounded-xl border border-orange-500/30 bg-black p-4 text-center text-sm text-zinc-300">Try another style, or tag more drills in the library.</p>}
+          {unavailable.length > 0 && <p className="text-center text-xs text-amber-300">No matches yet for: {unavailable.join(", ")}.</p>}
+          <DialogFooter className="gap-2 sm:justify-center">
+            <Button variant="outline" onClick={build} className="border-zinc-700 text-zinc-200 hover:bg-zinc-900"><Shuffle className="mr-2 h-4 w-4" />Build another</Button>
+            {result.length > 0 && <Button onClick={() => onUseWorkout(result.map((drill) => drill.id))} className="bg-orange-500 font-bold text-black hover:bg-orange-400">Use this workout <ArrowRight className="ml-2 h-4 w-4" /></Button>}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
