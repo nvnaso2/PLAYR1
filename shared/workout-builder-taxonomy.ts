@@ -30,3 +30,41 @@ export const WORKOUT_FORMAT_OPTIONS = [
 
 export type WorkoutSkillTag = typeof WORKOUT_SKILL_OPTIONS[number]["value"];
 export type WorkoutFormatTag = typeof WORKOUT_FORMAT_OPTIONS[number]["value"];
+
+const FORMAT_PATTERNS: Partial<Record<WorkoutFormatTag, RegExp>> = {
+  volume: /volume|reps|makes|shots|form|routine/i,
+  live: /live|game|defender|closeout|contact|1v1|pressure/i,
+  "on-the-move": /moving|move|curl|transition|cut|run|on the move/i,
+  "off-the-dribble": /off.dribble|pull.up|dribble.*shoot|drive/i,
+  stationary: /stationary|spot|pound|form|warm.?up/i,
+  moving: /moving|move|transition|down the|full court/i,
+  "tennis-ball": /tennis ball/i,
+  "two-ball": /two ball|2 ball/i,
+  "one-ball": /one ball|1 ball/i,
+  "post-work": /post|block|paint/i,
+  conditioning: /conditioning|sprint|slide|shuttle|endurance/i,
+  "footwork-mechanics": /stance|slide|footwork|mechanic|closeout/i,
+  "on-your-own": /solo|on your own|individual/i,
+  shooting: /shoot|jumper|shot/i,
+  finishing: /finish|layup|floater|rim/i,
+  post: /post|block/i,
+  "speed-agility": /speed|agility|sprint|quickness/i,
+};
+
+export function getWorkoutSkillTags(drill: { category: string; title: string; description?: string | null; skillTags?: string[] | null }): WorkoutSkillTag[] {
+  if (drill.skillTags?.length) return drill.skillTags as WorkoutSkillTag[];
+  const text = `${drill.title} ${drill.description ?? ""}`;
+  const skills = new Set<WorkoutSkillTag>();
+  if (WORKOUT_SKILL_OPTIONS.some((option) => option.value === drill.category)) skills.add(drill.category as WorkoutSkillTag);
+  if (/footwork|pivot|first step|jab step/i.test(text)) skills.add("footwork");
+  if (/rebound|box.?out/i.test(text)) skills.add("rebounding");
+  return [...skills];
+}
+
+export function getWorkoutFormatTags(drill: { category: string; title: string; description?: string | null; workoutTags?: string[] | null }): WorkoutFormatTag[] {
+  if (drill.workoutTags?.length) return drill.workoutTags as WorkoutFormatTag[];
+  const text = `${drill.title} ${drill.description ?? ""}`;
+  return Object.entries(FORMAT_PATTERNS)
+    .filter(([, pattern]) => pattern?.test(text))
+    .map(([tag]) => tag as WorkoutFormatTag);
+}

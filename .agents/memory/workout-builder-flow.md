@@ -26,3 +26,9 @@ The Day 4 Pro builder is a rules-based, non-AI workout generator. Ask for 15, 30
 **Why:** The user defined the desired Day 4 Pro builder flow and wants tagged drills to power both workout generation and skill/style library rows.
 
 **How to apply:** Use one shared drill taxonomy for the Netflix-style library and builder. Treat development and production drill rows as separate data; never assume publishing code syncs catalog content or overwrite either catalog without a safe reconciliation.
+
+For legacy drills without builder tags, the library and generator may infer skill/style tags from the title and description as a compatibility fallback. Explicit admin tags always take precedence.
+
+**Why:** Existing catalog rows predate the tag fields, and the separate catalogs cannot be assumed to have matching records.
+
+**How to apply:** Keep inference conservative and deterministic; use admin-maintained tags as the source of truth as catalogs are tagged.

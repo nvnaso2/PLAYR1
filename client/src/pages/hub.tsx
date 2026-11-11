@@ -1745,7 +1745,7 @@ export default function HubPage() {
               <Day4HubActionSurface
                 onGameInsights={() => navigate("/lead-magnets")}
                 onDrillLibrary={() => navigate("/drills")}
-                onBuildWorkout={() => navigate("/drills?build=1")}
+                onBuildWorkout={() => navigate("/drills?build=pro")}
               />
             )}
 

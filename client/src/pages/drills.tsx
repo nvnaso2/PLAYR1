@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { QueryError } from "@/components/query-error";
-import { useLocation, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DrillCard } from "@/components/drill-card";
+import { DrillLibraryCard } from "@/components/drill-library-card";
+import { ProWorkoutBuilder } from "@/components/pro-workout-builder";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -49,11 +51,13 @@ import {
   ArrowLeft,
   Share2,
   Plus,
+  Shuffle,
   Trash2,
   Check,
   X
 } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel } from "@shared/schema";
+import { getWorkoutFormatTags, getWorkoutSkillTags, WORKOUT_FORMAT_OPTIONS, WORKOUT_SKILL_OPTIONS } from "@shared/workout-builder-taxonomy";
 
 const categoryInfo: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   "all": { label: "All Drills", icon: <Play className="w-4 h-4" />, color: "#6b7280" },
@@ -67,6 +71,46 @@ const categoryInfo: Record<string, { label: string; icon: React.ReactNode; color
 };
 
 const drillGridClass = "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5";
+
+function DrillRows({ drills, selectionMode, selectedDrillIds, onSelect }: {
+  drills: Drill[];
+  selectionMode?: boolean;
+  selectedDrillIds?: Set<string>;
+  onSelect?: (id: string) => void;
+}) {
+  const formatTags = [...new Map(WORKOUT_FORMAT_OPTIONS.filter((tag) => tag.value !== "mix").map((tag) => [tag.value, tag])).values()];
+  const rows = [
+    ...WORKOUT_SKILL_OPTIONS.map((skill) => ({
+      key: `skill-${skill.value}`,
+      title: skill.label,
+      items: drills.filter((drill) => getWorkoutSkillTags(drill).includes(skill.value)),
+    })),
+    ...formatTags.map((tag) => ({
+      key: `format-${tag.value}`,
+      title: tag.label,
+      items: drills.filter((drill) => getWorkoutFormatTags(drill).includes(tag.value)),
+    })),
+    ...(["beginner", "intermediate", "advanced"] as const).map((level) => ({
+      key: `level-${level}`,
+      title: `${level[0].toUpperCase()}${level.slice(1)}`,
+      items: drills.filter((drill) => drill.difficulty === level),
+    })),
+  ].filter((row) => row.items.length > 0);
+
+  if (!rows.length) return <DrillGrid drills={drills} viewMode="grid" searchQuery="" isLoading={false} selectionMode={selectionMode} selectedDrillIds={selectedDrillIds} onSelect={onSelect} />;
+  return <div className="space-y-7">{rows.map((row) => (
+    <section key={row.key} aria-label={`${row.title} drills`}>
+      <h2 className="mb-3 font-heading text-lg font-black uppercase tracking-wide text-white">{row.title}</h2>
+      <div className="flex snap-x gap-3 overflow-x-auto pb-3">
+        {row.items.map((drill) => <div key={`${row.title}-${drill.id}`} className="w-[190px] shrink-0 snap-start sm:w-[220px]">
+          {selectionMode
+            ? <DrillCard drill={drill} viewMode="grid" hubFeatured selectable selected={selectedDrillIds?.has(drill.id)} onSelect={onSelect} />
+            : <DrillLibraryCard drill={drill} />}
+        </div>)}
+      </div>
+    </section>
+  ))}</div>;
+}
 
 function DrillGrid({ drills, viewMode, searchQuery, isLoading, showShareToggle, onToggleShare, onDelete, selectionMode, selectedDrillIds, onSelect }: {
   drills: Drill[] | undefined; 
@@ -194,6 +238,7 @@ export default function Drills() {
   const urlCategory = new URLSearchParams(searchParams).get('category') || 'all';
   const urlTab = new URLSearchParams(searchParams).get('tab') || 'handlz';
   const launchedFromTrain = new URLSearchParams(searchParams).get("build") === "1";
+  const proBuildRequested = new URLSearchParams(searchParams).get("build") === "pro";
   
   const [activeTab, setActiveTab] = useState(urlTab);
   const [searchQuery, setSearchQuery] = useState("");
@@ -202,6 +247,7 @@ export default function Drills() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectionMode, setSelectionMode] = useState(launchedFromTrain);
+  const [showProBuilder, setShowProBuilder] = useState(proBuildRequested);
   const [selectedDrillIds, setSelectedDrillIds] = useState<Set<string>>(new Set());
   const [, setLocation] = useLocation();
   const { openProOffer } = useProUpgrade();
@@ -352,6 +398,27 @@ export default function Drills() {
     );
   }
 
+  if (showProBuilder) {
+    const isPro = subscription?.plan === "pro" || subscription?.plan === "pro-infinity";
+    if (subscriptionLoading) return <div className="min-h-screen bg-black p-6 text-zinc-400">Loading your plan…</div>;
+    if (!isPro) return (
+      <main className="flex min-h-full items-center justify-center bg-black px-4 py-10 text-white">
+        <section className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-black p-6 text-center">
+          <p className="text-[10px] font-black uppercase tracking-[.2em] text-orange-400">PLAYR1 Pro</p>
+          <h1 className="mt-2 font-heading text-3xl font-black uppercase">Build a workout for you</h1>
+          <p className="mt-3 text-sm leading-6 text-zinc-400">Choose your time, focus, and level. PLAYR1 builds the session from matching drills.</p>
+          <Button className="mt-5 w-full bg-orange-500 font-bold text-black hover:bg-orange-400" onClick={() => openProOffer("Pro workout builder")}>Explore Pro</Button>
+          <Button variant="ghost" className="mt-2 w-full text-zinc-300" onClick={() => { setShowProBuilder(false); setSelectionMode(true); setLocation("/drills?build=1"); }}>Choose drills myself</Button>
+        </section>
+      </main>
+    );
+    return <ProWorkoutBuilder
+      drills={adminDrills}
+      onBuildYourOwn={() => { setShowProBuilder(false); setSelectionMode(true); setLocation("/drills?build=1"); }}
+      onUseWorkout={(ids) => { setSelectedDrillIds(new Set(ids)); setShowProBuilder(false); setSelectionMode(true); setLocation("/drills?build=1"); }}
+    />;
+  }
+
   return (
     <div className={selectionMode
       ? "mx-auto flex h-full min-h-0 max-w-7xl flex-col gap-4 overflow-hidden p-4 sm:p-6"
@@ -387,6 +454,13 @@ export default function Drills() {
               <span className="hidden sm:inline">{selectionMode && launchedFromTrain ? "Back to Train" : selectionMode ? "Cancel Selection" : "Build Workout"}</span>
               <span className="sm:hidden">{selectionMode && launchedFromTrain ? "Back" : selectionMode ? "Cancel" : "Select"}</span>
             </Button>
+            {!selectionMode && (
+              <Button variant="outline" onClick={() => { setShowProBuilder(true); setLocation("/drills?build=pro"); }} className="h-10 gap-2 border-zinc-700 text-zinc-100 hover:border-orange-400/60" data-testid="button-pro-workout-builder">
+                <Shuffle className="h-4 w-4 text-orange-400" />
+                <span className="hidden sm:inline">Build for me</span>
+                <span className="sm:hidden">Pro</span>
+              </Button>
+            )}
             {!selectionMode && (
               <Button onClick={() => setLocation("/log?create=1")} variant="outline" className="gap-2" data-testid="button-create-drill-nav">
                 <Plus className="w-4 h-4" />
@@ -491,15 +565,17 @@ export default function Drills() {
           </div>
 
           <TabsContent value="handlz" className="mt-0 space-y-4">
-            <DrillGrid 
-              drills={filteredHandlzDrills} 
-              viewMode={viewMode} 
-              searchQuery={searchQuery}
-              isLoading={isLoading}
-              selectionMode={selectionMode}
-              selectedDrillIds={selectedDrillIds}
-              onSelect={toggleDrillSelection}
-            />
+            {!selectionMode && !isLoading && !searchQuery && selectedCategory === "all" && selectedDifficulty === "all"
+              ? <DrillRows drills={filteredHandlzDrills} />
+              : <DrillGrid
+                drills={filteredHandlzDrills}
+                viewMode={viewMode}
+                searchQuery={searchQuery}
+                isLoading={isLoading}
+                selectionMode={selectionMode}
+                selectedDrillIds={selectedDrillIds}
+                onSelect={toggleDrillSelection}
+              />}
           </TabsContent>
 
           <TabsContent value="community" className="mt-0 space-y-4">
