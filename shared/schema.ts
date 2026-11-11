@@ -2,6 +2,7 @@ import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, integer, timestamp, boolean, decimal, doublePrecision, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { WORKOUT_FORMAT_OPTIONS, WORKOUT_SKILL_OPTIONS } from "./workout-builder-taxonomy";
 import { users } from "./models/auth";
 import type {
   ShootingCohortApplicationAnswers,
@@ -381,6 +382,8 @@ export const drills = pgTable("drills", {
   description: text("description"),
   category: varchar("category").$type<DrillCategory>().notNull(),
   difficulty: varchar("difficulty").$type<DifficultyLevel>().notNull().default("beginner"),
+  skillTags: text("builder_skill_tags").array().notNull().default(sql`'{}'::text[]`),
+  workoutTags: text("builder_format_tags").array().notNull().default(sql`'{}'::text[]`),
   videoLibraryId: varchar("video_library_id"), // Reference to video library
   pdfLibraryId: varchar("pdf_library_id"), // Reference to PDF library
   videoUrl: varchar("video_url"),
@@ -1079,6 +1082,8 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ i
 export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, createdAt: true }).extend({
   videoUrl: urlOrObjectPath,
   thumbnailUrl: urlOrObjectPath,
+  skillTags: z.array(z.enum(WORKOUT_SKILL_OPTIONS.map((option) => option.value) as [string, ...string[]])).optional(),
+  workoutTags: z.array(z.enum(WORKOUT_FORMAT_OPTIONS.map((option) => option.value) as [string, ...string[]])).optional(),
 });
 export const insertVideoLibrarySchema = createInsertSchema(videoLibrary).omit({ id: true, createdAt: true }).extend({
   videoUrl: z.string().refine(

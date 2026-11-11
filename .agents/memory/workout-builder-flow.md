@@ -20,3 +20,9 @@ Detailed stat tracking should omit per-round notes and per-round challenge selec
 **Why:** The user asked to simplify round entry and show time only for actual required time drills.
 
 **How to apply:** Keep each round focused on its required performance metrics and shot location, without optional notes or individual challenge controls.
+
+The Day 4 Pro builder is a rules-based, non-AI workout generator. Ask for 15, 30, 45, 60, 75, 90, or 120 minutes; let players select any of Shooting, Finishing, Ball Handling, Footwork, Defense, and Rebounding; reveal the user's skill-specific work-style options; then ask Beginner, Intermediate, or Advanced. Generate drills from explicit skill/style tags, cap the highest drill level at the selected level, and favor that level while allowing lower levels. Do not show an explanation for every drill. Keep the existing free drill-selection flow unchanged.
+
+**Why:** The user defined the desired Day 4 Pro builder flow and wants tagged drills to power both workout generation and skill/style library rows.
+
+**How to apply:** Use one shared drill taxonomy for the Netflix-style library and builder. Treat development and production drill rows as separate data; never assume publishing code syncs catalog content or overwrite either catalog without a safe reconciliation.

@@ -65,6 +65,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from "recharts";
 import type { Drill, DrillCategory, DifficultyLevel, DrillMetric, VideoLibrary, PdfLibrary, MetricTemplate, Workout, WorkoutDrill, TrainingLocation, ShotLocationDB, ShotTypeDB } from "@shared/schema";
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, METRIC_TYPES, US_STATES } from "@shared/schema";
+import { WORKOUT_FORMAT_OPTIONS, WORKOUT_SKILL_OPTIONS } from "@shared/workout-builder-taxonomy";
 import { Layers, GripVertical, Calendar, CalendarRange, Fingerprint } from "lucide-react";
 import { AdminEventsSection } from "@/components/admin-events-section";
 import { AdminStatChallengesSection } from "@/components/admin-stat-challenges-section";
@@ -92,6 +93,8 @@ const drillFormSchema = z.object({
   description: z.string().optional(),
   category: z.enum(DRILL_CATEGORIES),
   difficulty: z.enum(DIFFICULTY_LEVELS),
+  skillTags: z.array(z.string()).default([]),
+  workoutTags: z.array(z.string()).default([]),
   videoLibraryId: z.string().optional(),
   pdfLibraryId: z.string().optional(),
   videoUrl: z.string().optional().refine((val) => !val || val.startsWith("/objects/") || val.startsWith("http"), "Must be a valid URL or uploaded file"),
@@ -244,6 +247,8 @@ function DrillForm({
       description: drill?.description || "",
       category: drill?.category || "ball-handling",
       difficulty: drill?.difficulty || "beginner",
+      skillTags: drill?.skillTags || [],
+      workoutTags: drill?.workoutTags || [],
       videoLibraryId: drill?.videoLibraryId || "",
       pdfLibraryId: drill?.pdfLibraryId || "",
       videoUrl: drill?.videoUrl || "",
@@ -473,6 +478,60 @@ function DrillForm({
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="skillTags"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Workout builder skills</FormLabel>
+              <FormDescription>Choose every skill this drill supports.</FormDescription>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {WORKOUT_SKILL_OPTIONS.map((option) => (
+                  <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-zinc-200">
+                    <Checkbox
+                      checked={(field.value ?? []).includes(option.value)}
+                      onCheckedChange={(checked) => field.onChange(
+                        checked
+                          ? [...new Set([...(field.value ?? []), option.value])]
+                          : (field.value ?? []).filter((value) => value !== option.value)
+                      )}
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="workoutTags"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Workout builder formats</FormLabel>
+              <FormDescription>These tags power builder choices and library rows such as Live and Volume.</FormDescription>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {WORKOUT_FORMAT_OPTIONS.map((option) => (
+                  <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-zinc-200">
+                    <Checkbox
+                      checked={(field.value ?? []).includes(option.value)}
+                      onCheckedChange={(checked) => field.onChange(
+                        checked
+                          ? [...new Set([...(field.value ?? []), option.value])]
+                          : (field.value ?? []).filter((value) => value !== option.value)
+                      )}
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
