@@ -51,6 +51,7 @@ const PlayerCardPublic = lazy(pageLoaders.playerCardPublic);
 const PlayerProfile = lazy(() => import("@/pages/player-profile"));
 const TrainerPublic = lazy(pageLoaders.trainerPublic);
 const Admin = lazy(pageLoaders.admin);
+const AdminDrillTags = lazy(() => import("@/pages/admin-drill-tags"));
 const AdminBrandPrinciples = lazy(pageLoaders.adminBrandPrinciples);
 const TrainerDashboard = lazy(pageLoaders.trainerDashboard);
 const TrainerRoster = lazy(pageLoaders.trainerRoster);
@@ -508,6 +509,7 @@ function Router() {
                 <Route path="/settings">{() => <Suspense fallback={<LoadingScreen />}><SettingsPage /></Suspense>}</Route>
                 <Route path="/admin/onboarding-preview">{() => <AdminRoute><OnboardingPreview /></AdminRoute>}</Route>
                 <Route path="/admin/brand-principles">{() => <AdminRoute><AdminBrandPrinciples /></AdminRoute>}</Route>
+                <Route path="/admin/drill-tags">{() => <AdminRoute><Suspense fallback={<LoadingScreen />}><AdminDrillTags /></Suspense></AdminRoute>}</Route>
                 <Route path="/admin/support-messages">{() => <AdminRoute><AdminSupportMessages /></AdminRoute>}</Route>
                 <Route path="/admin/shooting-cohort">{() => <AdminRoute><AdminShootingCohortPage /></AdminRoute>}</Route>
                 <Route path="/admin/community-3-pointers">{() => <AdminRoute><AdminCommunity3PointersPage /></AdminRoute>}</Route>

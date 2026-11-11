@@ -1229,11 +1229,44 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/drill-tag-review", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const allDrills = await storage.getDrills();
+      res.json(allDrills.filter((drill) => !drill.userId && !drill.isAiGenerated));
+    } catch (error) {
+      console.error("Error fetching drill tag review queue:", error);
+      res.status(500).json({ message: "Failed to load drill tag review queue" });
+    }
+  });
+
+  app.patch("/api/admin/drill-tag-review/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { skillTags, workoutTags } = insertDrillSchema.pick({ skillTags: true, workoutTags: true }).parse(req.body);
+      if (!skillTags || !workoutTags) {
+        return res.status(400).json({ message: "Skill and workout tags are required" });
+      }
+      const drill = await storage.updateDrill(req.params.id, {
+        skillTags,
+        workoutTags,
+        tagsReviewed: true,
+      });
+      if (!drill) return res.status(404).json({ message: "Drill not found" });
+      invalidateCoachPCache("drills");
+      res.json(drill);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid drill tags", errors: error.errors });
+      }
+      console.error("Error saving drill tags:", error);
+      res.status(500).json({ message: "Failed to save drill tags" });
+    }
+  });
+
   // Create drill (admin only)
   app.post("/api/drills", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertDrillSchema.parse(req.body);
-      const drill = await storage.createDrill(data);
+      const drill = await storage.createDrill({ ...data, tagsReviewed: false });
       
       // Sync bidirectional PDF library link
       if (data.pdfLibraryId) {
@@ -1254,6 +1287,7 @@ export async function registerRoutes(
   app.put("/api/drills/:id", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertDrillSchema.partial().parse(req.body);
+      delete data.tagsReviewed;
       
       // Get old drill to check for PDF library changes
       const oldDrill = await storage.getDrillById(req.params.id);

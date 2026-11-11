@@ -20,13 +20,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { DrillCard } from "@/components/drill-card";
 import { DrillLibraryCard } from "@/components/drill-library-card";
 import { ProWorkoutBuilder } from "@/components/pro-workout-builder";
@@ -39,36 +32,19 @@ import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from 
 import { 
   Search, 
   Play,
-  HandMetal,
-  Target,
-  Crosshair,
-  Shield,
-  Brain,
-  Dumbbell,
-  Flame,
   Users,
   User,
   ArrowLeft,
   Share2,
+  Target,
+  Dumbbell,
   Plus,
-  Shuffle,
   Trash2,
   Check,
   X
 } from "lucide-react";
 import type { Drill, DrillCategory, DifficultyLevel } from "@shared/schema";
 import { getWorkoutFormatTags, getWorkoutSkillTags, WORKOUT_FORMAT_OPTIONS, WORKOUT_SKILL_OPTIONS } from "@shared/workout-builder-taxonomy";
-
-const categoryInfo: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  "all": { label: "All Drills", icon: <Play className="w-4 h-4" />, color: "#6b7280" },
-  "ball-handling": { label: "Ball Handling", icon: <HandMetal className="w-4 h-4" />, color: "#f97316" },
-  "shooting": { label: "Shooting", icon: <Target className="w-4 h-4" />, color: "#22c55e" },
-  "passing": { label: "Passing", icon: <Crosshair className="w-4 h-4" />, color: "#3b82f6" },
-  "finishing": { label: "Finishing", icon: <Flame className="w-4 h-4" />, color: "#ef4444" },
-  "defense": { label: "Defense", icon: <Shield className="w-4 h-4" />, color: "#8b5cf6" },
-  "film-session": { label: "Film Session", icon: <Brain className="w-4 h-4" />, color: "#ec4899" },
-  "workouts": { label: "Workouts", icon: <Dumbbell className="w-4 h-4" />, color: "#14b8a6" },
-};
 
 const drillGridClass = "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5";
 
@@ -246,7 +222,6 @@ export default function Drills() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(urlCategory);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectionMode, setSelectionMode] = useState(launchedFromTrain);
   const [showProBuilder, setShowProBuilder] = useState(proBuildRequested);
@@ -302,12 +277,11 @@ export default function Drills() {
     track("drill_library_view", {
       tab: activeTab,
       category: selectedCategory,
-      difficulty: selectedDifficulty,
     });
   }, []);
 
   useEffect(() => {
-    const hasFilter = selectedCategory !== "all" || selectedDifficulty !== "all";
+    const hasFilter = selectedCategory !== "all";
     const hasSearch = searchQuery.trim().length >= 2;
     if (!hasFilter && !hasSearch) return;
 
@@ -315,12 +289,11 @@ export default function Drills() {
       track("drill_library_filter", {
         tab: activeTab,
         category: selectedCategory,
-        difficulty: selectedDifficulty,
         searchLength: hasSearch ? searchQuery.trim().length : 0,
       });
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [activeTab, selectedCategory, selectedDifficulty, searchQuery]);
+  }, [activeTab, selectedCategory, searchQuery]);
 
   const { data: drills, isLoading, isError: drillsError, refetch: refetchDrills } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
@@ -373,8 +346,7 @@ export default function Drills() {
         drill.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         drill.description?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || drill.category === selectedCategory;
-      const matchesDifficulty = selectedDifficulty === 'all' || drill.difficulty === selectedDifficulty;
-      return matchesSearch && matchesCategory && matchesDifficulty;
+      return matchesSearch && matchesCategory;
     });
   };
 
@@ -388,9 +360,9 @@ export default function Drills() {
     return drills.filter(d => d.userId === user.id);
   }, [drills, user]);
 
-  const filteredHandlzDrills = useMemo(() => filterDrills(adminDrills), [adminDrills, searchQuery, selectedCategory, selectedDifficulty]);
-  const filteredCommunityDrills = useMemo(() => filterDrills(communityDrills), [communityDrills, searchQuery, selectedCategory, selectedDifficulty]);
-  const filteredMyDrills = useMemo(() => filterDrills(myDrills), [myDrills, searchQuery, selectedCategory, selectedDifficulty]);
+  const filteredHandlzDrills = useMemo(() => filterDrills(adminDrills), [adminDrills, searchQuery, selectedCategory]);
+  const filteredCommunityDrills = useMemo(() => filterDrills(communityDrills), [communityDrills, searchQuery, selectedCategory]);
+  const filteredMyDrills = useMemo(() => filterDrills(myDrills), [myDrills, searchQuery, selectedCategory]);
 
   if (drillsError) {
     return (
@@ -412,52 +384,45 @@ export default function Drills() {
       ? "mx-auto flex h-full min-h-0 max-w-7xl flex-col gap-4 overflow-hidden p-4 sm:p-6"
       : "mx-auto max-w-7xl space-y-6 p-4 sm:p-6"
     }>
-      <div className={selectionMode
-        ? "flex shrink-0 items-start justify-between gap-4"
-        : "flex items-start justify-between gap-4"
-      }>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold mb-1" data-testid="text-page-title">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="whitespace-nowrap text-xl font-bold sm:text-2xl" data-testid="text-page-title">
             {selectionMode ? "Build Your Workout" : "Drill Library"}
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            {selectionMode ? "Browse and tap drills to add them" : "Browse our collection of professional basketball drills"}
-          </p>
+          {selectionMode && <p className="mt-1 text-sm text-muted-foreground">Browse and tap drills to add them</p>}
         </div>
-        {user && (
-          <div className="flex gap-2 shrink-0">
-            <Button
-              variant={selectionMode ? "secondary" : "default"}
-              onClick={() => selectionMode ? closeSelectionMode() : setSelectionMode(true)}
-              className={selectionMode
-                ? "h-10 gap-2 rounded-lg border border-white/10 bg-zinc-900/80 px-3 text-zinc-100 shadow-sm hover:border-orange-400/30 hover:bg-zinc-800"
-                : "h-10 gap-2 rounded-lg border border-orange-400/40 bg-orange-500 px-3 font-semibold text-black shadow-[0_8px_20px_rgba(249,115,22,0.18)] hover:bg-orange-400"
-              }
-              data-testid="button-build-workout"
-            >
-              {selectionMode
-                ? launchedFromTrain ? <ArrowLeft className="h-4 w-4" /> : <X className="h-4 w-4" />
-                : <Dumbbell className="h-4 w-4" />
-              }
-              <span className="hidden sm:inline">{selectionMode && launchedFromTrain ? "Back to Train" : selectionMode ? "Cancel Selection" : "Build Workout"}</span>
-              <span className="sm:hidden">{selectionMode && launchedFromTrain ? "Back" : selectionMode ? "Cancel" : "Select"}</span>
+        <div className="flex shrink-0 items-center gap-2">
+          {searchOpen && (
+            <Input
+              autoFocus
+              placeholder="Search drills"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && !searchQuery) setSearchOpen(false);
+              }}
+              className="h-10 w-28 border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500 sm:w-52"
+              data-testid="input-search-drills"
+            />
+          )}
+          <Button type="button" variant="outline" size="icon" onClick={() => {
+            if (searchOpen && searchQuery) setSearchQuery("");
+            else setSearchOpen((open) => !open);
+          }} aria-label={searchOpen ? (searchQuery ? "Clear drill search" : "Close drill search") : "Search drills"}
+            className="h-10 w-10 shrink-0 rounded-full border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-orange-400/50 hover:text-orange-300">
+            {searchOpen && !searchQuery ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+          </Button>
+          {user && !selectionMode && (
+            <Button onClick={() => setLocation("/log?create=1")} variant="outline" size="icon" aria-label="Create a drill" title="Create a drill" className="h-10 w-10 shrink-0 rounded-full border-orange-400/50 bg-orange-500 text-black shadow-[0_8px_20px_rgba(249,115,22,0.18)] hover:bg-orange-400" data-testid="button-create-drill-nav">
+              <Plus className="h-5 w-5" />
             </Button>
-            {!selectionMode && (
-              <Button variant="outline" onClick={() => { setShowProBuilder(true); setLocation("/drills?build=pro"); }} className="h-10 gap-2 border-zinc-700 text-zinc-100 hover:border-orange-400/60" data-testid="button-pro-workout-builder">
-                <Shuffle className="h-4 w-4 text-orange-400" />
-                <span className="hidden sm:inline">Build for me</span>
-                <span className="sm:hidden">Pro</span>
-              </Button>
-            )}
-            {!selectionMode && (
-              <Button onClick={() => setLocation("/log?create=1")} variant="outline" className="gap-2" data-testid="button-create-drill-nav">
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Create a Drill</span>
-                <span className="sm:hidden">Create</span>
-              </Button>
-            )}
-          </div>
-        )}
+          )}
+          {user && selectionMode && (
+            <Button onClick={closeSelectionMode} variant="outline" size="icon" aria-label={launchedFromTrain ? "Back to training" : "Cancel selection"} title={launchedFromTrain ? "Back to training" : "Cancel selection"} className="h-10 w-10 shrink-0 rounded-full border-zinc-700 bg-zinc-900 text-zinc-100 hover:border-orange-400/50">
+              {launchedFromTrain ? <ArrowLeft className="h-4 w-4" /> : <X className="h-4 w-4" />}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs
@@ -500,60 +465,8 @@ export default function Drills() {
         </div>
 
         <div className="mt-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="h-10 min-w-0 flex-1 rounded-xl border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100 sm:max-w-[240px]" aria-label="Choose drill category" data-testid="select-category">
-                <SelectValue placeholder="All Drills" />
-              </SelectTrigger>
-              <SelectContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
-                {Object.entries(categoryInfo).map(([key, { label }]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {searchOpen && (
-              <div className="relative min-w-0 flex-1 sm:max-w-[300px]">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-orange-300" />
-                <Input
-                  autoFocus
-                  placeholder="Search drills"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape" && !searchQuery) setSearchOpen(false);
-                  }}
-                  className="h-10 rounded-xl border-zinc-700 bg-zinc-900 pl-10 text-zinc-100 placeholder:text-zinc-500"
-                  data-testid="input-search-drills"
-                />
-              </div>
-            )}
-            <Button type="button" variant="outline" size="icon" onClick={() => {
-              if (searchOpen && searchQuery) setSearchQuery("");
-              else setSearchOpen((open) => !open);
-            }} aria-label={searchOpen ? (searchQuery ? "Clear drill search" : "Close drill search") : "Search drills"}
-              className="h-10 w-10 shrink-0 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-orange-400/50 hover:text-orange-300">
-              {searchOpen && !searchQuery ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-            </Button>
-
-            <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
-              <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-                <SelectTrigger className="h-10 w-[118px] rounded-xl border-zinc-700 bg-zinc-900 text-xs font-medium text-zinc-100 focus:ring-orange-400/50" data-testid="select-difficulty">
-                  <SelectValue placeholder="All levels" />
-                </SelectTrigger>
-                <SelectContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
-                  <SelectItem value="all">All levels</SelectItem>
-                  <SelectItem value="beginner">Beginner</SelectItem>
-                  <SelectItem value="intermediate">Intermediate</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
-                  <SelectItem value="elite">Elite</SelectItem>
-                </SelectContent>
-              </Select>
-
-            </div>
-          </div>
-
           <TabsContent value="handlz" className="mt-0 space-y-4">
-            {!selectionMode && !isLoading && !searchQuery && selectedCategory === "all" && selectedDifficulty === "all"
+            {!selectionMode && !isLoading && !searchQuery && selectedCategory === "all"
               ? <DrillRows drills={filteredHandlzDrills} />
               : <DrillGrid
                 drills={filteredHandlzDrills}

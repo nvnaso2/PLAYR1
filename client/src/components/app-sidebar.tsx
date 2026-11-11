@@ -59,6 +59,7 @@ import {
   Zap,
   Fingerprint,
   Star,
+  Tags,
 } from "lucide-react";
 import { Playr1Logo } from "@/components/playr1-logo";
 import { getObjectUrl, nativeFetch } from "@/lib/queryClient";
@@ -292,6 +293,21 @@ export function AppSidebar() {
                           <Link href="/admin" onClick={closeSidebar}>
                             <Settings className="w-4 h-4" />
                             <span>Admin Dashboard</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location === "/admin/drill-tags"}
+                          data-testid="link-nav-admin-drill-tags"
+                          onMouseEnter={() => preloadRoute("/admin/drill-tags")}
+                          onTouchStart={() => preloadRoute("/admin/drill-tags")}
+                          onFocus={() => preloadRoute("/admin/drill-tags")}
+                        >
+                          <Link href="/admin/drill-tags" onClick={closeSidebar}>
+                            <Tags className="w-4 h-4" />
+                            <span>Drill Tags</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

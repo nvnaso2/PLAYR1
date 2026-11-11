@@ -384,6 +384,7 @@ export const drills = pgTable("drills", {
   difficulty: varchar("difficulty").$type<DifficultyLevel>().notNull().default("beginner"),
   skillTags: text("builder_skill_tags").array().notNull().default(sql`'{}'::text[]`),
   workoutTags: text("builder_format_tags").array().notNull().default(sql`'{}'::text[]`),
+  tagsReviewed: boolean("builder_tags_reviewed").notNull().default(false),
   videoLibraryId: varchar("video_library_id"), // Reference to video library
   pdfLibraryId: varchar("pdf_library_id"), // Reference to PDF library
   videoUrl: varchar("video_url"),
