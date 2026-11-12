@@ -478,7 +478,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       <div className="min-h-0 min-w-0 flex-1 overflow-auto px-2 py-2 sm:px-4 sm:py-3">
         <div
           className="relative mx-auto aspect-[194/167] max-w-full overflow-visible bg-white"
-          style={{ width: "min(100%, 900px, calc(100dvh - 220px))" }}
+          style={{ width: "min(100%, 900px, calc(116dvh - 255px))" }}
         >
           <svg
             ref={svgRef}
@@ -510,24 +510,27 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
           </svg>
           {selected?.type === "shot" && (
             <div
-              className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
-              style={{ left: `${selected.x}%`, top: `${selected.y}%` }}
+              className="absolute z-50 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#171717]"
+              style={{ left: `${selected.x}%`, top: `${selected.y}%`, width: 28, height: 28, pointerEvents: "auto" }}
             >
               <input
                 aria-label="Shot count"
+                autoFocus
                 inputMode="numeric"
                 maxLength={2}
                 value={shotCountDraft?.id === selected.id ? shotCountDraft.value : String(selected.shots ?? 10)}
                 onPointerDown={(event) => event.stopPropagation()}
-                onFocus={() => setShotCountDraft({ id: selected.id, value: String(selected.shots ?? 10) })}
-                onChange={(event) => setShotCountDraft({ id: selected.id, value: event.currentTarget.value.replace(/\D/g, "").slice(0, 2) })}
-                onBlur={() => {
-                  if (shotCountDraft?.id === selected.id && shotCountDraft.value) {
-                    updateElement(selected.id, { shots: clamp(Number(shotCountDraft.value), 1, 99) });
-                  }
-                  setShotCountDraft(null);
+                onFocus={(event) => {
+                  setShotCountDraft({ id: selected.id, value: String(selected.shots ?? 10) });
+                  event.currentTarget.select();
                 }}
-                className="pointer-events-auto h-8 w-8 border-0 bg-transparent p-0 text-center text-[13px] font-extrabold leading-none text-white caret-white outline-none"
+                onChange={(event) => {
+                  const value = event.currentTarget.value.replace(/\D/g, "").slice(0, 2);
+                  setShotCountDraft({ id: selected.id, value });
+                  if (value) updateElement(selected.id, { shots: clamp(Number(value), 1, 99) });
+                }}
+                onBlur={() => setShotCountDraft(null)}
+                className="h-full w-full rounded-full border-0 bg-transparent p-0 text-center text-[13px] font-extrabold leading-none text-white caret-white outline-none"
               />
             </div>
           )}
