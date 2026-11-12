@@ -50,9 +50,9 @@ function makeId() {
 
 function ToolGlyph({ type }: { type: DrillDiagramElementType }) {
   const asset = type === "shot" ? shotAsset : type === "start" ? startAsset : type === "screen" ? screenAsset : type === "cone" ? coneAsset : arrowAsset;
-  if (type === "arrow") {
+  if (type === "arrow" || type === "shot") {
     return (
-      <span className="flex h-9 w-8 items-center justify-center rounded-md bg-white p-1">
+      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-white p-1">
         <img src={asset} alt="" className="h-full w-full object-contain" />
       </span>
     );
@@ -76,8 +76,10 @@ function DiagramMark({
   const x = element.x * 3.78;
   const y = element.y * 3.34;
   const asset = element.type === "shot" ? shotAsset : element.type === "start" ? startAsset : element.type === "screen" ? screenAsset : element.type === "cone" ? coneAsset : arrowAsset;
-  const dimensions = element.type === "shot" || element.type === "start"
-    ? { width: 36, height: 36 }
+  const dimensions = element.type === "shot"
+    ? { width: 42, height: 42 }
+    : element.type === "start"
+      ? { width: 36, height: 36 }
     : element.type === "screen"
       ? { width: 33, height: 31 }
       : element.type === "cone"
@@ -121,21 +123,21 @@ function DiagramMark({
         </>
       )}
       {selected && (
-        <g transform={element.type === "arrow" ? `scale(${bendScale} ${lengthScale})` : undefined} pointerEvents="none">
+        <g pointerEvents="none">
           <rect
-            x={-dimensions.width / 2}
-            y={-dimensions.height / 2}
-            width={dimensions.width}
-            height={dimensions.height}
+            x={-boxWidth / 2}
+            y={-boxHeight / 2}
+            width={boxWidth}
+            height={boxHeight}
             fill="none"
             stroke="#111827"
             strokeWidth="1.5"
           />
           {element.type === "arrow" ? (
             <>
-              <circle cx={-dimensions.width / 2} cy="0" r="5.5" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" pointerEvents="all" className="cursor-ew-resize" onPointerDown={(event) => onHandlePointerDown("resize", event)} />
-              <circle cx={dimensions.width / 2} cy="0" r="5.5" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" pointerEvents="all" className="cursor-ns-resize" onPointerDown={(event) => onHandlePointerDown("arrowLength", event)} />
-              <circle cx="0" cy={dimensions.height / 2} r="5.5" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" pointerEvents="all" className="cursor-crosshair" onPointerDown={(event) => onHandlePointerDown("bend", event)} />
+              <circle cx={-boxWidth / 2} cy="0" r="5.5" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" pointerEvents="all" className="cursor-ew-resize" onPointerDown={(event) => onHandlePointerDown("resize", event)} />
+              <circle cx={boxWidth / 2} cy="0" r="5.5" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" pointerEvents="all" className="cursor-ns-resize" onPointerDown={(event) => onHandlePointerDown("arrowLength", event)} />
+              <circle cx="0" cy="0" r="5.5" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" pointerEvents="all" className="cursor-crosshair" onPointerDown={(event) => onHandlePointerDown("bend", event)} />
             </>
           ) : (
             corners.map(([cx, cy], index) => (

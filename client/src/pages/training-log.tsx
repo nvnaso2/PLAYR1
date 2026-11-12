@@ -1935,7 +1935,24 @@ export default function TrainingLogPage() {
               setDrillVideoFile(null);
             }
           }}>
-            <DialogContent className="z-[100] box-border flex max-h-[90dvh] w-[calc(100vw-1.25rem)] max-w-[42rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-orange-500/55 bg-[#090909] p-4 text-zinc-100 shadow-[0_24px_90px_rgba(0,0,0,.72)] sm:p-7">
+            <DialogContent className={isDrillDiagramOpen
+              ? "z-[120] !left-0 !top-0 !h-[100dvh] !w-screen !max-w-none !translate-x-0 !translate-y-0 flex flex-col gap-0 overflow-hidden !rounded-none border-0 bg-black p-0 text-zinc-100 shadow-none"
+              : "z-[100] box-border flex max-h-[90dvh] w-[calc(100vw-1.25rem)] max-w-[42rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-orange-500/55 bg-[#090909] p-4 text-zinc-100 shadow-[0_24px_90px_rgba(0,0,0,.72)] sm:p-7"}>
+              {isDrillDiagramOpen ? (
+                <>
+                  <DialogHeader className="shrink-0 border-b border-zinc-800 px-4 py-3 pr-14 text-left sm:px-6">
+                    <DialogTitle className="font-heading text-lg font-black uppercase tracking-wide text-zinc-50 sm:text-xl">Arrange the court</DialogTitle>
+                    <DialogDescription className="sr-only">Add court markers, then drag the handles to resize, rotate, or bend the diagram.</DialogDescription>
+                  </DialogHeader>
+                  <div className="flex min-h-0 flex-1 overflow-hidden">
+                    <DrillDiagramBuilder value={drillDiagramData} onChange={setDrillDiagramData} />
+                  </div>
+                  <DialogFooter className="shrink-0 border-t border-zinc-800 px-4 py-3 sm:px-6">
+                    <Button type="button" onClick={() => setIsDrillDiagramOpen(false)} className="w-full rounded-full bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 sm:w-auto" data-testid="button-done-drill-diagram">Done</Button>
+                  </DialogFooter>
+                </>
+              ) : (
+                <>
               <DialogHeader className="mx-auto w-full max-w-xl min-w-0 text-center">
                 <p className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Training library / custom drill</p>
                 <DialogTitle className="font-heading text-2xl font-black uppercase tracking-wide text-zinc-50 sm:text-3xl">Create Your Own Drill</DialogTitle>
@@ -1944,32 +1961,15 @@ export default function TrainingLogPage() {
                 <form onSubmit={createDrillForm.handleSubmit(d => createDrillMutation.mutate(d))} className="mx-auto flex min-h-0 w-full min-w-0 max-w-xl flex-1 flex-col">
                   <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-0.5 pb-1">
                     <div className="w-full min-w-0 space-y-5 py-4">
-                      <FormField
-                        control={createDrillForm.control}
-                        name="title"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <FormLabel className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Drill name</FormLabel>
-                            <FormControl>
-                              <Input name={field.name} ref={field.ref} onBlur={field.onBlur} value={field.value ?? ""} onChange={field.onChange} className="h-12 rounded-full border-orange-500/65 bg-[#0d0d0d] px-5 text-base text-zinc-100 placeholder:text-zinc-600 focus-visible:border-orange-400 focus-visible:ring-orange-400/20" placeholder="e.g., Baseline crossover series" data-testid="input-drill-title" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={createDrillForm.control}
-                        name="description"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <FormLabel className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Description <span className="font-normal tracking-normal text-zinc-500">(optional)</span></FormLabel>
-                            <FormControl>
-                              <Textarea name={field.name} ref={field.ref} onBlur={field.onBlur} onChange={field.onChange} value={field.value ?? ""} className="min-h-24 resize-y rounded-2xl border-orange-500/55 bg-[#0d0d0d] px-5 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:border-orange-400 focus-visible:ring-orange-400/20" placeholder="What should the player focus on?" data-testid="input-drill-description" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="space-y-2">
+                        <FormLabel htmlFor="input-drill-title" className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Drill name</FormLabel>
+                        <Input id="input-drill-title" value={createDrillForm.watch("title") ?? ""} onChange={(event) => createDrillForm.setValue("title", event.currentTarget.value, { shouldDirty: true, shouldValidate: true })} className="h-12 rounded-full border-orange-500/65 bg-[#0d0d0d] px-5 text-base text-zinc-100 placeholder:text-zinc-600 focus-visible:border-orange-400 focus-visible:ring-orange-400/20" placeholder="e.g., Baseline crossover series" data-testid="input-drill-title" />
+                        {createDrillForm.formState.errors.title?.message && <p className="text-sm text-red-400">{createDrillForm.formState.errors.title.message}</p>}
+                      </div>
+                      <div className="space-y-2">
+                        <FormLabel htmlFor="input-drill-description" className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Description <span className="font-normal tracking-normal text-zinc-500">(optional)</span></FormLabel>
+                        <Textarea id="input-drill-description" value={createDrillForm.watch("description") ?? ""} onChange={(event) => createDrillForm.setValue("description", event.currentTarget.value, { shouldDirty: true })} className="min-h-24 resize-y rounded-2xl border-orange-500/55 bg-[#0d0d0d] px-5 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:border-orange-400 focus-visible:ring-orange-400/20" placeholder="What should the player focus on?" data-testid="input-drill-description" />
+                      </div>
                       <section className="space-y-2.5">
                         <div className="flex items-end justify-between gap-3">
                           <div>
@@ -1995,55 +1995,19 @@ export default function TrainingLogPage() {
                         )}
                       </section>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField
-                          control={createDrillForm.control}
-                          name="category"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Category</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                              <SelectTrigger className="h-11 w-full min-w-0 rounded-full border-orange-500/55 bg-[#0d0d0d] px-4 text-zinc-100 focus:ring-orange-400/25" data-testid="select-drill-category">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                </FormControl>
-                                 <SelectContent className="z-[120] border-zinc-700 bg-zinc-950 text-zinc-100">
-                                  {DRILL_CATEGORIES.map(cat => (
-                                    <SelectItem key={cat} value={cat}>
-                                      {formatCategory(cat)}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={createDrillForm.control}
-                          name="difficulty"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Difficulty</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="h-11 w-full min-w-0 rounded-full border-orange-500/55 bg-[#0d0d0d] px-4 text-zinc-100 focus:ring-orange-400/25" data-testid="select-drill-difficulty">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {DIFFICULTY_LEVELS.map(level => (
-                                    <SelectItem key={level} value={level}>
-                                      {level.charAt(0).toUpperCase() + level.slice(1)}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <label className="space-y-2">
+                          <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Category</span>
+                          <select aria-label="Category" value={createDrillForm.watch("category")} onChange={(event) => createDrillForm.setValue("category", event.currentTarget.value, { shouldDirty: true, shouldValidate: true })} className="h-11 w-full min-w-0 appearance-none rounded-full border border-orange-500/55 bg-[#0d0d0d] px-4 text-zinc-100 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/25" data-testid="select-drill-category">
+                            {DRILL_CATEGORIES.map((category) => <option key={category} value={category} className="bg-zinc-950">{formatCategory(category)}</option>)}
+                          </select>
+                        </label>
+                        <label className="space-y-2">
+                          <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-300">Difficulty</span>
+                          <select aria-label="Difficulty" value={createDrillForm.watch("difficulty")} onChange={(event) => createDrillForm.setValue("difficulty", event.currentTarget.value, { shouldDirty: true, shouldValidate: true })} className="h-11 w-full min-w-0 appearance-none rounded-full border border-orange-500/55 bg-[#0d0d0d] px-4 text-zinc-100 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/25" data-testid="select-drill-difficulty">
+                            {DIFFICULTY_LEVELS.map((level) => <option key={level} value={level} className="bg-zinc-950">{level.charAt(0).toUpperCase() + level.slice(1)}</option>)}
+                          </select>
+                        </label>
                       </div>
 
                        <details className="group overflow-hidden rounded-2xl border border-orange-500/50 bg-[#0d0d0d] shadow-[0_0_24px_rgba(249,115,22,.07)]">
@@ -2288,26 +2252,8 @@ export default function TrainingLogPage() {
                   </DialogFooter>
                 </form>
               </Form>
-            </DialogContent>
-          </Dialog>
-          <Dialog open={isDrillDiagramOpen} onOpenChange={setIsDrillDiagramOpen}>
-            <DialogContent className="z-[120] !left-0 !top-0 !h-[100dvh] !w-screen !max-w-none !translate-x-0 !translate-y-0 flex flex-col gap-0 overflow-hidden !rounded-none border-0 bg-black p-0 text-zinc-100 shadow-none">
-              <DialogHeader className="shrink-0 border-b border-zinc-800 px-4 py-3 pr-14 text-left sm:px-6">
-                <DialogTitle className="font-heading text-lg font-black uppercase tracking-wide text-zinc-50 sm:text-xl">Arrange the court</DialogTitle>
-              </DialogHeader>
-              <div className="flex min-h-0 flex-1 overflow-hidden">
-                <DrillDiagramBuilder value={drillDiagramData} onChange={setDrillDiagramData} />
-              </div>
-              <DialogFooter className="shrink-0 border-t border-zinc-800 px-4 py-3 sm:px-6">
-                <Button
-                  type="button"
-                  onClick={() => setIsDrillDiagramOpen(false)}
-                  className="w-full rounded-full bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 sm:w-auto"
-                  data-testid="button-done-drill-diagram"
-                >
-                  Done
-                </Button>
-              </DialogFooter>
+                </>
+              )}
             </DialogContent>
           </Dialog>
         </div>

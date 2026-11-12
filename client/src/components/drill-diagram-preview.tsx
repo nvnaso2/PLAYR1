@@ -21,8 +21,10 @@ function DiagramMarker({ element }: { element: DrillDiagramElement }) {
     );
   }
 
-  const dimensions = element.type === "shot" || element.type === "start"
-    ? { width: 36, height: 36 }
+  const dimensions = element.type === "shot"
+    ? { width: 42, height: 42 }
+    : element.type === "start"
+      ? { width: 36, height: 36 }
     : element.type === "screen"
       ? { width: 33, height: 31 }
       : { width: 30, height: 38 };
