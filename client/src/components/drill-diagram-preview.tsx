@@ -15,8 +15,8 @@ function DiagramMarker({ element }: { element: DrillDiagramElement }) {
     const bendScale = 1 + (element.bend ?? 0) / 45;
     const lengthScale = (element.length ?? 18) / 18;
     return (
-      <g transform={`translate(${x} ${y}) rotate(${element.angle ?? 0}) scale(${bendScale} ${lengthScale})`}>
-        <image href={asset} x="-24" y="-60" width="48" height="120" preserveAspectRatio="none" />
+      <g transform={`translate(${x} ${y}) rotate(${element.angle ?? 0}) scale(${(element.scale ?? 1) * bendScale} ${ (element.scale ?? 1) * lengthScale})`}>
+        <image href={asset} x="-30" y="-75" width="60" height="150" preserveAspectRatio="xMidYMid meet" />
       </g>
     );
   }
@@ -28,8 +28,8 @@ function DiagramMarker({ element }: { element: DrillDiagramElement }) {
       : { width: 30, height: 38 };
 
   return (
-    <g transform={`translate(${x} ${y})`}>
-      <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="none" />
+    <g transform={`translate(${x} ${y}) rotate(${element.angle ?? 0}) scale(${element.scale ?? 1})`}>
+      <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="xMidYMid meet" />
       {element.type === "shot" && (element.shots ?? 10) !== 10 && (
         <>
           <circle r="12.2" fill="#171717" pointerEvents="none" />

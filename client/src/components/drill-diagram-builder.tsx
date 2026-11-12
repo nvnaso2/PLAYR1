@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
+import type { KeyboardEvent, PointerEvent } from "react";
+import { Minus, Plus, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import courtAsset from "@/assets/drill-diagram/court.png";
 import shotAsset from "@/assets/drill-diagram/shot-marker.png";
 import startAsset from "@/assets/drill-diagram/start-marker.png";
@@ -18,6 +19,7 @@ export interface DrillDiagramElement {
   angle?: number;
   length?: number;
   bend?: number;
+  scale?: number;
 }
 
 export interface DrillDiagram {
@@ -49,6 +51,13 @@ function makeId() {
 
 function ToolGlyph({ type }: { type: DrillDiagramElementType }) {
   const asset = type === "shot" ? shotAsset : type === "start" ? startAsset : type === "screen" ? screenAsset : type === "cone" ? coneAsset : arrowAsset;
+  if (type === "arrow") {
+    return (
+      <span className="flex h-9 w-8 items-center justify-center rounded-md bg-white p-1">
+        <img src={asset} alt="" className="h-full w-full object-contain" />
+      </span>
+    );
+  }
   return <img src={asset} alt="" className="h-7 w-7 object-contain" />;
 }
 
@@ -72,13 +81,14 @@ function DiagramMark({
       ? { width: 33, height: 31 }
       : element.type === "cone"
         ? { width: 30, height: 38 }
-        : { width: 48, height: 120 };
+        : { width: 60, height: 150 };
   const angle = element.angle ?? 0;
   const lengthScale = (element.length ?? 18) / 18;
   const bendScale = 1 + (element.bend ?? 0) / 45;
+  const iconScale = element.scale ?? 1;
   return (
     <g
-      transform={`translate(${x} ${y})`}
+      transform={`translate(${x} ${y}) rotate(${angle}) scale(${iconScale})`}
       className="cursor-grab outline-none active:cursor-grabbing"
       role="button"
       tabIndex={0}
@@ -89,11 +99,11 @@ function DiagramMark({
       style={{ touchAction: "none" }}
     >
       {element.type === "arrow" ? (
-        <g transform={`rotate(${angle}) scale(${bendScale} ${lengthScale})`}>
-          <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="none" />
+        <g transform={`scale(${bendScale} ${lengthScale})`}>
+          <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="xMidYMid meet" />
         </g>
       ) : (
-        <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="none" />
+        <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="xMidYMid meet" />
       )}
       {element.type === "shot" && (element.shots ?? 10) !== 10 && (
         <>
@@ -103,46 +113,6 @@ function DiagramMark({
       )}
     </g>
   );
-}
-
-function RangeControl({
-  label,
-  value,
-  min,
-  max,
-  step,
-  suffix,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  suffix: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="block min-w-0">
-      <span className="mb-1.5 flex items-center justify-between text-[11px] font-semibold text-zinc-300">
-        {label}<span className="font-mono text-zinc-500">{value}{suffix}</span>
-      </span>
-      <input
-        aria-label={label}
-        className="h-1.5 w-full cursor-pointer accent-orange-500"
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.currentTarget.value))}
-      />
-    </label>
-  );
-}
-
-function TinyIcon({ children }: { children: ReactNode }) {
-  return <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center text-base leading-none">{children}</span>;
 }
 
 export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProps) {
@@ -173,7 +143,9 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       type,
       ...locations[type],
       ...(type === "shot" ? { shots: 10 } : {}),
-       ...(type === "arrow" ? { angle: 0, length: 18, bend: 0 } : {}),
+      angle: 0,
+      scale: 1,
+      ...(type === "arrow" ? { length: 18, bend: 0 } : {}),
     };
     publishElements([...diagram.elements, element]);
     setSelectedId(element.id);
@@ -247,11 +219,11 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
   };
 
   return (
-    <section aria-label="Drill diagram editor" className="flex w-full min-w-0 flex-col rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100">
+    <section aria-label="Drill diagram editor" className="flex h-full min-h-0 w-full min-w-0 flex-col bg-black text-zinc-100">
       <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-800 px-3 py-2.5 sm:px-4">
         <div className="min-w-0">
           <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-100">Court diagram</h3>
-          <p className="mt-0.5 text-[10px] text-zinc-500">Add a mark, then drag it into place.</p>
+          <p className="mt-0.5 text-[10px] text-zinc-500">Tap a marker to add it. Drag to position.</p>
         </div>
         <button
           type="button"
@@ -279,8 +251,9 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
         ))}
       </div>
 
-      <div className="min-h-[200px] min-w-0 flex-1 px-2.5 py-2.5 sm:px-4 sm:py-3">
-        <div className="relative mx-auto aspect-[189/167] w-full max-w-[560px] overflow-hidden rounded-lg border border-zinc-700 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.3)]">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto px-2 py-2 sm:px-4 sm:py-3">
+        <div className="relative mx-auto aspect-[189/167] w-full max-w-[min(92vw,900px)] overflow-visible rounded-lg border border-zinc-700 bg-white">
           <svg
             ref={svgRef}
             viewBox="0 0 378 334"
@@ -314,51 +287,39 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
         </div>
       </div>
 
-      <div className="min-h-[58px] border-t border-zinc-800 px-3 py-2.5 sm:px-4">
-        {selected ? (
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
-                <span className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-300">
-                  {selected.type === "start" ? "Player start" : selected.type}
-                </span>
-                <span className="text-[9px] text-zinc-600">·</span>
-                <span className="truncate text-[9px] text-zinc-500">Drag or use arrow keys</span>
-              </div>
-              <button
-                type="button"
-                onClick={removeSelected}
-                className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-zinc-500 transition-colors hover:bg-red-950/40 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                aria-label={`Remove ${selected.type} marker`}
-              >
-                <TinyIcon>−</TinyIcon> Remove
-              </button>
+        {selected && (
+          <div className="absolute right-3 top-3 z-10 w-[min(21rem,calc(100%-1.5rem))] rounded-xl border border-orange-500/60 bg-[#101010]/95 p-3 shadow-2xl backdrop-blur-sm sm:right-5 sm:top-5">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <span className="truncate text-[10px] font-bold uppercase tracking-[.16em] text-orange-300">
+                Edit {selected.type === "start" ? "player start" : selected.type}
+              </span>
+              <button type="button" onClick={removeSelected} aria-label={`Remove ${selected.type} marker`} className="rounded-full p-1.5 text-zinc-400 hover:bg-red-950 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>
             </div>
-            {selected.type === "shot" && (
-              <label className="flex items-center justify-between gap-3 text-[11px] text-zinc-300">
-                <span className="font-semibold">Shot count</span>
-                <input
-                  aria-label="Shot count"
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={selected.shots ?? 10}
-                  onChange={(event) => updateElement(selected.id, { shots: clamp(Number(event.currentTarget.value) || 1, 1, 99) })}
-                  className="h-8 w-20 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-right font-mono text-xs text-zinc-100 outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/40"
-                />
-              </label>
-            )}
-            {selected.type === "arrow" && (
-              <div className="grid grid-cols-3 gap-3">
-                <RangeControl label="Angle" value={Math.round(selected.angle ?? 0)} min={0} max={359} step={1} suffix="°" onChange={(angle) => updateElement(selected.id, { angle })} />
-                <RangeControl label="Length" value={Math.round(selected.length ?? 18)} min={6} max={40} step={1} suffix="" onChange={(length) => updateElement(selected.id, { length })} />
-                <RangeControl label="Bend" value={Math.round(selected.bend ?? 0)} min={-18} max={18} step={1} suffix="" onChange={(bend) => updateElement(selected.id, { bend })} />
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {selected.type === "shot" && (
+                <label className="mr-auto flex items-center gap-2 text-xs text-zinc-300">
+                  Shots
+                  <input aria-label="Shot count" type="number" min={1} max={99} value={selected.shots ?? 10}
+                    onChange={(event) => updateElement(selected.id, { shots: clamp(Number(event.currentTarget.value) || 1, 1, 99) })}
+                    className="h-9 w-16 rounded-lg border border-zinc-700 bg-black px-2 text-center text-sm text-white outline-none focus:border-orange-400" />
+                </label>
+              )}
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Size</span>
+              <button type="button" aria-label="Shrink marker" onClick={() => updateElement(selected.id, { scale: clamp((selected.scale ?? 1) - 0.1, 0.5, 2) })} className="rounded-lg border border-zinc-700 p-2 text-zinc-200 hover:border-orange-400"><Minus className="h-4 w-4" /></button>
+              <button type="button" aria-label="Enlarge marker" onClick={() => updateElement(selected.id, { scale: clamp((selected.scale ?? 1) + 0.1, 0.5, 2) })} className="rounded-lg border border-zinc-700 p-2 text-zinc-200 hover:border-orange-400"><Plus className="h-4 w-4" /></button>
+              <span className="ml-1 text-[10px] uppercase tracking-wider text-zinc-500">Rotate</span>
+              <button type="button" aria-label="Rotate marker counterclockwise" onClick={() => updateElement(selected.id, { angle: ((selected.angle ?? 0) - 15 + 360) % 360 })} className="rounded-lg border border-zinc-700 p-2 text-zinc-200 hover:border-orange-400"><RotateCcw className="h-4 w-4" /></button>
+              <button type="button" aria-label="Rotate marker clockwise" onClick={() => updateElement(selected.id, { angle: ((selected.angle ?? 0) + 15) % 360 })} className="rounded-lg border border-zinc-700 p-2 text-zinc-200 hover:border-orange-400"><RotateCw className="h-4 w-4" /></button>
+            </div>
           </div>
+        )}
+      </div>
+
+      <div className="min-h-[44px] border-t border-zinc-800 px-3 py-2 sm:px-4">
+        {selected ? (
+          <p className="text-center text-[10px] text-zinc-500">Use the on-court controls to resize, rotate, or edit shots.</p>
         ) : (
-          <p className="flex min-h-8 items-center justify-center gap-1.5 text-center text-[10px] text-zinc-500">
+          <p className="flex min-h-6 items-center justify-center gap-1.5 text-center text-[10px] text-zinc-500">
             {diagram.elements.length === 0
               ? "Choose a marker above to start your play."
               : "Select a mark to edit it. Press Delete to remove."}
