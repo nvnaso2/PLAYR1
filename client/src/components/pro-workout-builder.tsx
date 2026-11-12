@@ -74,9 +74,11 @@ export function ProWorkoutBuilder({
     const targetLevel = LEVEL_WEIGHT[level];
     const requestedBySkill = skills.map((skill) => {
       const selectedFormats = formats[skill] ?? [];
+      const availableFormats = formatsForSkill(skill);
       const eligible = drills.filter((drill) => {
         const hasSkill = getWorkoutSkillTags(drill).includes(skill);
-        const hasSelectedFormat = selectedFormats.includes(MIX_WORKOUT_TAG)
+        const hasSelectedFormat = availableFormats.length === 0
+          || selectedFormats.includes(MIX_WORKOUT_TAG)
           || selectedFormats.some((tag) => getWorkoutFormatTags(drill).includes(tag as any));
         const withinLevel = LEVEL_WEIGHT[drill.difficulty as DifficultyLevel] <= targetLevel;
         return hasSkill && withinLevel && hasSelectedFormat;
@@ -122,7 +124,7 @@ export function ProWorkoutBuilder({
             <div>
               <h2 className="mb-4 text-center font-heading text-base font-black uppercase tracking-wide text-zinc-100">What skills do you want to work on?</h2>
               <div className="flex flex-wrap justify-center gap-2.5">{WORKOUT_SKILL_OPTIONS.map((item) => <button key={item.value} type="button" onClick={() => toggleSkill(item.value)} className={`rounded-full border px-5 py-3 text-sm font-semibold transition sm:text-base ${skills.includes(item.value) ? "border-white bg-white text-black shadow-[0_0_18px_rgba(255,255,255,.16)]" : "border-orange-500/70 bg-zinc-950 text-zinc-200 hover:bg-orange-500/10"}`}>{item.label}</button>)}</div>
-              <div className="mt-5 space-y-5">{activeSkills.map((skill) => <div key={skill.value} className="px-2 py-2"><p className="mb-3 text-center text-xs font-black uppercase tracking-[.16em] text-white">{skill.label} style</p><div className="flex flex-wrap justify-center gap-2">{formatsForSkill(skill.value).map((option) => <button key={option.value} type="button" onClick={() => toggleFormat(skill.value, option.value)} className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${formats[skill.value]?.includes(option.value) ? "border-white bg-white text-black shadow-[0_0_14px_rgba(255,255,255,.15)]" : "border-orange-500/60 bg-black text-zinc-200 hover:bg-orange-500/10"}`}>{option.label}</button>)}</div></div>)}</div>
+              <div className="mt-5 space-y-5">{activeSkills.map((skill) => <div key={skill.value} className="px-2 py-2"><p className="mb-3 text-center text-xs font-black uppercase tracking-[.16em] text-white">{skill.label} style</p>{formatsForSkill(skill.value).length ? <div className="flex flex-wrap justify-center gap-2">{formatsForSkill(skill.value).map((option) => <button key={option.value} type="button" onClick={() => toggleFormat(skill.value, option.value)} className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${formats[skill.value]?.includes(option.value) ? "border-white bg-white text-black shadow-[0_0_14px_rgba(255,255,255,.15)]" : "border-orange-500/60 bg-black text-zinc-200 hover:bg-orange-500/10"}`}>{option.label}</button>)}</div> : <p className="text-center text-xs text-zinc-500">No additional tags needed for this skill.</p>}</div>)}</div>
             </div>
 
             <div>
@@ -130,7 +132,7 @@ export function ProWorkoutBuilder({
               <div className="mx-auto grid max-w-xl grid-cols-3 gap-2.5">{LEVELS.map((value) => <button key={value} type="button" onClick={() => { setLevel(value); setResult([]); }} className={`rounded-full border px-3 py-3 text-sm font-bold capitalize transition ${level === value ? "border-white bg-white text-black shadow-[0_0_18px_rgba(255,255,255,.16)]" : "border-orange-500/70 bg-zinc-950 text-zinc-200 hover:bg-orange-500/10"}`}>{value}</button>)}</div>
             </div>
 
-            <Button onClick={build} disabled={!skills.length || skills.some((skill) => !formats[skill]?.length)} className="mx-auto flex h-12 w-full max-w-xl justify-center bg-white font-black uppercase tracking-wide text-black hover:bg-zinc-200"><Shuffle className="mr-2 h-4 w-4" />Build my workout</Button>
+            <Button onClick={build} disabled={!skills.length || skills.some((skill) => formatsForSkill(skill).length > 0 && !formats[skill]?.length)} className="mx-auto flex h-12 w-full max-w-xl justify-center bg-white font-black uppercase tracking-wide text-black hover:bg-zinc-200"><Shuffle className="mr-2 h-4 w-4" />Build my workout</Button>
         </section>
       </div>
       <Dialog open={resultOpen} onOpenChange={setResultOpen}>

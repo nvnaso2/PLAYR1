@@ -1239,15 +1239,41 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/drill-tag-review/reset", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const allDrills = await storage.getDrills();
+      const catalogDrills = allDrills.filter((drill) => !drill.userId && !drill.isAiGenerated);
+      for (const drill of catalogDrills) {
+        await storage.updateDrill(drill.id, {
+          skillTags: [],
+          workoutTags: [],
+          tagsReviewed: false,
+        });
+      }
+      invalidateCoachPCache("drills");
+      res.json({ resetCount: catalogDrills.length });
+    } catch (error) {
+      console.error("Error resetting drill tag review:", error);
+      res.status(500).json({ message: "Failed to reset drill tag review" });
+    }
+  });
+
   app.patch("/api/admin/drill-tag-review/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const { skillTags, workoutTags } = insertDrillSchema.pick({ skillTags: true, workoutTags: true }).parse(req.body);
-      if (!skillTags || !workoutTags) {
-        return res.status(400).json({ message: "Skill and workout tags are required" });
+      const { skillTags, workoutTags, difficulty, diagramData } = insertDrillSchema
+        .pick({ skillTags: true, workoutTags: true, difficulty: true, diagramData: true })
+        .parse(req.body);
+      if (!skillTags || !skillTags.length || !workoutTags || !difficulty || !["beginner", "intermediate", "advanced"].includes(difficulty)) {
+        return res.status(400).json({ message: "Choose at least one skill and a supported difficulty" });
+      }
+      if (!diagramData?.elements?.length) {
+        return res.status(400).json({ message: "Add at least one diagram marker before saving this drill" });
       }
       const drill = await storage.updateDrill(req.params.id, {
         skillTags,
         workoutTags,
+        difficulty,
+        diagramData: diagramData ?? null,
         tagsReviewed: true,
       });
       if (!drill) return res.status(404).json({ message: "Drill not found" });
