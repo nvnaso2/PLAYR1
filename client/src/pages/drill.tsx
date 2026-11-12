@@ -470,13 +470,13 @@ export default function DrillPage() {
   })();
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-4 text-zinc-100 sm:px-6 sm:py-6">
-      <header className="mb-5">
+    <div className="mx-auto flex min-h-screen max-w-6xl flex-col items-center bg-black px-3 py-4 text-zinc-900 sm:px-6 sm:py-8">
+      <header className="mb-4 w-full max-w-5xl">
         <Link href="/drills">
           <Button
             variant="ghost"
             size="sm"
-            className="h-9 gap-1.5 rounded-lg border border-white/10 bg-zinc-950/40 px-3 text-zinc-300 hover:border-white/20 hover:bg-white/[0.05] hover:text-white"
+            className="h-9 gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 text-zinc-200 hover:bg-white/10 hover:text-white"
             data-testid="button-back"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -485,53 +485,50 @@ export default function DrillPage() {
         </Link>
       </header>
 
-      <main className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <main className="grid h-fit w-full max-w-5xl gap-4 overflow-hidden rounded-[28px] border border-white/70 bg-[#f7f6f2] p-3 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,.45)] sm:gap-5 sm:p-5 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
         <section
-          className="overflow-hidden rounded-2xl border border-white/[0.08] bg-black shadow-[0_12px_36px_rgba(0,0,0,0.32)] lg:col-start-1 lg:row-start-1"
+          className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:col-start-1 lg:row-start-1"
           data-testid="drill-media"
         >
           {mediaContent}
         </section>
 
-        <section className="space-y-3 rounded-2xl border border-white/[0.08] bg-zinc-950/85 p-4 sm:p-5 lg:col-start-1 lg:row-start-2">
+        <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:col-start-1 lg:row-start-2">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="border-orange-400/20 bg-orange-500/10 px-2.5 py-1 text-[10px] font-medium text-orange-300 hover:bg-orange-500/10">
-              {categoryLabels[drill.category] || drill.category}
-            </Badge>
-            <Badge className="border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium capitalize text-zinc-300 hover:bg-white/[0.04]">
-              {drill.difficulty || "beginner"}
-            </Badge>
+            <span className="text-[10px] font-black uppercase tracking-[.18em] text-orange-700">{categoryLabels[drill.category] || drill.category}</span>
+            <span className="text-zinc-300">·</span>
+            <span className="text-[10px] font-bold uppercase tracking-[.14em] text-zinc-500">{drill.difficulty || "beginner"}</span>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <h1 className="min-w-0 flex-1 text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl" data-testid="text-drill-title">
+            <h1 className="min-w-0 flex-1 font-heading text-2xl font-black uppercase leading-tight tracking-tight text-zinc-950 sm:text-3xl" data-testid="text-drill-title">
               {drill.title}
             </h1>
-            <div className="w-fit shrink-0 rounded-xl border border-white/[0.08] bg-black/30 px-2.5 py-2">
+            <div className="w-fit shrink-0 rounded-xl border border-zinc-200 bg-[#f7f6f2] px-2.5 py-2">
               <BasketballRating drillId={drill.id} size="sm" showCount={true} />
             </div>
           </div>
 
-          <p className="max-w-3xl text-sm leading-6 text-zinc-400 sm:text-[15px]" data-testid="text-drill-description">
+          <p className="max-w-3xl text-sm leading-6 text-zinc-600 sm:text-[15px]" data-testid="text-drill-description">
             {drill.description || "Master this drill to take your skills to the next level."}
           </p>
         </section>
 
         <aside className="space-y-3 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-4 lg:self-start">
-          <section className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-orange-500/[0.08] via-zinc-950 to-zinc-950 p-4 shadow-[0_12px_32px_rgba(0,0,0,0.24)] sm:p-5">
+          <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-500/10 text-orange-300">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
                 <Clock className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Ready to train</p>
-                <p className="mt-0.5 text-sm font-medium text-zinc-200">Your next reps start here</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Ready to train</p>
+                <p className="mt-0.5 text-sm font-semibold text-zinc-900">Your next reps start here</p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-white/[0.07] bg-black/30 px-4 py-3">
+            <div className="rounded-xl border border-zinc-200 bg-[#f7f6f2] px-4 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Estimated time</p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-white" data-testid="text-drill-duration">
+              <p className="mt-1 text-2xl font-black tracking-tight text-zinc-950" data-testid="text-drill-duration">
                 {formatDuration(drill.duration)}
               </p>
             </div>
@@ -539,7 +536,7 @@ export default function DrillPage() {
             <div className="mt-4 space-y-2">
               <Link href={`/log?drill=${drill.id}`}>
                 <Button
-                  className="h-11 w-full gap-2 rounded-xl border border-orange-300/30 bg-orange-500 font-semibold text-zinc-950 shadow-[0_8px_20px_rgba(249,115,22,0.16)] hover:bg-orange-400"
+                  className="h-11 w-full gap-2 rounded-xl bg-black font-bold text-white hover:bg-zinc-800"
                   data-testid="button-log-session"
                 >
                   <ClipboardList className="h-4 w-4" />
@@ -548,7 +545,7 @@ export default function DrillPage() {
               </Link>
               <Button
                 variant="outline"
-                className="h-11 w-full gap-2 rounded-xl border-white/10 bg-white/[0.03] text-zinc-200 hover:border-white/25 hover:bg-white/[0.08] hover:text-white"
+                  className="h-11 w-full gap-2 rounded-xl border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100"
                 onClick={() => setShareOpen(true)}
                 data-testid="button-share"
               >
@@ -559,14 +556,14 @@ export default function DrillPage() {
           </section>
 
           {drill.equipment && drill.equipment.length > 0 && (
-            <section className="rounded-2xl border border-white/[0.08] bg-zinc-950/85 p-4 sm:p-5">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-                <Dumbbell className="h-4 w-4 text-orange-300" />
+            <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-zinc-900">
+                <Dumbbell className="h-4 w-4 text-orange-600" />
                 Equipment
               </h2>
               <div className="mt-3 flex flex-wrap gap-2">
                 {drill.equipment.map((item, index) => (
-                  <Badge key={index} className="border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs font-normal text-zinc-300 hover:bg-white/[0.04]">
+                  <Badge key={index} className="border-zinc-200 bg-[#f7f6f2] px-2.5 py-1 text-xs font-normal text-zinc-700 hover:bg-[#f7f6f2]">
                     {item}
                   </Badge>
                 ))}
@@ -576,18 +573,18 @@ export default function DrillPage() {
         </aside>
 
         {drill.tips && drill.tips.length > 0 && (
-          <section className="rounded-2xl border border-white/[0.08] bg-zinc-950/85 p-4 sm:p-5 lg:col-start-1 lg:row-start-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-              <Lightbulb className="h-4 w-4 text-orange-300" />
+          <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:col-start-1 lg:row-start-3">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-zinc-900">
+              <Lightbulb className="h-4 w-4 text-orange-600" />
               Pro Tips
             </h2>
             <ul className="mt-3 grid gap-2 sm:grid-cols-2">
               {drill.tips.map((tip, index) => (
-                <li key={index} className="flex gap-3 rounded-xl border border-white/[0.06] bg-black/25 p-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-xs font-semibold text-orange-300">
+                <li key={index} className="flex gap-3 rounded-xl border border-zinc-200 bg-[#f7f6f2] p-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-xs font-bold text-orange-700">
                     {index + 1}
                   </span>
-                  <span className="text-sm leading-5 text-zinc-300">{tip}</span>
+                  <span className="text-sm leading-5 text-zinc-700">{tip}</span>
                 </li>
               ))}
             </ul>

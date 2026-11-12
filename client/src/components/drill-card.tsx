@@ -19,23 +19,6 @@ interface DrillCardProps {
   hubFeatured?: boolean;
 }
 
-const difficultyColors = {
-  beginner: "bg-green-500/10 text-green-600 dark:text-green-400",
-  intermediate: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
-  advanced: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-  elite: "bg-red-500/10 text-red-600 dark:text-red-400",
-};
-
-const categoryLabels: Record<string, string> = {
-  "ball-handling": "Ball Handling",
-  "shooting": "Shooting",
-  "passing": "Passing",
-  "finishing": "Finishing",
-  "defense": "Defense",
-  "film-session": "Film Session",
-  "workouts": "Workouts",
-};
-
 const categoryIcons = {
   "ball-handling": HandMetal,
   shooting: Target,
@@ -44,16 +27,6 @@ const categoryIcons = {
   defense: Shield,
   "film-session": Brain,
   workouts: Dumbbell,
-};
-
-const categoryAccent: Record<string, string> = {
-  "ball-handling": "from-orange-500/25 via-orange-950/50 to-zinc-950 text-orange-300",
-  shooting: "from-emerald-500/20 via-emerald-950/50 to-zinc-950 text-emerald-300",
-  passing: "from-blue-500/20 via-blue-950/50 to-zinc-950 text-blue-300",
-  finishing: "from-red-500/20 via-red-950/50 to-zinc-950 text-red-300",
-  defense: "from-violet-500/20 via-violet-950/50 to-zinc-950 text-violet-300",
-  "film-session": "from-pink-500/20 via-pink-950/50 to-zinc-950 text-pink-300",
-  workouts: "from-teal-500/20 via-teal-950/50 to-zinc-950 text-teal-300",
 };
 
 export function DrillCard({
@@ -72,12 +45,11 @@ export function DrillCard({
     return `${mins} min`;
   };
   const CategoryIcon = categoryIcons[drill.category as keyof typeof categoryIcons] || Target;
-  const categoryStyle = categoryAccent[drill.category] || "from-orange-500/20 via-orange-950/50 to-zinc-950 text-orange-300";
 
   const card = (
       <Card
         className={cn(
-          "group cursor-pointer overflow-hidden border-white/[0.08] bg-zinc-950/90 text-zinc-100 shadow-[0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-200",
+          "group cursor-pointer overflow-hidden border-white/10 bg-black text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-200",
           viewMode === "grid" && !hubFeatured && "flex h-[220px] flex-col",
           hubFeatured && "flex h-full min-h-[128px] flex-col",
           viewMode === "list" && "flex min-h-[88px] flex-row",
@@ -100,7 +72,7 @@ export function DrillCard({
         } : undefined}
       >
         <div className={cn(
-          "relative shrink-0 overflow-hidden bg-zinc-900",
+          "relative shrink-0 overflow-hidden bg-white",
           viewMode === "list" ? "h-[88px] w-28 sm:h-24 sm:w-36" : hubFeatured ? "aspect-[1.35/1] w-full" : "aspect-[11/5] w-full"
         )}>
           {drill.diagramData ? (
@@ -112,7 +84,7 @@ export function DrillCard({
               preload={drill.thumbnailUrl ? "none" : "metadata"}
               muted
               playsInline
-              className="w-full h-full object-cover pointer-events-none"
+              className="h-full w-full object-contain pointer-events-none"
               onLoadedMetadata={!drill.thumbnailUrl
                 ? (e) => { (e.currentTarget as HTMLVideoElement).currentTime = 0.5; }
                 : undefined}
@@ -121,15 +93,12 @@ export function DrillCard({
             <img
               src={getObjectUrl(drill.thumbnailUrl)}
               alt={drill.title}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-contain"
             />
           ) : (
-            <div className={cn(
-              "flex h-full w-full items-center justify-center bg-gradient-to-br",
-              categoryStyle
-            )}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-current/20 bg-black/20">
-                <CategoryIcon className="h-5 w-5" />
+            <div className="flex h-full w-full items-center justify-center bg-white text-zinc-900">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-orange-200 bg-orange-50">
+                <CategoryIcon className="h-5 w-5 text-orange-600" />
               </div>
             </div>
           )}
@@ -143,17 +112,6 @@ export function DrillCard({
             )}>
               <Play className="ml-0.5 h-4 w-4 fill-current" />
             </div>
-          </div>
-          <div className={cn("absolute left-2 top-2 flex max-w-[calc(100%-1rem)] gap-2", hubFeatured && "left-1 top-1 max-w-[calc(100%-0.5rem)]")}>
-            <Badge className={cn(
-              "max-w-full truncate px-1.5 py-0 text-[9px] capitalize",
-              hubFeatured && "px-1 text-[7px] leading-3",
-              difficultyColors[drill.difficulty || 'beginner']
-            )}>
-              {categoryLabels[drill.category] || drill.category}
-              <span className="mx-1 opacity-60">·</span>
-              {drill.difficulty || 'beginner'}
-            </Badge>
           </div>
           {selectable && (
             <div className={cn(
@@ -176,7 +134,7 @@ export function DrillCard({
           )}
         </div>
         <CardContent className={cn(
-          "min-w-0 flex-1",
+          "min-w-0 flex-1 bg-black",
           viewMode === "list" ? "flex items-center gap-3 p-2.5 sm:p-3" : hubFeatured ? "flex min-h-0 flex-1 flex-col justify-between gap-1 p-2" : "flex min-h-0 flex-1 flex-col justify-between gap-2 p-3"
         )}>
           <div className={cn("min-w-0 flex-1", viewMode === "list" && "flex flex-col items-start")}>
@@ -194,7 +152,7 @@ export function DrillCard({
                 <Clock className={cn("h-3 w-3 text-orange-400", hubFeatured && "h-2.5 w-2.5")} />
                 {formatDuration(drill.duration)}
               </span>
-              <CompactDrillRating drillId={drill.id} />
+              <span className="text-zinc-500"><CompactDrillRating drillId={drill.id} /></span>
             </div>
           </div>
           {totalSessions !== undefined && totalSessions > 0 && (
