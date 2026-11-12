@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
-import { Minus, Plus, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import courtAsset from "@/assets/drill-diagram/court.png";
 import shotAsset from "@/assets/drill-diagram/shot-marker.png";
 import startAsset from "@/assets/drill-diagram/start-marker.png";
@@ -65,11 +64,13 @@ function DiagramMark({
   element,
   selected,
   onPointerDown,
+  onHandlePointerDown,
   onKeyDown,
 }: {
   element: DrillDiagramElement;
   selected: boolean;
   onPointerDown: (event: PointerEvent<SVGGElement>) => void;
+  onHandlePointerDown: (mode: "resize" | "rotate", event: PointerEvent<SVGCircleElement>) => void;
   onKeyDown: (event: KeyboardEvent<SVGGElement>) => void;
 }) {
   const x = element.x * 3.78;
@@ -86,6 +87,14 @@ function DiagramMark({
   const lengthScale = (element.length ?? 18) / 18;
   const bendScale = 1 + (element.bend ?? 0) / 45;
   const iconScale = element.scale ?? 1;
+  const boxWidth = dimensions.width * iconScale * (element.type === "arrow" ? bendScale : 1);
+  const boxHeight = dimensions.height * iconScale * (element.type === "arrow" ? lengthScale : 1);
+  const corners = [
+    [-boxWidth / 2, -boxHeight / 2],
+    [boxWidth / 2, -boxHeight / 2],
+    [-boxWidth / 2, boxHeight / 2],
+    [boxWidth / 2, boxHeight / 2],
+  ];
   return (
     <g
       transform={`translate(${x} ${y}) rotate(${angle}) scale(${iconScale})`}
@@ -111,13 +120,52 @@ function DiagramMark({
           <text x="0" y="3.8" textAnchor="middle" fontSize="10" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots}</text>
         </>
       )}
+      {selected && (
+        <g transform={element.type === "arrow" ? `scale(${bendScale} ${lengthScale})` : undefined} pointerEvents="none">
+          <rect x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} fill="none" stroke="#7c3aed" strokeWidth="1.5" />
+          {corners.map(([cx, cy], index) => (
+            <circle
+              key={index}
+              cx={cx}
+              cy={cy}
+              r="5.5"
+              fill="#fff"
+              stroke="#a1a1aa"
+              strokeWidth="1.5"
+              pointerEvents="all"
+              className="cursor-nwse-resize"
+              onPointerDown={(event) => onHandlePointerDown("resize", event)}
+            />
+          ))}
+          <line x1="0" y1={-boxHeight / 2} x2="0" y2={-boxHeight / 2 - 15} stroke="#a1a1aa" strokeWidth="1.5" />
+          <circle
+            cx="0"
+            cy={-boxHeight / 2 - 19}
+            r="6"
+            fill="#fff"
+            stroke="#a1a1aa"
+            strokeWidth="1.5"
+            pointerEvents="all"
+            className="cursor-grab"
+            onPointerDown={(event) => onHandlePointerDown("rotate", event)}
+          />
+        </g>
+      )}
     </g>
   );
 }
 
 export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const dragRef = useRef<{ id: string; pointerId: number } | null>(null);
+  const dragRef = useRef<{
+    id: string;
+    pointerId: number;
+    mode: "move" | "resize" | "rotate";
+    startScale: number;
+    startDistance: number;
+    startAngle: number;
+    startPointerAngle: number;
+  } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const diagram = value ?? { version: 1 as const, elements: [] };
   const selected = diagram.elements.find((element) => element.id === selectedId) ?? null;
@@ -153,16 +201,36 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
 
   const eventPosition = (event: PointerEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width) * 378;
+    const y = ((event.clientY - bounds.top) / bounds.height) * 334;
     return {
-      x: clamp(((event.clientX - bounds.left) / bounds.width) * 100, 0, 100),
-      y: clamp(((event.clientY - bounds.top) / bounds.height) * 100, 0, 100),
+      x: (x / 378) * 100,
+      y: (y / 334) * 100,
+      rawX: x,
+      rawY: y,
     };
   };
 
   const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
     if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
     const position = eventPosition(event);
-    updateElement(dragRef.current.id, { x: position.x, y: position.y });
+    const drag = dragRef.current;
+    if (drag.mode === "move") {
+      updateElement(drag.id, { x: position.x, y: position.y });
+      return;
+    }
+    const current = diagram.elements.find((element) => element.id === drag.id);
+    if (!current) return;
+    const centerX = current.x * 3.78;
+    const centerY = current.y * 3.34;
+    const pointerAngle = Math.atan2(position.rawY - centerY, position.rawX - centerX) * 180 / Math.PI;
+    if (drag.mode === "resize") {
+      const distance = Math.hypot(position.rawX - centerX, position.rawY - centerY);
+      updateElement(drag.id, { scale: clamp(drag.startScale * distance / Math.max(drag.startDistance, 1), 0.5, 2) });
+    } else {
+      const difference = ((pointerAngle - drag.startPointerAngle + 540) % 360) - 180;
+      updateElement(drag.id, { angle: (drag.startAngle + difference + 360) % 360 });
+    }
   };
 
   const handlePointerUp = (event: PointerEvent<SVGSVGElement>) => {
@@ -178,7 +246,31 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
     event.preventDefault();
     event.stopPropagation();
     setSelectedId(id);
-    dragRef.current = { id, pointerId: event.pointerId };
+    dragRef.current = { id, pointerId: event.pointerId, mode: "move", startScale: 1, startDistance: 1, startAngle: 0, startPointerAngle: 0 };
+    svgRef.current?.setPointerCapture(event.pointerId);
+  };
+
+  const handleTransformPointerDown = (id: string, mode: "resize" | "rotate", event: PointerEvent<SVGCircleElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const element = diagram.elements.find((item) => item.id === id);
+    if (!element) return;
+    const bounds = svgRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const pointerX = ((event.clientX - bounds.left) / bounds.width) * 378;
+    const pointerY = ((event.clientY - bounds.top) / bounds.height) * 334;
+    const centerX = element.x * 3.78;
+    const centerY = element.y * 3.34;
+    dragRef.current = {
+      id,
+      pointerId: event.pointerId,
+      mode,
+      startScale: element.scale ?? 1,
+      startDistance: Math.hypot(pointerX - centerX, pointerY - centerY),
+      startAngle: element.angle ?? 0,
+      startPointerAngle: Math.atan2(pointerY - centerY, pointerX - centerX) * 180 / Math.PI,
+    };
+    setSelectedId(id);
     svgRef.current?.setPointerCapture(event.pointerId);
   };
 
@@ -253,11 +345,14 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="min-h-0 min-w-0 flex-1 overflow-auto px-2 py-2 sm:px-4 sm:py-3">
-        <div className="relative mx-auto aspect-[189/167] w-full max-w-[min(92vw,900px)] overflow-visible rounded-lg border border-zinc-700 bg-white">
+        <div
+          className="relative mx-auto aspect-[189/167] max-w-full overflow-visible bg-white"
+          style={{ width: "min(100%, 900px, calc((100dvh - 220px) * 1.1317))" }}
+        >
           <svg
             ref={svgRef}
             viewBox="0 0 378 334"
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMid meet"
             role="group"
             aria-label="Basketball half court. Use the marker controls to add symbols, then drag to reposition."
             className="absolute inset-0 h-full w-full"
@@ -273,6 +368,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
                 element={element}
                 selected={selected?.id === element.id}
                 onPointerDown={(event) => handleMarkerPointerDown(element.id, event)}
+                onHandlePointerDown={(mode, event) => handleTransformPointerDown(element.id, mode, event)}
                 onKeyDown={(event) => handleMarkerKeyDown(element.id, event)}
               />
             ))}
@@ -284,40 +380,29 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
               </span>
             </div>
           )}
+          {selected?.type === "shot" && (
+            <label
+              className="absolute z-20 flex -translate-x-1/2 items-center rounded-full border border-zinc-300 bg-white px-2 py-1 shadow-md"
+              style={{ left: `${selected.x}%`, top: `${Math.min(selected.y + 9, 91)}%` }}
+            >
+              <span className="sr-only">Shot count</span>
+              <input
+                aria-label="Shot count"
+                type="number"
+                min={1}
+                max={99}
+                value={selected.shots ?? 10}
+                onChange={(event) => updateElement(selected.id, { shots: clamp(Number(event.currentTarget.value) || 1, 1, 99) })}
+                className="w-10 bg-transparent text-center text-xs font-bold text-zinc-900 outline-none"
+              />
+            </label>
+          )}
         </div>
-      </div>
-
-        {selected && (
-          <div className="absolute right-3 top-3 z-10 w-[min(21rem,calc(100%-1.5rem))] rounded-xl border border-orange-500/60 bg-[#101010]/95 p-3 shadow-2xl backdrop-blur-sm sm:right-5 sm:top-5">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <span className="truncate text-[10px] font-bold uppercase tracking-[.16em] text-orange-300">
-                Edit {selected.type === "start" ? "player start" : selected.type}
-              </span>
-              <button type="button" onClick={removeSelected} aria-label={`Remove ${selected.type} marker`} className="rounded-full p-1.5 text-zinc-400 hover:bg-red-950 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {selected.type === "shot" && (
-                <label className="mr-auto flex items-center gap-2 text-xs text-zinc-300">
-                  Shots
-                  <input aria-label="Shot count" type="number" min={1} max={99} value={selected.shots ?? 10}
-                    onChange={(event) => updateElement(selected.id, { shots: clamp(Number(event.currentTarget.value) || 1, 1, 99) })}
-                    className="h-9 w-16 rounded-lg border border-zinc-700 bg-black px-2 text-center text-sm text-white outline-none focus:border-orange-400" />
-                </label>
-              )}
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Size</span>
-              <button type="button" aria-label="Shrink marker" onClick={() => updateElement(selected.id, { scale: clamp((selected.scale ?? 1) - 0.1, 0.5, 2) })} className="rounded-lg border border-zinc-700 p-2 text-zinc-200 hover:border-orange-400"><Minus className="h-4 w-4" /></button>
-              <button type="button" aria-label="Enlarge marker" onClick={() => updateElement(selected.id, { scale: clamp((selected.scale ?? 1) + 0.1, 0.5, 2) })} className="rounded-lg border border-zinc-700 p-2 text-zinc-200 hover:border-orange-400"><Plus className="h-4 w-4" /></button>
-              <span className="ml-1 text-[10px] uppercase tracking-wider text-zinc-500">Rotate</span>
-              <button type="button" aria-label="Rotate marker counterclockwise" onClick={() => updateElement(selected.id, { angle: ((selected.angle ?? 0) - 15 + 360) % 360 })} className="rounded-lg border border-zinc-700 p-2 text-zinc-200 hover:border-orange-400"><RotateCcw className="h-4 w-4" /></button>
-              <button type="button" aria-label="Rotate marker clockwise" onClick={() => updateElement(selected.id, { angle: ((selected.angle ?? 0) + 15) % 360 })} className="rounded-lg border border-zinc-700 p-2 text-zinc-200 hover:border-orange-400"><RotateCw className="h-4 w-4" /></button>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="min-h-[44px] border-t border-zinc-800 px-3 py-2 sm:px-4">
         {selected ? (
-          <p className="text-center text-[10px] text-zinc-500">Use the on-court controls to resize, rotate, or edit shots.</p>
+          <p className="text-center text-[10px] text-zinc-500">Drag a corner to resize, the top handle to rotate, or the mark to move.</p>
         ) : (
           <p className="flex min-h-6 items-center justify-center gap-1.5 text-center text-[10px] text-zinc-500">
             {diagram.elements.length === 0
