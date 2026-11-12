@@ -269,6 +269,12 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
     publishElements(diagram.elements.map((element) => element.id === id ? { ...element, ...patch } : element));
   };
 
+  const commitShotCount = (id: string, draft: string) => {
+    const digits = draft.replace(/\D/g, "").slice(0, 2);
+    if (digits) updateElement(id, { shots: clamp(Number(digits), 1, 99) });
+    setShotCountDraft(null);
+  };
+
   const addElement = (type: DrillDiagramElementType) => {
     const locations: Record<DrillDiagramElementType, { x: number; y: number }> = {
       shot: { x: 50, y: 44 },
@@ -544,9 +550,14 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
                 onChange={(event) => {
                   const value = event.currentTarget.value.replace(/\D/g, "").slice(0, 2);
                   setShotCountDraft({ id: selected.id, value });
-                  if (value) updateElement(selected.id, { shots: clamp(Number(value), 1, 99) });
                 }}
-                onBlur={() => setShotCountDraft(null)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                  }
+                }}
+                onBlur={(event) => commitShotCount(selected.id, event.currentTarget.value)}
                 className="h-full w-full rounded-full border-0 bg-transparent p-0 text-center text-[13px] font-extrabold leading-none text-white caret-white outline-none"
               />
             </div>
