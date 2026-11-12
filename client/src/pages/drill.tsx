@@ -18,9 +18,9 @@ import {
   Clock,
   Target,
   ChevronLeft,
+  ChevronRight,
+  X,
   ClipboardList,
-  Lightbulb,
-  Dumbbell,
   Share2,
   Copy,
   Check,
@@ -470,127 +470,80 @@ export default function DrillPage() {
   })();
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-6xl flex-col items-center bg-black px-3 py-4 text-zinc-900 sm:px-6 sm:py-8">
-      <header className="mb-4 w-full max-w-5xl">
-        <Link href="/drills">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-9 gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 text-zinc-200 hover:bg-white/10 hover:text-white"
-            data-testid="button-back"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Drill Library
-          </Button>
+    <div className="flex min-h-screen items-center justify-center bg-black/95 px-2 py-3 sm:px-6 sm:py-6">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="drill-detail-title"
+        className="relative flex h-[min(90dvh,920px)] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-[#fbfaf7] text-zinc-950 shadow-2xl"
+      >
+        <Link href="/drills" aria-label="Close drill details" className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-300 bg-white transition hover:bg-zinc-100" data-testid="button-back">
+          <X className="h-4 w-4" />
         </Link>
-      </header>
-
-      <main className="grid h-fit w-full max-w-5xl gap-4 overflow-hidden rounded-[28px] border border-white/70 bg-[#f7f6f2] p-3 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,.45)] sm:gap-5 sm:p-5 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <section
-          className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:col-start-1 lg:row-start-1"
-          data-testid="drill-media"
-        >
-          {mediaContent}
-        </section>
-
-        <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:col-start-1 lg:row-start-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-[.18em] text-orange-700">{categoryLabels[drill.category] || drill.category}</span>
-            <span className="text-zinc-300">·</span>
-            <span className="text-[10px] font-bold uppercase tracking-[.14em] text-zinc-500">{drill.difficulty || "beginner"}</span>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <h1 className="min-w-0 flex-1 font-heading text-2xl font-black uppercase leading-tight tracking-tight text-zinc-950 sm:text-3xl" data-testid="text-drill-title">
-              {drill.title}
-            </h1>
-            <div className="w-fit shrink-0 rounded-xl border border-zinc-200 bg-[#f7f6f2] px-2.5 py-2">
-              <BasketballRating drillId={drill.id} size="sm" showCount={true} />
-            </div>
-          </div>
-
-          <p className="max-w-3xl text-sm leading-6 text-zinc-600 sm:text-[15px]" data-testid="text-drill-description">
+        <header className="shrink-0 bg-white px-5 pb-4 pt-6 sm:px-8">
+          <p className="font-mono text-[10px] font-black uppercase tracking-[.2em] text-orange-600">
+            {categoryLabels[drill.category] || drill.category} <span className="px-1 text-zinc-400">·</span> {drill.difficulty || "beginner"}
+          </p>
+          <h1 id="drill-detail-title" className="mt-1 max-w-[85%] font-heading text-3xl font-black uppercase leading-none sm:text-5xl" data-testid="text-drill-title">
+            {drill.title}
+          </h1>
+          <div className="mt-4 h-1 bg-black" />
+          <p className="mt-3 text-sm leading-relaxed text-zinc-700 sm:text-base" data-testid="text-drill-description">
             {drill.description || "Master this drill to take your skills to the next level."}
           </p>
-        </section>
+        </header>
 
-        <aside className="space-y-3 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-4 lg:self-start">
-          <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
-                <Clock className="h-5 w-5" />
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
+          <section className="overflow-hidden rounded-xl bg-white shadow-md" data-testid="drill-media">
+            {mediaContent}
+          </section>
+
+          <section className="rounded-xl bg-white p-4 shadow-md sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-orange-700">
+                  <Clock className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-500">Estimated time</p>
+                  <p className="font-heading text-2xl font-black uppercase" data-testid="text-drill-duration">{formatDuration(drill.duration)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Ready to train</p>
-                <p className="mt-0.5 text-sm font-semibold text-zinc-900">Your next reps start here</p>
+              <div className="text-right">
+                <p className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-500">Player rating</p>
+                <BasketballRating drillId={drill.id} size="sm" showCount />
               </div>
-            </div>
-
-            <div className="rounded-xl border border-zinc-200 bg-[#f7f6f2] px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Estimated time</p>
-              <p className="mt-1 text-2xl font-black tracking-tight text-zinc-950" data-testid="text-drill-duration">
-                {formatDuration(drill.duration)}
-              </p>
-            </div>
-
-            <div className="mt-4 space-y-2">
-              <Link href={`/log?drill=${drill.id}`}>
-                <Button
-                  className="h-11 w-full gap-2 rounded-xl bg-black font-bold text-white hover:bg-zinc-800"
-                  data-testid="button-log-session"
-                >
-                  <ClipboardList className="h-4 w-4" />
-                  Log Training Session
-                </Button>
-              </Link>
-              <Button
-                variant="outline"
-                  className="h-11 w-full gap-2 rounded-xl border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100"
-                onClick={() => setShareOpen(true)}
-                data-testid="button-share"
-              >
-                <Share2 className="h-4 w-4" />
-                Share Drill
-              </Button>
             </div>
           </section>
 
-          {drill.equipment && drill.equipment.length > 0 && (
-            <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-zinc-900">
-                <Dumbbell className="h-4 w-4 text-orange-600" />
-                Equipment
-              </h2>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {drill.equipment.map((item, index) => (
-                  <Badge key={index} className="border-zinc-200 bg-[#f7f6f2] px-2.5 py-1 text-xs font-normal text-zinc-700 hover:bg-[#f7f6f2]">
-                    {item}
-                  </Badge>
-                ))}
-              </div>
-            </section>
-          )}
-        </aside>
+          <Button
+            variant="outline"
+            className="h-11 w-full gap-2 rounded-xl border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100"
+            onClick={() => setShareOpen(true)}
+            data-testid="button-share"
+          >
+            <Share2 className="h-4 w-4" />
+            Share Drill
+          </Button>
+        </div>
 
-        {drill.tips && drill.tips.length > 0 && (
-          <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:col-start-1 lg:row-start-3">
-            <h2 className="flex items-center gap-2 text-sm font-bold text-zinc-900">
-              <Lightbulb className="h-4 w-4 text-orange-600" />
-              Pro Tips
-            </h2>
-            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-              {drill.tips.map((tip, index) => (
-                <li key={index} className="flex gap-3 rounded-xl border border-zinc-200 bg-[#f7f6f2] p-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-xs font-bold text-orange-700">
-                    {index + 1}
-                  </span>
-                  <span className="text-sm leading-5 text-zinc-700">{tip}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-      </main>
+        <footer className="flex shrink-0 items-center justify-between gap-3 bg-zinc-950 p-3 pb-[calc(env(safe-area-inset-bottom,0px)+.75rem)] text-white sm:p-4">
+          <div className="min-w-0">
+            <p className="font-heading text-sm font-black uppercase">Ready to train</p>
+            <p className="text-xs text-zinc-400">Your next reps start here</p>
+          </div>
+          <Link href={`/log?drill=${drill.id}`}>
+            <Button
+              className="h-12 shrink-0 gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 font-black text-black shadow-[0_0_20px_rgba(249,115,22,.35)] hover:from-orange-400 hover:to-orange-500 sm:px-5"
+              data-testid="button-log-session"
+            >
+              <ClipboardList className="h-4 w-4" />
+              Log Drill
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </footer>
+      </section>
 
       <ShareDrillDialog drill={drill} open={shareOpen} onOpenChange={setShareOpen} />
     </div>
