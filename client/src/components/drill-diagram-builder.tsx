@@ -87,8 +87,8 @@ function DiagramMark({
   const lengthScale = (element.length ?? 18) / 18;
   const bendScale = 1 + (element.bend ?? 0) / 45;
   const iconScale = element.scale ?? 1;
-  const boxWidth = dimensions.width * iconScale * (element.type === "arrow" ? bendScale : 1);
-  const boxHeight = dimensions.height * iconScale * (element.type === "arrow" ? lengthScale : 1);
+  const boxWidth = dimensions.width * (element.type === "arrow" ? bendScale : 1);
+  const boxHeight = dimensions.height * (element.type === "arrow" ? lengthScale : 1);
   const corners = [
     [-boxWidth / 2, -boxHeight / 2],
     [boxWidth / 2, -boxHeight / 2],
@@ -304,12 +304,6 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
     setSelectedId(null);
   };
 
-  const removeSelected = () => {
-    if (!selected) return;
-    publishElements(diagram.elements.filter((element) => element.id !== selected.id));
-    setSelectedId(null);
-  };
-
   return (
     <section aria-label="Drill diagram editor" className="flex h-full min-h-0 w-full min-w-0 flex-col bg-black text-zinc-100">
       <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-800 px-3 py-2.5 sm:px-4">
@@ -347,7 +341,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       <div className="min-h-0 min-w-0 flex-1 overflow-auto px-2 py-2 sm:px-4 sm:py-3">
         <div
           className="relative mx-auto aspect-[189/167] max-w-full overflow-visible bg-white"
-          style={{ width: "min(100%, 900px, calc((100dvh - 220px) * 1.1317))" }}
+          style={{ width: "min(100%, 900px, calc(100dvh - 220px))" }}
         >
           <svg
             ref={svgRef}
@@ -398,6 +392,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
             </label>
           )}
         </div>
+      </div>
       </div>
 
       <div className="min-h-[44px] border-t border-zinc-800 px-3 py-2 sm:px-4">
