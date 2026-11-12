@@ -19,6 +19,12 @@ export interface DrillDiagramElement {
   length?: number;
   bend?: number;
   scale?: number;
+  startX?: number;
+  startY?: number;
+  controlX?: number;
+  controlY?: number;
+  endX?: number;
+  endY?: number;
 }
 
 export interface DrillDiagram {
@@ -41,6 +47,27 @@ const toolOptions: { type: DrillDiagramElementType; label: string; hint: string 
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+type ArrowPoints = { startX: number; startY: number; controlX: number; controlY: number; endX: number; endY: number };
+
+function getArrowPoints(element: DrillDiagramElement): ArrowPoints {
+  return {
+    startX: element.startX ?? clamp(element.x - 5, 0, 100),
+    startY: element.startY ?? clamp(element.y - 5, 0, 100),
+    controlX: element.controlX ?? element.x,
+    controlY: element.controlY ?? clamp(element.y - 2, 0, 100),
+    endX: element.endX ?? clamp(element.x + 5, 0, 100),
+    endY: element.endY ?? clamp(element.y + 6, 0, 100),
+  };
+}
+
+function arrowHeadPath(endX: number, endY: number, controlX: number, controlY: number) {
+  const angle = Math.atan2(endY - controlY, endX - controlX);
+  const size = 8;
+  const left = angle + Math.PI * 0.82;
+  const right = angle - Math.PI * 0.82;
+  return `M ${endX + Math.cos(left) * size} ${endY + Math.sin(left) * size} L ${endX} ${endY} L ${endX + Math.cos(right) * size} ${endY + Math.sin(right) * size}`;
+}
 
 function makeId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -65,19 +92,63 @@ function DiagramMark({
   selected,
   onPointerDown,
   onHandlePointerDown,
+  onArrowPointPointerDown,
   onKeyDown,
+  shotCountDraft,
+  setShotCountDraft,
+  updateShotCount,
 }: {
   element: DrillDiagramElement;
   selected: boolean;
   onPointerDown: (event: PointerEvent<SVGGElement>) => void;
-  onHandlePointerDown: (mode: "resize" | "rotate" | "arrowLength" | "bend", event: PointerEvent<SVGCircleElement>) => void;
+  onHandlePointerDown: (mode: "resize" | "rotate", event: PointerEvent<SVGCircleElement>) => void;
+  onArrowPointPointerDown: (point: "start" | "control" | "end", event: PointerEvent<SVGCircleElement>) => void;
   onKeyDown: (event: KeyboardEvent<SVGGElement>) => void;
+  shotCountDraft: { id: string; value: string } | null;
+  setShotCountDraft: (draft: { id: string; value: string } | null) => void;
+  updateShotCount: (id: string, count: number) => void;
 }) {
-  const x = element.x * 3.78;
+  const x = element.x * 3.88;
   const y = element.y * 3.34;
   const asset = element.type === "shot" ? shotAsset : element.type === "start" ? startAsset : element.type === "screen" ? screenAsset : element.type === "cone" ? coneAsset : arrowAsset;
+  if (element.type === "arrow") {
+    const points = getArrowPoints(element);
+    const startX = points.startX * 3.88;
+    const startY = points.startY * 3.34;
+    const controlX = points.controlX * 3.88;
+    const controlY = points.controlY * 3.34;
+    const endX = points.endX * 3.88;
+    const endY = points.endY * 3.34;
+    const boxLeft = Math.min(startX, controlX, endX);
+    const boxTop = Math.min(startY, controlY, endY);
+    const boxWidth = Math.max(12, Math.max(startX, controlX, endX) - boxLeft);
+    const boxHeight = Math.max(12, Math.max(startY, controlY, endY) - boxTop);
+    return (
+      <g
+        className="cursor-grab outline-none active:cursor-grabbing"
+        role="button"
+        tabIndex={0}
+        aria-label="Movement arrow. Drag its three points to shape the path."
+        aria-pressed={selected}
+        onPointerDown={onPointerDown}
+        onKeyDown={onKeyDown}
+        style={{ touchAction: "none" }}
+      >
+        <path d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`} fill="none" stroke="#111" strokeWidth="3.5" strokeDasharray="8 6" strokeLinecap="round" />
+        <path d={arrowHeadPath(endX, endY, controlX, controlY)} fill="none" stroke="#111" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+        {selected && (
+          <>
+            <rect x={boxLeft - 4} y={boxTop - 4} width={boxWidth + 8} height={boxHeight + 8} fill="none" stroke="#111" strokeWidth="1.5" pointerEvents="none" />
+            <circle cx={startX} cy={startY} r="6" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" className="cursor-move" onPointerDown={(event) => onArrowPointPointerDown("start", event)} />
+            <circle cx={controlX} cy={controlY} r="6" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" className="cursor-move" onPointerDown={(event) => onArrowPointPointerDown("control", event)} />
+            <circle cx={endX} cy={endY} r="6" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" className="cursor-move" onPointerDown={(event) => onArrowPointPointerDown("end", event)} />
+          </>
+        )}
+      </g>
+    );
+  }
   const dimensions = element.type === "shot"
-    ? { width: 42, height: 42 }
+    ? { width: 36, height: 36 }
     : element.type === "start"
       ? { width: 36, height: 36 }
     : element.type === "screen"
@@ -86,11 +157,9 @@ function DiagramMark({
         ? { width: 30, height: 38 }
         : { width: 60, height: 150 };
   const angle = element.angle ?? 0;
-  const lengthScale = (element.length ?? 18) / 18;
-  const bendScale = 1 + (element.bend ?? 0) / 45;
   const iconScale = element.scale ?? 1;
-  const boxWidth = dimensions.width * (element.type === "arrow" ? bendScale : 1);
-  const boxHeight = dimensions.height * (element.type === "arrow" ? lengthScale : 1);
+  const boxWidth = dimensions.width;
+  const boxHeight = dimensions.height;
   const corners = [
     [-boxWidth / 2, -boxHeight / 2],
     [boxWidth / 2, -boxHeight / 2],
@@ -109,18 +178,37 @@ function DiagramMark({
       onKeyDown={onKeyDown}
       style={{ touchAction: "none" }}
     >
-      {element.type === "arrow" ? (
-        <g transform={`scale(${bendScale} ${lengthScale})`}>
-          <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="xMidYMid meet" />
-        </g>
+      {element.type === "shot" ? (
+        <>
+          <circle r="17" fill="#f27670" />
+          <circle r="13.5" fill="#171717" />
+          <text x="0" y="4" textAnchor="middle" fontSize="13" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots ?? 10}</text>
+        </>
       ) : (
         <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="xMidYMid meet" />
       )}
-      {element.type === "shot" && (element.shots ?? 10) !== 10 && (
-        <>
-          <circle r="12.2" fill="#171717" pointerEvents="none" />
-          <text x="0" y="3.8" textAnchor="middle" fontSize="10" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots}</text>
-        </>
+      {selected && element.type === "shot" && (
+        <foreignObject x="-16" y="-10" width="32" height="20">
+          <input
+            aria-label="Shot count"
+            inputMode="numeric"
+            maxLength={2}
+            value={shotCountDraft?.id === element.id ? shotCountDraft.value : String(element.shots ?? 10)}
+            onPointerDown={(event) => event.stopPropagation()}
+            onFocus={() => setShotCountDraft({ id: element.id, value: String(element.shots ?? 10) })}
+            onChange={(event) => {
+              const next = event.currentTarget.value.replace(/\D/g, "").slice(0, 2);
+              setShotCountDraft({ id: element.id, value: next });
+            }}
+            onBlur={() => {
+              if (shotCountDraft?.id === element.id && shotCountDraft.value) {
+                updateShotCount(element.id, clamp(Number(shotCountDraft.value), 1, 99));
+              }
+              setShotCountDraft(null);
+            }}
+            className="h-full w-full border-0 bg-transparent p-0 text-center text-[13px] font-extrabold leading-none text-white outline-none"
+          />
+        </foreignObject>
       )}
       {selected && (
         <g pointerEvents="none">
@@ -133,14 +221,7 @@ function DiagramMark({
             stroke="#111827"
             strokeWidth="1.5"
           />
-          {element.type === "arrow" ? (
-            <>
-              <circle cx={-boxWidth / 2} cy="0" r="5.5" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" pointerEvents="all" className="cursor-ew-resize" onPointerDown={(event) => onHandlePointerDown("resize", event)} />
-              <circle cx={boxWidth / 2} cy="0" r="5.5" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" pointerEvents="all" className="cursor-ns-resize" onPointerDown={(event) => onHandlePointerDown("arrowLength", event)} />
-              <circle cx="0" cy="0" r="5.5" fill="#fff" stroke="#9ca3af" strokeWidth="1.5" pointerEvents="all" className="cursor-crosshair" onPointerDown={(event) => onHandlePointerDown("bend", event)} />
-            </>
-          ) : (
-            corners.map(([cx, cy], index) => (
+          {corners.map(([cx, cy], index) => (
               <circle
                 key={index}
                 cx={cx}
@@ -153,8 +234,7 @@ function DiagramMark({
                 className="cursor-nwse-resize"
                 onPointerDown={(event) => onHandlePointerDown("resize", event)}
               />
-            ))
-          )}
+          ))}
           <line x1="0" y1={-boxHeight / 2} x2="0" y2={-boxHeight / 2 - 15} stroke="#9ca3af" strokeWidth="1.5" />
           <circle
             cx="0"
@@ -178,13 +258,13 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
   const dragRef = useRef<{
     id: string;
     pointerId: number;
-    mode: "move" | "resize" | "rotate" | "arrowLength" | "bend";
+    mode: "move" | "resize" | "rotate" | "arrowPoint";
+    arrowPoint?: "start" | "control" | "end";
+    startPoints?: ArrowPoints;
     startScale: number;
     startDistance: number;
     startAngle: number;
     startPointerAngle: number;
-    startLength: number;
-    startBend: number;
     startPointerX: number;
     startPointerY: number;
   } | null>(null);
@@ -207,7 +287,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       start: { x: 50, y: 79 },
       screen: { x: 43, y: 59 },
       cone: { x: 64, y: 67 },
-      arrow: { x: 50, y: 71 },
+      arrow: { x: 50, y: 68 },
     };
     const element: DrillDiagramElement = {
       id: makeId(),
@@ -216,7 +296,7 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       ...(type === "shot" ? { shots: 10 } : {}),
       angle: 0,
       scale: 1,
-      ...(type === "arrow" ? { length: 18, bend: 0 } : {}),
+      ...(type === "arrow" ? { startX: 42, startY: 64, controlX: 50, controlY: 59, endX: 58, endY: 73 } : {}),
     };
     publishElements([...diagram.elements, element]);
     setSelectedId(element.id);
@@ -224,10 +304,10 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
 
   const eventPosition = (event: PointerEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - bounds.left) / bounds.width) * 378;
+    const x = ((event.clientX - bounds.left) / bounds.width) * 388;
     const y = ((event.clientY - bounds.top) / bounds.height) * 334;
     return {
-      x: (x / 378) * 100,
+      x: (x / 388) * 100,
       y: (y / 334) * 100,
       rawX: x,
       rawY: y,
@@ -239,12 +319,31 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
     const position = eventPosition(event);
     const drag = dragRef.current;
     if (drag.mode === "move") {
+      const current = diagram.elements.find((element) => element.id === drag.id);
+      if (current?.type === "arrow" && drag.startPoints) {
+        const dx = position.x - drag.startPointerX;
+        const dy = position.y - drag.startPointerY;
+        updateElement(drag.id, {
+          startX: clamp(drag.startPoints.startX + dx, 0, 100),
+          startY: clamp(drag.startPoints.startY + dy, 0, 100),
+          controlX: clamp(drag.startPoints.controlX + dx, 0, 100),
+          controlY: clamp(drag.startPoints.controlY + dy, 0, 100),
+          endX: clamp(drag.startPoints.endX + dx, 0, 100),
+          endY: clamp(drag.startPoints.endY + dy, 0, 100),
+        });
+        return;
+      }
       updateElement(drag.id, { x: position.x, y: position.y });
+      return;
+    }
+    if (drag.mode === "arrowPoint" && drag.arrowPoint) {
+      const prefix = drag.arrowPoint === "start" ? "start" : drag.arrowPoint === "control" ? "control" : "end";
+      updateElement(drag.id, { [`${prefix}X`]: position.x, [`${prefix}Y`]: position.y } as Partial<DrillDiagramElement>);
       return;
     }
     const current = diagram.elements.find((element) => element.id === drag.id);
     if (!current) return;
-    const centerX = current.x * 3.78;
+    const centerX = current.x * 3.88;
     const centerY = current.y * 3.34;
     const pointerAngle = Math.atan2(position.rawY - centerY, position.rawX - centerX) * 180 / Math.PI;
     if (drag.mode === "resize") {
@@ -253,10 +352,6 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
     } else if (drag.mode === "rotate") {
       const difference = ((pointerAngle - drag.startPointerAngle + 540) % 360) - 180;
       updateElement(drag.id, { angle: (drag.startAngle + difference + 360) % 360 });
-    } else if (drag.mode === "arrowLength") {
-      updateElement(drag.id, { length: clamp(drag.startLength + (drag.startPointerY - position.rawY) * 0.25, 6, 40) });
-    } else if (drag.mode === "bend") {
-      updateElement(drag.id, { bend: clamp(drag.startBend + (position.rawX - drag.startPointerX) * 0.25, -18, 18) });
     }
   };
 
@@ -273,20 +368,28 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
     event.preventDefault();
     event.stopPropagation();
     setSelectedId(id);
-    dragRef.current = { id, pointerId: event.pointerId, mode: "move", startScale: 1, startDistance: 1, startAngle: 0, startPointerAngle: 0, startLength: 18, startBend: 0, startPointerX: 0, startPointerY: 0 };
+    const element = diagram.elements.find((item) => item.id === id);
+    const bounds = svgRef.current?.getBoundingClientRect();
+    const startPointerX = bounds ? ((event.clientX - bounds.left) / bounds.width) * 100 : 0;
+    const startPointerY = bounds ? ((event.clientY - bounds.top) / bounds.height) * 100 : 0;
+    dragRef.current = {
+      id, pointerId: event.pointerId, mode: "move", startScale: 1, startDistance: 1,
+      startAngle: 0, startPointerAngle: 0, startPointerX, startPointerY,
+      ...(element?.type === "arrow" ? { startPoints: getArrowPoints(element) } : {}),
+    };
     svgRef.current?.setPointerCapture(event.pointerId);
   };
 
-  const handleTransformPointerDown = (id: string, mode: "resize" | "rotate" | "arrowLength" | "bend", event: PointerEvent<SVGCircleElement>) => {
+  const handleTransformPointerDown = (id: string, mode: "resize" | "rotate", event: PointerEvent<SVGCircleElement>) => {
     event.preventDefault();
     event.stopPropagation();
     const element = diagram.elements.find((item) => item.id === id);
     if (!element) return;
     const bounds = svgRef.current?.getBoundingClientRect();
     if (!bounds) return;
-    const pointerX = ((event.clientX - bounds.left) / bounds.width) * 378;
+    const pointerX = ((event.clientX - bounds.left) / bounds.width) * 388;
     const pointerY = ((event.clientY - bounds.top) / bounds.height) * 334;
-    const centerX = element.x * 3.78;
+    const centerX = element.x * 3.88;
     const centerY = element.y * 3.34;
     dragRef.current = {
       id,
@@ -296,10 +399,32 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       startDistance: Math.hypot(pointerX - centerX, pointerY - centerY),
       startAngle: element.angle ?? 0,
       startPointerAngle: Math.atan2(pointerY - centerY, pointerX - centerX) * 180 / Math.PI,
-      startLength: element.length ?? 18,
-      startBend: element.bend ?? 0,
       startPointerX: pointerX,
       startPointerY: pointerY,
+    };
+    setSelectedId(id);
+    svgRef.current?.setPointerCapture(event.pointerId);
+  };
+
+  const handleArrowPointPointerDown = (id: string, point: "start" | "control" | "end", event: PointerEvent<SVGCircleElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const element = diagram.elements.find((item) => item.id === id);
+    if (!element || element.type !== "arrow") return;
+    const bounds = svgRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    dragRef.current = {
+      id,
+      pointerId: event.pointerId,
+      mode: "arrowPoint",
+      arrowPoint: point,
+      startScale: 1,
+      startDistance: 1,
+      startAngle: 0,
+      startPointerAngle: 0,
+      startPointerX: ((event.clientX - bounds.left) / bounds.width) * 100,
+      startPointerY: ((event.clientY - bounds.top) / bounds.height) * 100,
+      startPoints: getArrowPoints(element),
     };
     setSelectedId(id);
     svgRef.current?.setPointerCapture(event.pointerId);
@@ -371,12 +496,12 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="min-h-0 min-w-0 flex-1 overflow-auto px-2 py-2 sm:px-4 sm:py-3">
         <div
-          className="relative mx-auto aspect-[189/167] max-w-full overflow-visible bg-white"
+          className="relative mx-auto aspect-[194/167] max-w-full overflow-visible bg-white"
           style={{ width: "min(100%, 900px, calc(100dvh - 220px))" }}
         >
           <svg
             ref={svgRef}
-            viewBox="0 0 378 334"
+            viewBox="0 0 388 334"
             preserveAspectRatio="xMidYMid meet"
             role="group"
             aria-label="Basketball half court. Use the marker controls to add symbols, then drag to reposition."
@@ -384,9 +509,13 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
+            onPointerDown={() => {
+              setSelectedId(null);
+              setShotCountDraft(null);
+            }}
             style={{ touchAction: "none" }}
           >
-            <image href={courtAsset} x="0" y="0" width="378" height="334" preserveAspectRatio="none" />
+            <image href={courtAsset} x="0" y="0" width="388" height="334" preserveAspectRatio="none" />
             {diagram.elements.map((element) => (
               <DiagramMark
                 key={element.id}
@@ -394,7 +523,11 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
                 selected={selected?.id === element.id}
                 onPointerDown={(event) => handleMarkerPointerDown(element.id, event)}
                 onHandlePointerDown={(mode, event) => handleTransformPointerDown(element.id, mode, event)}
+                onArrowPointPointerDown={(point, event) => handleArrowPointPointerDown(element.id, point, event)}
                 onKeyDown={(event) => handleMarkerKeyDown(element.id, event)}
+                shotCountDraft={shotCountDraft}
+                setShotCountDraft={setShotCountDraft}
+                updateShotCount={(id, shots) => updateElement(id, { shots })}
               />
             ))}
           </svg>
@@ -404,29 +537,6 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
                 Add your first mark
               </span>
             </div>
-          )}
-          {selected?.type === "shot" && (
-            <label
-              className="absolute z-20 flex -translate-x-1/2 items-center rounded-full border border-zinc-300 bg-white px-2 py-1 shadow-md"
-              style={{ left: `${selected.x}%`, top: `${Math.min(selected.y + 9, 91)}%` }}
-            >
-              <span className="sr-only">Shot count</span>
-              <input
-                aria-label="Shot count"
-                type="text"
-                inputMode="numeric"
-                value={shotCountDraft?.id === selected.id ? shotCountDraft.value : String(selected.shots ?? 10)}
-                onFocus={() => setShotCountDraft({ id: selected.id, value: String(selected.shots ?? 10) })}
-                onChange={(event) => setShotCountDraft({ id: selected.id, value: event.currentTarget.value.replace(/\D/g, "").slice(0, 2) })}
-                onBlur={() => {
-                  if (shotCountDraft?.id === selected.id && shotCountDraft.value) {
-                    updateElement(selected.id, { shots: clamp(Number(shotCountDraft.value), 1, 99) });
-                  }
-                  setShotCountDraft(null);
-                }}
-                className="w-10 bg-transparent text-center text-xs font-bold text-zinc-900 outline-none"
-              />
-            </label>
           )}
         </div>
       </div>

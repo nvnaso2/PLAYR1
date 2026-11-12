@@ -387,6 +387,12 @@ export type DrillDiagramElement = {
   length?: number;
   bend?: number;
   scale?: number;
+  startX?: number;
+  startY?: number;
+  controlX?: number;
+  controlY?: number;
+  endX?: number;
+  endY?: number;
 };
 export type DrillDiagramData = {
   version: 1;
