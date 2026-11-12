@@ -94,9 +94,6 @@ function DiagramMark({
   onHandlePointerDown,
   onArrowPointPointerDown,
   onKeyDown,
-  shotCountDraft,
-  setShotCountDraft,
-  updateShotCount,
 }: {
   element: DrillDiagramElement;
   selected: boolean;
@@ -104,9 +101,6 @@ function DiagramMark({
   onHandlePointerDown: (mode: "resize" | "rotate", event: PointerEvent<SVGCircleElement>) => void;
   onArrowPointPointerDown: (point: "start" | "control" | "end", event: PointerEvent<SVGCircleElement>) => void;
   onKeyDown: (event: KeyboardEvent<SVGGElement>) => void;
-  shotCountDraft: { id: string; value: string } | null;
-  setShotCountDraft: (draft: { id: string; value: string } | null) => void;
-  updateShotCount: (id: string, count: number) => void;
 }) {
   const x = element.x * 3.88;
   const y = element.y * 3.34;
@@ -134,8 +128,10 @@ function DiagramMark({
         onKeyDown={onKeyDown}
         style={{ touchAction: "none" }}
       >
-        <path d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`} fill="none" stroke="#111" strokeWidth="3.5" strokeDasharray="8 6" strokeLinecap="round" />
-        <path d={arrowHeadPath(endX, endY, controlX, controlY)} fill="none" stroke="#111" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`} fill="none" stroke="transparent" strokeWidth="28" pointerEvents="stroke" />
+        <path d={arrowHeadPath(endX, endY, controlX, controlY)} fill="none" stroke="transparent" strokeWidth="24" pointerEvents="stroke" />
+        <path d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`} fill="none" stroke="#111" strokeWidth="3.5" strokeDasharray="8 6" strokeLinecap="round" pointerEvents="none" />
+        <path d={arrowHeadPath(endX, endY, controlX, controlY)} fill="none" stroke="#111" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />
         {selected && (
           <>
             <rect x={boxLeft - 4} y={boxTop - 4} width={boxWidth + 8} height={boxHeight + 8} fill="none" stroke="#111" strokeWidth="1.5" pointerEvents="none" />
@@ -178,37 +174,22 @@ function DiagramMark({
       onKeyDown={onKeyDown}
       style={{ touchAction: "none" }}
     >
+      <rect
+        x={-dimensions.width / 2 - 10}
+        y={-dimensions.height / 2 - 10}
+        width={dimensions.width + 20}
+        height={dimensions.height + 20}
+        fill="transparent"
+        pointerEvents="all"
+      />
       {element.type === "shot" ? (
         <>
           <circle r="17" fill="#f27670" />
           <circle r="13.5" fill="#171717" />
-          <text x="0" y="4" textAnchor="middle" fontSize="13" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots ?? 10}</text>
+          {!selected && <text x="0" y="4" textAnchor="middle" fontSize="13" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots ?? 10}</text>}
         </>
       ) : (
         <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="xMidYMid meet" />
-      )}
-      {selected && element.type === "shot" && (
-        <foreignObject x="-16" y="-10" width="32" height="20">
-          <input
-            aria-label="Shot count"
-            inputMode="numeric"
-            maxLength={2}
-            value={shotCountDraft?.id === element.id ? shotCountDraft.value : String(element.shots ?? 10)}
-            onPointerDown={(event) => event.stopPropagation()}
-            onFocus={() => setShotCountDraft({ id: element.id, value: String(element.shots ?? 10) })}
-            onChange={(event) => {
-              const next = event.currentTarget.value.replace(/\D/g, "").slice(0, 2);
-              setShotCountDraft({ id: element.id, value: next });
-            }}
-            onBlur={() => {
-              if (shotCountDraft?.id === element.id && shotCountDraft.value) {
-                updateShotCount(element.id, clamp(Number(shotCountDraft.value), 1, 99));
-              }
-              setShotCountDraft(null);
-            }}
-            className="h-full w-full border-0 bg-transparent p-0 text-center text-[13px] font-extrabold leading-none text-white outline-none"
-          />
-        </foreignObject>
       )}
       {selected && (
         <g pointerEvents="none">
@@ -511,7 +492,6 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
             onPointerCancel={handlePointerUp}
             onPointerDown={() => {
               setSelectedId(null);
-              setShotCountDraft(null);
             }}
             style={{ touchAction: "none" }}
           >
@@ -525,12 +505,32 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
                 onHandlePointerDown={(mode, event) => handleTransformPointerDown(element.id, mode, event)}
                 onArrowPointPointerDown={(point, event) => handleArrowPointPointerDown(element.id, point, event)}
                 onKeyDown={(event) => handleMarkerKeyDown(element.id, event)}
-                shotCountDraft={shotCountDraft}
-                setShotCountDraft={setShotCountDraft}
-                updateShotCount={(id, shots) => updateElement(id, { shots })}
               />
             ))}
           </svg>
+          {selected?.type === "shot" && (
+            <div
+              className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${selected.x}%`, top: `${selected.y}%` }}
+            >
+              <input
+                aria-label="Shot count"
+                inputMode="numeric"
+                maxLength={2}
+                value={shotCountDraft?.id === selected.id ? shotCountDraft.value : String(selected.shots ?? 10)}
+                onPointerDown={(event) => event.stopPropagation()}
+                onFocus={() => setShotCountDraft({ id: selected.id, value: String(selected.shots ?? 10) })}
+                onChange={(event) => setShotCountDraft({ id: selected.id, value: event.currentTarget.value.replace(/\D/g, "").slice(0, 2) })}
+                onBlur={() => {
+                  if (shotCountDraft?.id === selected.id && shotCountDraft.value) {
+                    updateElement(selected.id, { shots: clamp(Number(shotCountDraft.value), 1, 99) });
+                  }
+                  setShotCountDraft(null);
+                }}
+                className="pointer-events-auto h-8 w-8 border-0 bg-transparent p-0 text-center text-[13px] font-extrabold leading-none text-white caret-white outline-none"
+              />
+            </div>
+          )}
           {diagram.elements.length === 0 && (
             <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[61%] flex justify-center">
               <span className="rounded-full border border-zinc-500/50 bg-[#efede5]/90 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500">
