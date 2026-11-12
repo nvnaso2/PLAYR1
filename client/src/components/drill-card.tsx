@@ -17,6 +17,7 @@ interface DrillCardProps {
   onSelect?: (drillId: string) => void;
   viewMode?: "grid" | "list";
   hubFeatured?: boolean;
+  link?: boolean;
 }
 
 const categoryIcons = {
@@ -38,6 +39,7 @@ export function DrillCard({
   onSelect,
   viewMode = "grid",
   hubFeatured = false,
+  link = true,
 }: DrillCardProps) {
   const formatDuration = (seconds?: number | null) => {
     if (!seconds) return "N/A";
@@ -165,5 +167,6 @@ export function DrillCard({
   );
 
   if (selectable) return card;
+  if (!link) return card;
   return <Link href={`/drill/${drill.id}`} className={hubFeatured ? "block h-full" : undefined}>{card}</Link>;
 }
