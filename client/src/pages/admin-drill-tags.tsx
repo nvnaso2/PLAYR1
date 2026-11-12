@@ -244,6 +244,12 @@ export default function AdminDrillTagsPage() {
                 </div>
               </section>
 
+              {skillTags.length === 0 ? (
+                <p role="status" className="text-center text-xs text-amber-300">Choose at least one skill to save this drill.</p>
+              ) : !diagramData?.elements.length ? (
+                <p role="status" className="text-center text-xs text-amber-300">Add at least one marker to the court diagram above to enable saving.</p>
+              ) : null}
+
               <Button onClick={() => saveTags.mutate({ drill: selectedDrill, skills: skillTags, formats: workoutTags, level: difficulty, diagram: diagramData })} disabled={saveTags.isPending || skillTags.length === 0 || !diagramData?.elements.length} className="h-12 w-full bg-white font-black uppercase tracking-wide text-black hover:bg-zinc-200">
                 {saveTags.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                 {view === "needs-review" ? "Submit" : "Save changes"}
