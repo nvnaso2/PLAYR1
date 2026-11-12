@@ -4,6 +4,13 @@ import startAsset from "@/assets/drill-diagram/start-marker.png";
 import screenAsset from "@/assets/drill-diagram/screen-marker.png";
 import coneAsset from "@/assets/drill-diagram/cone-marker.png";
 
+const COURT_WIDTH = 388;
+const COURT_HEIGHT = 334;
+const COURT_VIEW_WIDTH = 462;
+const COURT_VIEW_HEIGHT = 398;
+const COURT_OFFSET_X = 37;
+const COURT_OFFSET_Y = 32;
+
 function DiagramMarker({ element }: { element: DrillDiagramElement }) {
   const x = element.x * 3.88;
   const y = element.y * 3.34;
@@ -54,9 +61,11 @@ function DiagramMarker({ element }: { element: DrillDiagramElement }) {
 
 export function DrillDiagramPreview({ diagramData, className = "" }: { diagramData?: DrillDiagramData | null; className?: string }) {
   return (
-    <svg viewBox="0 0 388 334" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Basketball drill court diagram" className={`block h-full w-full ${className}`}>
-      <image href={courtAsset} x="0" y="0" width="388" height="334" preserveAspectRatio="none" />
-      {diagramData?.elements?.map((element) => <DiagramMarker key={element.id} element={element} />)}
+    <svg viewBox={`0 0 ${COURT_VIEW_WIDTH} ${COURT_VIEW_HEIGHT}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Basketball drill court diagram" className={`block h-full w-full ${className}`}>
+      <g transform={`translate(${COURT_OFFSET_X} ${COURT_OFFSET_Y})`}>
+        <image href={courtAsset} x="0" y="0" width={COURT_WIDTH} height={COURT_HEIGHT} preserveAspectRatio="xMidYMid meet" />
+        {diagramData?.elements?.map((element) => <DiagramMarker key={element.id} element={element} />)}
+      </g>
     </svg>
   );
 }

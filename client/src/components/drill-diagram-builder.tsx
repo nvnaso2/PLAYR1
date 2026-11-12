@@ -48,6 +48,13 @@ const toolOptions: { type: DrillDiagramElementType; label: string; hint: string 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const COURT_WIDTH = 388;
+const COURT_HEIGHT = 334;
+const COURT_VIEW_WIDTH = 462;
+const COURT_VIEW_HEIGHT = 398;
+const COURT_OFFSET_X = 37;
+const COURT_OFFSET_Y = 32;
+
 type ArrowPoints = { startX: number; startY: number; controlX: number; controlY: number; endX: number; endY: number };
 
 function getArrowPoints(element: DrillDiagramElement): ArrowPoints {
@@ -283,17 +290,19 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
     setSelectedId(element.id);
   };
 
-  const eventPosition = (event: PointerEvent<SVGSVGElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - bounds.left) / bounds.width) * 388;
-    const y = ((event.clientY - bounds.top) / bounds.height) * 334;
+  const positionFromClient = (clientX: number, clientY: number, bounds: DOMRect) => {
+    const x = ((clientX - bounds.left) / bounds.width) * COURT_VIEW_WIDTH - COURT_OFFSET_X;
+    const y = ((clientY - bounds.top) / bounds.height) * COURT_VIEW_HEIGHT - COURT_OFFSET_Y;
     return {
-      x: (x / 388) * 100,
-      y: (y / 334) * 100,
+      x: (x / COURT_WIDTH) * 100,
+      y: (y / COURT_HEIGHT) * 100,
       rawX: x,
       rawY: y,
     };
   };
+
+  const eventPosition = (event: PointerEvent<SVGSVGElement>) =>
+    positionFromClient(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
 
   const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
     if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
@@ -351,11 +360,10 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
     setSelectedId(id);
     const element = diagram.elements.find((item) => item.id === id);
     const bounds = svgRef.current?.getBoundingClientRect();
-    const startPointerX = bounds ? ((event.clientX - bounds.left) / bounds.width) * 100 : 0;
-    const startPointerY = bounds ? ((event.clientY - bounds.top) / bounds.height) * 100 : 0;
+    const position = bounds ? positionFromClient(event.clientX, event.clientY, bounds) : { x: 0, y: 0 };
     dragRef.current = {
       id, pointerId: event.pointerId, mode: "move", startScale: 1, startDistance: 1,
-      startAngle: 0, startPointerAngle: 0, startPointerX, startPointerY,
+      startAngle: 0, startPointerAngle: 0, startPointerX: position.x, startPointerY: position.y,
       ...(element?.type === "arrow" ? { startPoints: getArrowPoints(element) } : {}),
     };
     svgRef.current?.setPointerCapture(event.pointerId);
@@ -368,8 +376,9 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
     if (!element) return;
     const bounds = svgRef.current?.getBoundingClientRect();
     if (!bounds) return;
-    const pointerX = ((event.clientX - bounds.left) / bounds.width) * 388;
-    const pointerY = ((event.clientY - bounds.top) / bounds.height) * 334;
+    const position = positionFromClient(event.clientX, event.clientY, bounds);
+    const pointerX = position.rawX;
+    const pointerY = position.rawY;
     const centerX = element.x * 3.88;
     const centerY = element.y * 3.34;
     dragRef.current = {
@@ -403,8 +412,8 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       startDistance: 1,
       startAngle: 0,
       startPointerAngle: 0,
-      startPointerX: ((event.clientX - bounds.left) / bounds.width) * 100,
-      startPointerY: ((event.clientY - bounds.top) / bounds.height) * 100,
+      startPointerX: positionFromClient(event.clientX, event.clientY, bounds).x,
+      startPointerY: positionFromClient(event.clientX, event.clientY, bounds).y,
       startPoints: getArrowPoints(element),
     };
     setSelectedId(id);
@@ -477,12 +486,12 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="min-h-0 min-w-0 flex-1 overflow-auto px-2 py-2 sm:px-4 sm:py-3">
         <div
-          className="relative mx-auto aspect-[194/167] max-w-full overflow-visible bg-white"
+          className="relative mx-auto aspect-[231/199] max-w-full overflow-visible bg-white"
           style={{ width: "min(100%, 900px, calc(116dvh - 255px))" }}
         >
           <svg
             ref={svgRef}
-            viewBox="0 0 388 334"
+            viewBox={`0 0 ${COURT_VIEW_WIDTH} ${COURT_VIEW_HEIGHT}`}
             preserveAspectRatio="xMidYMid meet"
             role="group"
             aria-label="Basketball half court. Use the marker controls to add symbols, then drag to reposition."
@@ -495,23 +504,31 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
             }}
             style={{ touchAction: "none" }}
           >
-            <image href={courtAsset} x="0" y="0" width="388" height="334" preserveAspectRatio="none" />
-            {diagram.elements.map((element) => (
-              <DiagramMark
-                key={element.id}
-                element={element}
-                selected={selected?.id === element.id}
-                onPointerDown={(event) => handleMarkerPointerDown(element.id, event)}
-                onHandlePointerDown={(mode, event) => handleTransformPointerDown(element.id, mode, event)}
-                onArrowPointPointerDown={(point, event) => handleArrowPointPointerDown(element.id, point, event)}
-                onKeyDown={(event) => handleMarkerKeyDown(element.id, event)}
-              />
-            ))}
+            <g transform={`translate(${COURT_OFFSET_X} ${COURT_OFFSET_Y})`}>
+              <image href={courtAsset} x="0" y="0" width={COURT_WIDTH} height={COURT_HEIGHT} preserveAspectRatio="xMidYMid meet" />
+              {diagram.elements.map((element) => (
+                <DiagramMark
+                  key={element.id}
+                  element={element}
+                  selected={selected?.id === element.id}
+                  onPointerDown={(event) => handleMarkerPointerDown(element.id, event)}
+                  onHandlePointerDown={(mode, event) => handleTransformPointerDown(element.id, mode, event)}
+                  onArrowPointPointerDown={(point, event) => handleArrowPointPointerDown(element.id, point, event)}
+                  onKeyDown={(event) => handleMarkerKeyDown(element.id, event)}
+                />
+              ))}
+            </g>
           </svg>
           {selected?.type === "shot" && (
             <div
               className="absolute z-50 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#171717]"
-              style={{ left: `${selected.x}%`, top: `${selected.y}%`, width: 28, height: 28, pointerEvents: "auto" }}
+              style={{
+                left: `${((COURT_OFFSET_X + selected.x * 3.88) / COURT_VIEW_WIDTH) * 100}%`,
+                top: `${((COURT_OFFSET_Y + selected.y * 3.34) / COURT_VIEW_HEIGHT) * 100}%`,
+                width: 28,
+                height: 28,
+                pointerEvents: "auto",
+              }}
             >
               <input
                 aria-label="Shot count"
