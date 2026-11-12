@@ -193,7 +193,7 @@ function DiagramMark({
         <>
           <circle r="17" fill="#f27670" />
           <circle r="13.5" fill="#171717" />
-          {!selected && <text x="0" y="4" textAnchor="middle" fontSize="13" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots ?? 10}</text>}
+          <text x="0" y="4" textAnchor="middle" fontSize="13" fontWeight="800" fill="#fff" className="select-none" pointerEvents="none">{element.shots ?? 10}</text>
         </>
       ) : (
         <image href={asset} x={-dimensions.width / 2} y={-dimensions.height / 2} width={dimensions.width} height={dimensions.height} preserveAspectRatio="xMidYMid meet" />
@@ -525,43 +525,6 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
               ))}
             </g>
           </svg>
-          {selected?.type === "shot" && (
-            <div
-              className="absolute z-50 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#171717]"
-              style={{
-                left: `${((COURT_OFFSET_X + selected.x * 3.88) / COURT_VIEW_WIDTH) * 100}%`,
-                top: `${((COURT_OFFSET_Y + selected.y * 3.34) / COURT_VIEW_HEIGHT) * 100}%`,
-                width: 28,
-                height: 28,
-                pointerEvents: "auto",
-              }}
-            >
-              <input
-                aria-label="Shot count"
-                autoFocus
-                inputMode="numeric"
-                maxLength={2}
-                value={shotCountDraft?.id === selected.id ? shotCountDraft.value : String(selected.shots ?? 10)}
-                onPointerDown={(event) => event.stopPropagation()}
-                onFocus={(event) => {
-                  setShotCountDraft({ id: selected.id, value: String(selected.shots ?? 10) });
-                  event.currentTarget.select();
-                }}
-                onChange={(event) => {
-                  const value = event.currentTarget.value.replace(/\D/g, "").slice(0, 2);
-                  setShotCountDraft({ id: selected.id, value });
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    event.currentTarget.blur();
-                  }
-                }}
-                onBlur={(event) => commitShotCount(selected.id, event.currentTarget.value)}
-                className="h-full w-full rounded-full border-0 bg-transparent p-0 text-center text-[13px] font-extrabold leading-none text-white caret-white outline-none"
-              />
-            </div>
-          )}
           {diagram.elements.length === 0 && (
             <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[61%] flex justify-center">
               <span className="rounded-full border border-zinc-500/50 bg-[#efede5]/90 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500">
@@ -575,7 +538,37 @@ export function DrillDiagramBuilder({ value, onChange }: DrillDiagramBuilderProp
 
       <div className="min-h-[44px] border-t border-zinc-800 px-3 py-2 sm:px-4">
         {selected ? (
-          <p className="text-center text-[10px] text-zinc-500">Drag a corner to resize, the top handle to rotate, or the mark to move.</p>
+          <div className="flex min-h-8 items-center justify-center gap-3">
+            {selected.type === "shot" && (
+              <label className="flex items-center gap-2 text-[10px] font-semibold text-zinc-400">
+                Shot count
+                <input
+                  aria-label="Shot count"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={2}
+                  value={shotCountDraft?.id === selected.id ? shotCountDraft.value : String(selected.shots ?? 10)}
+                  onFocus={(event) => {
+                    setShotCountDraft({ id: selected.id, value: String(selected.shots ?? 10) });
+                    event.currentTarget.select();
+                  }}
+                  onChange={(event) => {
+                    const nextValue = event.currentTarget.value.replace(/\D/g, "").slice(0, 2);
+                    setShotCountDraft({ id: selected.id, value: nextValue });
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      event.currentTarget.blur();
+                    }
+                  }}
+                  onBlur={(event) => commitShotCount(selected.id, event.currentTarget.value)}
+                  className="h-8 w-14 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-center text-sm font-bold text-white outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400"
+                />
+              </label>
+            )}
+            <p className="text-center text-[10px] text-zinc-500">Drag a corner to resize, the top handle to rotate, or the mark to move.</p>
+          </div>
         ) : (
           <p className="flex min-h-6 items-center justify-center gap-1.5 text-center text-[10px] text-zinc-500">
             {diagram.elements.length === 0
