@@ -3,7 +3,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Clock, Target, Trophy, Check, HandMetal, Crosshair, Flame, Shield, Brain, Dumbbell } from "lucide-react";
 import type { Drill } from "@shared/schema";
-import { CompactDrillRating } from "@/components/basketball-rating";
 import { getObjectUrl } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { DrillDiagramPreview } from "@/components/drill-diagram-preview";
@@ -79,18 +78,6 @@ export function DrillCard({
         )}>
           {drill.diagramData ? (
             <DrillDiagramPreview diagramData={drill.diagramData} className="h-full w-full object-cover" />
-          ) : drill.videoUrl ? (
-            <video
-              src={getObjectUrl(drill.videoUrl)}
-              poster={getObjectUrl(drill.thumbnailUrl) || undefined}
-              preload={drill.thumbnailUrl ? "none" : "metadata"}
-              muted
-              playsInline
-              className="h-full w-full object-contain pointer-events-none"
-              onLoadedMetadata={!drill.thumbnailUrl
-                ? (e) => { (e.currentTarget as HTMLVideoElement).currentTime = 0.5; }
-                : undefined}
-            />
           ) : drill.thumbnailUrl ? (
             <img
               src={getObjectUrl(drill.thumbnailUrl)}
@@ -154,7 +141,7 @@ export function DrillCard({
                 <Clock className={cn("h-3 w-3 text-orange-400", hubFeatured && "h-2.5 w-2.5")} />
                 {formatDuration(drill.duration)}
               </span>
-              <span className="text-zinc-500"><CompactDrillRating drillId={drill.id} /></span>
+              <span className="truncate capitalize text-zinc-300">{drill.difficulty || "beginner"}</span>
             </div>
           </div>
           {totalSessions !== undefined && totalSessions > 0 && (
