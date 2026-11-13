@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { X } from "lucide-react";
 import type { Drill, WorkoutDrill } from "@shared/schema";
 import { dayTwoWorkoutArt, dayTwoWorkoutTotals } from "@/lib/day-two-workout-art";
+import { formatWorkoutDescription } from "@/lib/workout-description";
 
 export type DayTwoWorkoutPreviewProps = {
   drills: Array<WorkoutDrill & { drill: Drill }>;
@@ -108,7 +109,7 @@ export function DayTwoWorkoutPreview({
                       <p className="font-mono text-[10px] font-extrabold uppercase tracking-[.18em] text-[#ec6b31]">{titleLabel}</p>
                     </div>
                     <h4 className="mt-0.5 font-heading text-xl font-black uppercase leading-tight tracking-[-.025em] text-[#26231f] sm:text-2xl">{entry.drill.title}</h4>
-                    <p className="mt-1.5 text-[11px] leading-[1.32] text-[#302e2b] sm:text-sm sm:leading-[1.4]">{entry.drill.description}</p>
+                    <p className="mt-1.5 text-[11px] leading-[1.32] text-[#302e2b] sm:text-sm sm:leading-[1.4]">{formatWorkoutDescription(entry.drill.description)}</p>
                     <p className="mt-2 font-heading text-base font-black leading-none text-black sm:text-lg">Total — {total}</p>
                   </div>
                 </article>

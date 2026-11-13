@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DrillDiagramPreview } from "@/components/drill-diagram-preview";
 import { getObjectUrl } from "@/lib/queryClient";
+import { formatWorkoutDescription } from "@/lib/workout-description";
 import { getWorkoutFormatTags, getWorkoutSkillTags, WORKOUT_FORMAT_OPTIONS, WORKOUT_SKILL_OPTIONS, type WorkoutSkillTag } from "@shared/workout-builder-taxonomy";
 import type { DifficultyLevel, Drill } from "@shared/schema";
 
@@ -175,7 +176,7 @@ export function ProWorkoutBuilder({
                   <div className="flex min-w-0 flex-col justify-center py-1 pr-1 sm:py-2 sm:pr-2">
                     <p className="font-mono text-[10px] font-black uppercase tracking-widest text-orange-600">Drill #{index + 1}</p>
                     <h3 className="mt-0.5 font-heading text-lg font-black uppercase leading-tight tracking-[-.025em] text-zinc-950 sm:text-xl">{drill.title}</h3>
-                    <p className="mt-1.5 text-xs leading-snug text-zinc-700 sm:text-sm">{drill.description || "Build your skills with focused, quality repetitions."}</p>
+                    <p className="mt-1.5 text-xs leading-snug text-zinc-700 sm:text-sm">{formatWorkoutDescription(drill.description) || "Build your skills with focused, quality repetitions."}</p>
                     <p className="mt-2 font-heading text-sm font-black uppercase leading-none text-black sm:text-base">Total — {formatMinutes(estimatedDrillSeconds(drill))}</p>
                   </div>
                 </article>

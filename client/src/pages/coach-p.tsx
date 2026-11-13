@@ -4,7 +4,7 @@ import { Keyboard } from "@capacitor/keyboard";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUp, Check, ChevronLeft, ChevronRight, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
+import { ArrowUp, Check, ChevronLeft, ChevronRight, Loader2, Menu, MessageSquarePlus, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { countSavedWorkouts, getSavedWorkoutLimit, isAtSavedWorkoutLimit } from "@shared/workout-limits";
 import { CoachPIcon } from "@/components/coach-p-icon";
@@ -1203,7 +1203,7 @@ export default function CoachPPage() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#080808] text-white" style={{ height: "100%", boxSizing: "border-box", paddingTop: "env(safe-area-inset-top, 0px)" }}>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#080808] text-white" style={{ height: "100%", boxSizing: "border-box" }}>
       <AlertDialog
         open={Boolean(conversationToDelete)}
         onOpenChange={(open) => !open && setConversationToDelete(null)}
@@ -1386,15 +1386,6 @@ export default function CoachPPage() {
               </div>
             </SheetContent>
           </Sheet>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/hub")}
-            className="text-zinc-500 hover:text-white"
-            data-testid="button-coach-p-back"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
           <div className="flex items-center gap-2">
             <CoachPIcon />
             <span className="font-semibold tracking-tight">Coach P</span>
@@ -1553,7 +1544,7 @@ export default function CoachPPage() {
           </div>
         )}
 
-        <div className="z-30 shrink-0 bg-[#080808] pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2">
+        <div className="z-30 shrink-0 bg-[#080808] pb-2 pt-2">
           <div className="relative flex min-h-[48px] items-center gap-2 rounded-[24px] border border-zinc-800 bg-zinc-950 px-2.5 py-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.32)] transition-colors focus-within:border-orange-400/45">
             <div className="flex min-w-0 flex-1 items-center">
               <Textarea

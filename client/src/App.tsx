@@ -237,14 +237,14 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const isOnboardingPreviewRoute = location.split("?")[0] === "/admin/onboarding-preview";
   const isOnboardingHubPreview = location.split("?")[0] === "/hub"
     && new URLSearchParams(location.split("?")[1] || "").get("preview") === "onboarding";
-  const hideAppChrome = isCoachChat || isOnboardingPreviewRoute || isOnboardingHubPreview;
+  const hideAppChrome = isOnboardingPreviewRoute || isOnboardingHubPreview;
 
   return (
     <SidebarProvider style={sidebarStyle}>
       <div className="flex h-screen w-full overflow-hidden" style={{ height: "var(--playr1-viewport-height, 100dvh)" }}>
         {!hideAppChrome && <AppSidebar />}
         <SidebarInset className="flex flex-col min-h-0 flex-1 overflow-hidden">
-          {/* Coach P is an immersive chat surface; keep the shell chrome out of its viewport. */}
+          {/* Preview routes omit the regular app chrome; Coach P uses the shared shell. */}
           {!hideAppChrome && <header
             className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-zinc-800/60 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60"
             style={isNative ? {
