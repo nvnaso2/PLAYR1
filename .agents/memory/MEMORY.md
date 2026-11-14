@@ -47,6 +47,7 @@
 - [Personalized shot heat map](personalized-shot-heatmap.md) — preserve the original dark red-to-green palette and map each player's personal average to green
 - [Portable npm lockfiles](npm-lockfile-registry.md) — Replit firewall tarball URLs in package-lock.json fail DNS on cloned Mac builds; keep resolved URLs public
 - [Portable app assets](portable-app-assets.md) — keep imported runtime images in tracked source folders; attached_assets is globally ignored and won't reach Git clones
+- [iOS web asset syncing](ios-web-asset-sync.md) — rebuild and run Capacitor sync after web asset changes so Xcode receives the current image bundle
 - [Day 3 workout artwork](day-three-workout-art.md) — preserve the full Workout #3 image and use an in-between display size, not the oversized version
 - [Workout tracking presentation](workout-tracking-presentation.md) — use an inset rounded workout surface; pin preview actions while omitting tracking descriptions and bottom summary bars
 - [Drill detail content](drill-detail-content.md) — omit Equipment and Pro Tips from the drill detail popup

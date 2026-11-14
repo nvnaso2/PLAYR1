@@ -375,7 +375,10 @@ export default function Drills() {
   if (showProBuilder) {
     return <ProWorkoutBuilder
       drills={adminDrills}
-      onUseWorkout={(ids) => { setSelectedDrillIds(new Set(ids)); setShowProBuilder(false); setSelectionMode(true); setLocation("/drills?build=1"); }}
+      onUseWorkout={(ids) => {
+        track("drill_library_workout_started", { mode: "track", drillCount: ids.length, source: "workout_builder" });
+        setLocation(`/log?startDrills=${encodeURIComponent(ids.join(","))}&mode=track`);
+      }}
     />;
   }
 

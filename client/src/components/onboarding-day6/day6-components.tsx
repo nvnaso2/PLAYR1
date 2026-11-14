@@ -1,6 +1,7 @@
-import { BarChart3, BookOpen, Trophy } from "lucide-react";
+import { BarChart3, Trophy } from "lucide-react";
 import { BaseballCard } from "@/pages/career";
 import type { DayFiveProfileDraft } from "@/components/onboarding-day5/day5-components";
+import workoutThreeCover from "@/assets/onboarding-workout-covers/workout-3-cover-cropped.png";
 
 export function DaySixHubActionSurface({
   profile,
@@ -52,9 +53,9 @@ export function DaySixHubActionSurface({
   };
 
   return (
-    <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-3 pb-1 text-white" data-testid="card-day-six-hub">
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-        <div className="origin-center scale-[0.78]">
+    <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-1 pb-3 text-white" data-testid="card-day-six-hub">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden pb-1">
+        <div className="origin-center scale-[0.9]">
           <BaseballCard
             profile={cardCareer}
             careerStats={careerStats}
@@ -81,15 +82,12 @@ export function DaySixHubActionSurface({
         </button>
       </div>
 
-      <button type="button" onClick={onWorkoutLibrary} className="flex h-[150px] shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-zinc-300 bg-[#f6f6f4] p-4 text-left text-zinc-950 shadow-[0_8px_24px_rgba(0,0,0,.25)] transition hover:-translate-y-0.5" data-testid="button-day-six-workout-library">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-black text-white">
-          <BookOpen className="h-6 w-6 text-orange-400" />
-        </span>
+      <button type="button" onClick={onWorkoutLibrary} className="flex h-[150px] shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-zinc-300 bg-[#f6f6f4] p-3 text-left text-zinc-950 shadow-[0_8px_24px_rgba(0,0,0,.25)] transition hover:-translate-y-0.5" data-testid="button-day-six-workout-library">
         <span className="min-w-0 flex-1">
           <span className="block font-heading text-2xl font-black uppercase leading-none">Workout Library</span>
-          <span className="mt-1 block text-xs font-semibold text-zinc-600">Browse drills and build your next workout.</span>
           <span className="mt-3 inline-flex min-h-8 items-center rounded-md bg-black px-3 text-[10px] font-black uppercase text-white">Explore workouts</span>
         </span>
+        <img src={workoutThreeCover} alt="Example workout from the library: Game-Like Reps" className="h-full w-[36%] shrink-0 rounded-lg object-cover" />
       </button>
     </section>
   );

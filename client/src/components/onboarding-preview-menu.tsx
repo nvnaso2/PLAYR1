@@ -15,7 +15,6 @@ const previewPages: Array<{ value: PreviewPage; label: string }> = [
   { value: "day4-interest", label: "Day 4 · Choose Insight" },
   { value: "day4-magnet", label: "Day 4 · Lead Magnet" },
   { value: "day4-hub", label: "Day 4 Hub" },
-  { value: "day5-profile", label: "Day 5 · Complete Profile" },
   { value: "day5-profile-edit", label: "Day 5 · Profile Questions" },
   { value: "day5-hub", label: "Day 5 Hub" },
   { value: "day6-hub", label: "Day 6 Hub" },

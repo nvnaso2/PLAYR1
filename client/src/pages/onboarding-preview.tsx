@@ -16,7 +16,6 @@ import { Day4LeadMagnetInterestStep } from "@/components/onboarding-day4/day4-co
 import { DAY4_LEAD_MAGNET_OPTIONS } from "@/components/onboarding-day4/day4-lead-magnet-options";
 import { DayFiveProfileStep, mergeDayFiveProfileDraft } from "@/components/onboarding-day5/day5-components";
 import type { DayFiveProfileDraft } from "@/components/onboarding-day5/day5-components";
-import ProfileHubPage from "./profile-hub";
 import type { LeadMagnetId } from "@shared/lead-magnet-submissions";
 
 function tomorrowAtFive() {
@@ -40,12 +39,13 @@ function formatSessionDate(value: string) {
 export default function OnboardingPreviewPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
-  const requestedPage = new URLSearchParams(search).get("page");
-  const page = (["login", "register", "profile", "welcome", "hub", "player-profile", "day2", "day3", "day4-interest", "day4-magnet", "day4-hub", "day5-profile", "day5-profile-edit", "day5-hub", "day6-hub"].includes(requestedPage || "")
+  const requestedPageRaw = new URLSearchParams(search).get("page");
+  const requestedPage = requestedPageRaw === "day5-profile" ? "day5-hub" : requestedPageRaw;
+  const page = (["login", "register", "profile", "welcome", "hub", "player-profile", "day2", "day3", "day4-interest", "day4-magnet", "day4-hub", "day5-profile-edit", "day5-hub", "day6-hub"].includes(requestedPage || "")
     ? requestedPage
-    : "login") as "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2" | "day3" | "day4-interest" | "day4-magnet" | "day4-hub" | "day5-profile" | "day5-profile-edit" | "day5-hub" | "day6-hub";
+    : "login") as "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2" | "day3" | "day4-interest" | "day4-magnet" | "day4-hub" | "day5-profile-edit" | "day5-hub" | "day6-hub";
   const requestedMagnet = new URLSearchParams(search).get("magnet") as LeadMagnetId | null;
-  const dayFiveRoute = page === "day5-profile" || page === "day5-profile-edit" || page === "day5-hub";
+  const dayFiveRoute = page === "day5-profile-edit" || page === "day5-hub";
   const { data: existingUserProfile, isLoading: userProfileLoading } = useQuery<any>({ queryKey: ["/api/profile"], enabled: dayFiveRoute });
   const { data: existingPlayerProfile, isLoading: playerProfileLoading } = useQuery<any>({ queryKey: ["/api/player-profile"], enabled: dayFiveRoute });
   const dayFiveDraft = mergeDayFiveProfileDraft(existingUserProfile, existingPlayerProfile);
@@ -90,7 +90,7 @@ export default function OnboardingPreviewPage() {
     setNextSession(toLocalDateTime(updated));
   }
 
-  if ((page === "day5-profile" || page === "day5-profile-edit") && (userProfileLoading || playerProfileLoading)) {
+  if (page === "day5-profile-edit" && (userProfileLoading || playerProfileLoading)) {
     return <main className="flex min-h-[100dvh] items-center justify-center bg-black font-heading text-sm font-bold uppercase tracking-widest text-orange-400">Loading profile…</main>;
   }
 
@@ -110,22 +110,13 @@ export default function OnboardingPreviewPage() {
     );
   }
 
-  if (page === "day5-profile") {
-    return (
-      <>
-        <OnboardingPreviewMenu page="day5-profile" />
-        <ProfileHubPage dayFivePreview />
-      </>
-    );
-  }
-
   if (page === "day5-profile-edit") {
     return (
       <>
         <OnboardingPreviewMenu page="day5-profile-edit" />
         <DayFiveProfileStep
           initialValue={dayFiveDraft}
-          onBack={() => navigate("/admin/onboarding-preview?page=day5-profile")}
+          onBack={() => navigate("/admin/onboarding-preview?page=day5-hub")}
           onContinue={(draft) => {
             sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(draft));
             const setup = JSON.parse(sessionStorage.getItem("playr1-onboarding-preview") || "{}");

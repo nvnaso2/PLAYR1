@@ -143,7 +143,7 @@ export function ProWorkoutBuilder({
               <div className="mx-auto grid max-w-xl grid-cols-3 gap-2.5">{LEVELS.map((value) => <button key={value} type="button" onClick={() => { setLevel(value); setResult([]); }} className={`rounded-full border px-3 py-3 text-sm font-bold capitalize transition ${level === value ? "border-white bg-white text-black shadow-[0_0_18px_rgba(255,255,255,.16)]" : "border-orange-500/70 bg-zinc-950 text-zinc-200 hover:bg-orange-500/10"}`}>{value}</button>)}</div>
             </div>
 
-            <Button onClick={build} disabled={!skills.length || skills.some((skill) => formatsForSkill(skill).length > 0 && !formats[skill]?.length)} className="mx-auto flex h-12 w-full max-w-xl justify-center bg-white font-black uppercase tracking-wide text-black hover:bg-zinc-200"><Shuffle className="mr-2 h-4 w-4" />Build my workout</Button>
+            <Button onClick={build} disabled={!skills.length || skills.some((skill) => formatsForSkill(skill).length > 0 && !formats[skill]?.length)} className="mx-auto flex h-12 w-full max-w-xl justify-center rounded-full bg-white font-black uppercase tracking-wide text-black hover:bg-zinc-200"><Shuffle className="mr-2 h-4 w-4" />Build my workout</Button>
         </section>
       </div>
       <Dialog open={resultOpen} onOpenChange={setResultOpen}>
@@ -187,7 +187,7 @@ export function ProWorkoutBuilder({
               <p className="min-w-0 font-heading text-sm font-black uppercase sm:text-base">{estimatedWorkoutMinutes || minutes} min · {result.length} drills</p>
               <div className="flex shrink-0 items-center gap-2">
                 <Button variant="outline" onClick={build} className="h-11 border-zinc-600 bg-transparent px-3 text-xs font-bold text-white hover:bg-zinc-800 hover:text-white sm:px-4"><Shuffle className="mr-1.5 h-4 w-4" />Another</Button>
-                {result.length > 0 && <Button onClick={() => onUseWorkout(result.map((drill) => drill.id))} className="h-12 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 font-black text-black shadow-[0_0_20px_rgba(249,115,22,.45)] hover:brightness-110 sm:px-5">Use Workout <ArrowRight className="ml-1.5 h-4 w-4" /></Button>}
+                {result.length > 0 && <Button onClick={() => onUseWorkout(result.map((drill) => drill.id))} className="h-12 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-5 font-black text-black shadow-[0_0_20px_rgba(249,115,22,.45)] hover:brightness-110 sm:px-6">Use Workout <ArrowRight className="ml-1.5 h-4 w-4" /></Button>}
               </div>
           </DialogFooter>
           </section>

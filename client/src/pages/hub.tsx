@@ -1787,7 +1787,6 @@ export default function HubPage() {
 
             {previewDay === 5 && (
               <DayFiveHubActionSurface
-                artwork={dayTwoCourtImageCropped}
                 profile={mergeDayFiveProfileDraft(dayFiveUserProfile, dayFivePlayerProfile)}
                 user={user}
                 career={dayFiveCareer}

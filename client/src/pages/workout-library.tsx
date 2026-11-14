@@ -54,14 +54,13 @@ export default function WorkoutLibraryPage() {
               type="button"
               onClick={() => navigate(`/log?workoutId=${encodeURIComponent(workout.id)}`)}
               aria-label={`Start ${workout.name}, ${workout.detail}`}
-              className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-white/10 bg-black text-left text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-200 hover:border-white/50 hover:shadow-[0_12px_30px_rgba(255,255,255,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+              className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-white/20 border-b-2 border-b-orange-500/70 bg-black text-left text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-200 hover:border-white/50 hover:border-b-orange-400 hover:shadow-[0_12px_30px_rgba(255,255,255,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
               data-testid={`card-workout-${workout.number}`}
             >
               <div className="relative aspect-[3/4] w-full shrink-0 overflow-hidden bg-white">
                   <img
                     src={workout.cover}
                     alt={workout.alt}
-                    loading="lazy"
                     className="h-full w-full object-cover"
                   />
                 <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-transparent transition-colors group-hover:bg-black/20">
@@ -70,7 +69,7 @@ export default function WorkoutLibraryPage() {
                   </span>
                 </span>
               </div>
-              <div className="flex min-h-[66px] flex-1 flex-col justify-between gap-1.5 bg-black p-2">
+              <div className="flex min-h-[54px] flex-1 flex-col gap-1 bg-black p-2">
                 <h2 className="line-clamp-2 text-[11px] font-semibold leading-snug text-white">
                   {workout.name}
                 </h2>
