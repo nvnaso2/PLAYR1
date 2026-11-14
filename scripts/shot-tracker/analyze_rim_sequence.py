@@ -64,7 +64,7 @@ def ball_candidates(
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(
-        hsv, np.array([0, 76, 40], np.uint8), np.array([34, 255, 255], np.uint8)
+        hsv, np.array([0, 70, 38], np.uint8), np.array([34, 255, 255], np.uint8)
     )
     if previous_gray is not None:
         motion = cv2.absdiff(gray, previous_gray)
@@ -83,7 +83,7 @@ def ball_candidates(
         circularity = 4 * math.pi * area / (perimeter * perimeter)
         x, y, box_width, box_height = cv2.boundingRect(contour)
         aspect = box_width / max(box_height, 1)
-        if circularity < 0.28 or not 0.58 <= aspect <= 1.75:
+        if circularity < 0.25 or not 0.55 <= aspect <= 1.8:
             continue
         if box_width < 2 or box_height < 2 or box_width > 20 or box_height > 20:
             continue
