@@ -10,11 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, nativeFetch, queryClient } from "@/lib/queryClient";
 import { useUpload } from "@/hooks/use-upload";
-import {
-  analyzeShootingVideo,
-  type ManualHoopLocation,
-  type ShotSuggestion,
-} from "@/lib/shooting-video-analysis";
+import type { ManualHoopLocation, ShotSuggestion } from "@/lib/shooting-analysis-types";
 
 type TrackerClip = {
   id: string;
@@ -169,23 +165,35 @@ export default function ShootingTrackerPage() {
     setAnalysisSuggestions([]);
     setAnalysisHoop(null);
     setAnalysisProgress(0);
+    const progressTimer = window.setInterval(() => {
+      setAnalysisProgress((progress) => Math.min(95, progress + 2));
+    }, 1000);
     try {
-      let url = activeId === clip.id ? playbackUrl : "";
-      if (!url) {
-        const response = await nativeFetch(`/api/shooting-tracker/clips/${encodeURIComponent(clip.id)}/playback`);
-        if (!response.ok) throw new Error("Could not open this recording for analysis.");
-        url = (await response.json()).playbackUrl;
+      const response = await nativeFetch(
+        `/api/shooting-tracker/clips/${encodeURIComponent(clip.id)}/analyze`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(manualHoop ? { hoop: manualHoop } : {}),
+        },
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.message || "Could not analyze this recording.");
       }
-      const result = await analyzeShootingVideo(url, setAnalysisProgress, manualHoop ?? undefined);
+      const result = await response.json() as {
+        suggestions: ShotSuggestion[];
+        hoop: { x: number; y: number; halfWidth: number };
+      };
+      setAnalysisProgress(100);
       setAnalysisSuggestions(result.suggestions);
       setAnalysisHoop(result.hoop);
       setActiveId(clip.id);
-      setPlaybackUrl(url);
       toast({
         title: "Local scan finished",
         description: result.suggestions.length
           ? `Found ${result.suggestions.length} possible shot moment${result.suggestions.length === 1 ? "" : "s"}. The marker shows the hoop it found.`
-          : "The hoop was found, but no complete ball paths back to it were tracked.",
+          : "The hoop was found, but no ball sequences through the rim were detected.",
       });
     } catch (error) {
       toast({
@@ -194,6 +202,7 @@ export default function ShootingTrackerPage() {
         variant: "destructive",
       });
     } finally {
+      window.clearInterval(progressTimer);
       setIsAnalyzing(false);
     }
   };
@@ -218,8 +227,8 @@ export default function ShootingTrackerPage() {
           <div className="space-y-1 text-sm">
             <p className="font-semibold">Review your uploaded footage privately</p>
             <p className="text-muted-foreground">
-              The scan keeps the original video shape and estimates the hoop from the opening
-              frames. Check the marker; if it is off, set the hoop center before scanning.
+              The scan checks the ball’s frame-by-frame sequence around the rim. It estimates the
+              hoop from the opening frames; set the center if the marker is off.
             </p>
           </div>
         </CardContent>
@@ -358,7 +367,7 @@ export default function ShootingTrackerPage() {
                       </div>
                       <div className="space-y-2">
                         <Button variant="secondary" className="w-full" onClick={() => void analyzeClip(clip)} disabled={isAnalyzing}>
-                          {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Scanning {analysisProgress}%</> : <><ScanLine className="mr-2 h-4 w-4" />Analyze this clip locally</>}
+                          {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing rim sequence {analysisProgress}%</> : <><ScanLine className="mr-2 h-4 w-4" />Analyze this clip locally</>}
                         </Button>
                         {isAnalyzing && <Progress value={analysisProgress} />}
                         {analysisClipId === clip.id && !isAnalyzing && analysisSuggestions.length > 0 && (

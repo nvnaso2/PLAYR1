@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { createHash } from "crypto";
 import { spawn } from "child_process";
+import { unlink } from "node:fs/promises";
 import path from "path";
 import { storage } from "./storage";
 import { DAY_TWO_RANGE_WORKOUT_ID, ensureDayTwoRangeWorkout, ensureDayFiveGameLikeWorkout } from "./seed";
@@ -5609,6 +5610,70 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
     } catch (error) {
       console.error("Error creating shooting tracker playback URL:", error);
       res.status(500).json({ message: "Could not open this clip" });
+    }
+  });
+
+  app.post("/api/shooting-tracker/clips/:id/analyze", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const requestSchema = z.object({
+      hoop: z.object({
+        x: z.number().min(0).max(1),
+        y: z.number().min(0).max(1),
+      }).optional(),
+    }).strict();
+    let tempPath: string | null = null;
+    try {
+      const { hoop } = requestSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      const prefix = `/objects/shooting-tracker-private/${shootingTrackerUserKey(userId)}/`;
+      const clip = (await storage.getUserVideos(userId)).find((video) =>
+        video.id === req.params.id &&
+        video.description?.startsWith(`${shootingTrackerMarker}\n`) &&
+        video.videoUrl.startsWith(prefix));
+      if (!clip) return res.status(404).json({ message: "Clip not found" });
+
+      const objectStorage = new ObjectStorageService();
+      ({ tempPath } = await objectStorage.downloadToTempFile(clip.videoUrl));
+      const scriptPath = path.join(process.cwd(), "scripts/shot-tracker/analyze_rim_sequence.py");
+      const args = [scriptPath, tempPath];
+      if (hoop) args.push("--hoop-x", String(hoop.x), "--hoop-y", String(hoop.y));
+      const result = await new Promise<unknown>((resolve, reject) => {
+        const child = spawn("python", args, { stdio: ["ignore", "pipe", "pipe"] });
+        let stdout = "";
+        let stderr = "";
+        const timeout = setTimeout(() => child.kill("SIGKILL"), 300_000);
+        child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
+        child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+        child.on("error", (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+        child.on("close", (code) => {
+          clearTimeout(timeout);
+          if (code !== 0) {
+            reject(new Error(stderr.trim() || "Video analysis failed."));
+            return;
+          }
+          try {
+            resolve(JSON.parse(stdout));
+          } catch {
+            reject(new Error("Video analysis returned an invalid result."));
+          }
+        });
+      });
+      res.json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid hoop location" });
+      }
+      const message = error instanceof Error ? error.message : "";
+      console.error("Shooting clip analysis failed:", message);
+      res.status(422).json({
+        message: message.includes("rim") || message.includes("decode")
+          ? message
+          : "The clip could not be analyzed. Try marking the hoop and scanning again.",
+      });
+    } finally {
+      if (tempPath) await unlink(tempPath).catch(() => undefined);
     }
   });
 
