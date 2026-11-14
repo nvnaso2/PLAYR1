@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent, type ChangeEvent } from "react";
-import { ArrowLeft, ArrowRight, ChevronRight, Clock, Dumbbell, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, Clock, Dumbbell, Pencil, X } from "lucide-react";
 import type { Drill, WorkoutDrill } from "@shared/schema";
 import { DrillDiagramPreview } from "@/components/drill-diagram-preview";
 import { Button } from "@/components/ui/button";
@@ -209,6 +209,12 @@ export function DayFiveHubActionSurface({
   };
   return (
     <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-3 pb-1 text-white" data-testid="card-day-five-mission">
+      <div className="flex shrink-0 justify-center">
+        <button type="button" onClick={onEditProfile} className="inline-flex h-10 items-center rounded-md border border-orange-400/80 bg-[#11100f] px-4 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18)] hover:bg-[#1b1510]" data-testid="button-day-five-edit-profile">
+          <Pencil className="mr-1.5 h-3.5 w-3.5" />
+          Edit Profile
+        </button>
+      </div>
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
         <div className="origin-center scale-[0.78]">
           <BaseballCard

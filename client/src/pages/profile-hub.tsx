@@ -99,7 +99,7 @@ export default function ProfileHubPage(props: any = {}) {
         <div>
           <h1 className="font-display text-2xl font-black tracking-tight text-zinc-50 sm:text-3xl" data-testid="text-page-title">My Profile</h1>
         </div>
-        <div className="flex items-center gap-2">
+        {!dayFivePreview && <div className="flex items-center gap-2">
           <div className={dayFivePreview ? "pointer-events-none" : undefined}>
             <ProfileCardShareButton
               cardRef={cardRef}
@@ -122,7 +122,7 @@ export default function ProfileHubPage(props: any = {}) {
           >
             <Settings className="h-4 w-4" />
           </Button>
-        </div>
+        </div>}
       </header>
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
       <div className="flex shrink-0 justify-center gap-3" aria-label="Profile editing actions">
@@ -138,7 +138,7 @@ export default function ProfileHubPage(props: any = {}) {
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit Profile
           </Button>
-          <Button
+          {!dayFivePreview && <Button
             type="button"
             size="sm"
             onClick={() => !dayFivePreview && openProOffer()}
@@ -148,7 +148,7 @@ export default function ProfileHubPage(props: any = {}) {
           >
             <Crown className="mr-1.5 h-3.5 w-3.5" />
             PLAYR1 Pro
-          </Button>
+          </Button>}
       </div>
 
       <div className="flex h-[347px] w-[327px] shrink-0 items-center justify-center min-[390px]:h-[361px] min-[390px]:w-[340px]" aria-label="Basketball player trading card">
@@ -174,7 +174,7 @@ export default function ProfileHubPage(props: any = {}) {
               />
           )}
       </div>
-      {!loadingCard && !career && (
+      {!dayFivePreview && !loadingCard && !career && (
         <div className="flex shrink-0 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-6 py-3 text-center">
           <Trophy className="h-6 w-6 text-orange-400" />
           <p className="mt-2 font-display font-bold">Your player card is waiting</p>
@@ -185,7 +185,7 @@ export default function ProfileHubPage(props: any = {}) {
         </div>
       )}
 
-      <section className="flex w-full shrink-0 flex-wrap items-center justify-center gap-2" aria-label="Profile navigation" data-testid="section-profile-actions">
+      {!dayFivePreview && <section className="flex w-full shrink-0 flex-wrap items-center justify-center gap-2" aria-label="Profile navigation" data-testid="section-profile-actions">
         <Button
           type="button"
           variant="outline"
@@ -208,7 +208,7 @@ export default function ProfileHubPage(props: any = {}) {
             Trophy Room
           </Link>
         </Button>
-      </section>
+      </section>}
       </div>
       <section aria-labelledby="profile-development-heading" className="space-y-3" hidden>
         <div className="flex items-end justify-between gap-3">

@@ -41,9 +41,9 @@ export default function OnboardingPreviewPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const requestedPage = new URLSearchParams(search).get("page");
-  const page = (["login", "register", "profile", "welcome", "hub", "player-profile", "day2", "day3", "day4-interest", "day4-magnet", "day4-hub", "day5-profile", "day5-profile-edit", "day5-hub"].includes(requestedPage || "")
+  const page = (["login", "register", "profile", "welcome", "hub", "player-profile", "day2", "day3", "day4-interest", "day4-magnet", "day4-hub", "day5-profile", "day5-profile-edit", "day5-hub", "day6-hub"].includes(requestedPage || "")
     ? requestedPage
-    : "login") as "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2" | "day3" | "day4-interest" | "day4-magnet" | "day4-hub" | "day5-profile" | "day5-profile-edit" | "day5-hub";
+    : "login") as "login" | "register" | "profile" | "welcome" | "hub" | "player-profile" | "day2" | "day3" | "day4-interest" | "day4-magnet" | "day4-hub" | "day5-profile" | "day5-profile-edit" | "day5-hub" | "day6-hub";
   const requestedMagnet = new URLSearchParams(search).get("magnet") as LeadMagnetId | null;
   const dayFiveRoute = page === "day5-profile" || page === "day5-profile-edit" || page === "day5-hub";
   const { data: existingUserProfile, isLoading: userProfileLoading } = useQuery<any>({ queryKey: ["/api/profile"], enabled: dayFiveRoute });
@@ -150,7 +150,7 @@ export default function OnboardingPreviewPage() {
     );
   }
 
-  if (page === "hub" || page === "player-profile" || page === "day2" || page === "day3" || page === "day4-hub" || page === "day5-hub") {
+  if (page === "hub" || page === "player-profile" || page === "day2" || page === "day3" || page === "day4-hub" || page === "day5-hub" || page === "day6-hub") {
     return <HubPage />;
   }
 

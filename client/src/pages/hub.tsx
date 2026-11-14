@@ -54,6 +54,7 @@ import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { Day4HubActionSurface } from "@/components/onboarding-day4/day4-components";
 import { DayFiveHubActionSurface, DayFiveWorkoutPreview, mergeDayFiveProfileDraft, readDayFiveProfileDraft, type DayFiveProfileDraft } from "@/components/onboarding-day5/day5-components";
+import { DaySixHubActionSurface } from "@/components/onboarding-day6/day6-components";
 import { DAY_FIVE_GAME_LIKE_WORKOUT_ID } from "@shared/onboarding-workout-ids";
 import {
   PLAYER_SETUP_GOALS,
@@ -188,7 +189,7 @@ export default function HubPage() {
   const dayTwoProfileOpen = dayTwoProfileStep;
   const reopenBaseline = new URLSearchParams(search).get("baseline") === "1";
   const onboardingPreview = reopenBaseline || new URLSearchParams(search).get("preview") === "onboarding"
-    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2", "day3", "day4-hub", "day5-hub"].includes(previewPage || ""));
+    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2", "day3", "day4-hub", "day5-hub", "day6-hub"].includes(previewPage || ""));
   const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
   const [baselinePickerOpen, setBaselinePickerOpen] = useState(reopenBaseline);
   const [baselineLogging, setBaselineLogging] = useState(false);
@@ -212,11 +213,11 @@ export default function HubPage() {
   const [nextSessionOpen, setNextSessionOpen] = useState(false);
   const [previewDay, setPreviewDay] = useState(() => {
     const page = new URLSearchParams(search).get("page");
-    return page === "day5-hub" ? 5 : page === "day4-hub" ? 4 : page === "day3" ? 3 : page === "day2" ? 2 : 1;
+    return page === "day6-hub" ? 6 : page === "day5-hub" ? 5 : page === "day4-hub" ? 4 : page === "day3" ? 3 : page === "day2" ? 2 : 1;
   });
   useEffect(() => {
     if (location.split("?")[0] === "/admin/onboarding-preview") {
-      setPreviewDay(previewPage === "day5-hub" ? 5 : previewPage === "day4-hub" ? 4 : previewPage === "day3" ? 3 : previewPage === "day2" ? 2 : 1);
+      setPreviewDay(previewPage === "day6-hub" ? 6 : previewPage === "day5-hub" ? 5 : previewPage === "day4-hub" ? 4 : previewPage === "day3" ? 3 : previewPage === "day2" ? 2 : 1);
     }
   }, [location, previewPage]);
   const fitOnboardingHub = onboardingPreview && previewDay === 1 && !dayTwoProfileStep;
@@ -224,21 +225,23 @@ export default function HubPage() {
   const fitOnboardingDayThree = onboardingPreview && previewDay === 3 && !dayTwoProfileStep;
   const fitOnboardingDayFour = onboardingPreview && previewDay === 4 && !dayTwoProfileStep;
   const fitOnboardingDayFive = onboardingPreview && previewDay === 5 && !dayTwoProfileStep;
+  const fitOnboardingDaySix = onboardingPreview && previewDay === 6 && !dayTwoProfileStep;
+  const fitOnboardingProfilePreview = fitOnboardingDayFive || fitOnboardingDaySix;
   const { data: dayFiveUserProfile } = useQuery<any>({
     queryKey: ["/api/profile"],
-    enabled: fitOnboardingDayFive,
+    enabled: fitOnboardingProfilePreview,
   });
   const { data: dayFivePlayerProfile } = useQuery<any>({
     queryKey: ["/api/player-profile"],
-    enabled: fitOnboardingDayFive,
+    enabled: fitOnboardingProfilePreview,
   });
   const { data: dayFiveCareer } = useQuery<any>({
     queryKey: ["/api/career"],
-    enabled: fitOnboardingDayFive,
+    enabled: fitOnboardingProfilePreview,
   });
   const { data: dayFiveCareerStats } = useQuery<any>({
     queryKey: ["/api/stats/career"],
-    enabled: fitOnboardingDayFive,
+    enabled: fitOnboardingProfilePreview,
   });
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
   const [dayThreeWorkoutOpen, setDayThreeWorkoutOpen] = useState(false);
@@ -886,14 +889,14 @@ export default function HubPage() {
   );
 
   return (
-    <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour || fitOnboardingDayFive
+    <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour || fitOnboardingDayFive || fitOnboardingDaySix
       ? "flex h-[100dvh] flex-col overflow-hidden bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
       : onboardingPreview
         ? "min-h-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
         : "min-h-full bg-background pb-6"}>
       {/* Greeting Header */}
       <div className="shrink-0 px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
-        {onboardingPreview && <OnboardingPreviewMenu page={dayTwoProfileStep ? "player-profile" : previewDay === 5 ? "day5-hub" : previewDay === 4 ? "day4-hub" : previewDay === 3 ? "day3" : previewDay === 2 ? "day2" : "hub"} showFeedback />}
+        {onboardingPreview && <OnboardingPreviewMenu page={dayTwoProfileStep ? "player-profile" : previewDay === 6 ? "day6-hub" : previewDay === 5 ? "day5-hub" : previewDay === 4 ? "day4-hub" : previewDay === 3 ? "day3" : previewDay === 2 ? "day2" : "hub"} showFeedback />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
@@ -1173,7 +1176,7 @@ export default function HubPage() {
         )}
       </div>
 
-      <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour || fitOnboardingDayFive
+      <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour || fitOnboardingDayFive || fitOnboardingDaySix
         ? "min-h-0 flex flex-1 flex-col overflow-hidden px-4 mt-1"
         : "px-4 space-y-5 mt-4"}>
         {onboardingPreview ? (
@@ -1795,8 +1798,25 @@ export default function HubPage() {
                   setDayFiveProfileDraft(draft);
                   sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(draft));
                 }}
-                onEditProfile={() => navigate("/admin/onboarding-preview?page=day5-profile")}
+                onEditProfile={() => navigate("/admin/onboarding-preview?page=day5-profile-edit")}
                 onPreviewWorkout={() => setDayFiveWorkoutOpen(true)}
+              />
+            )}
+
+            {previewDay === 6 && (
+              <DaySixHubActionSurface
+                profile={mergeDayFiveProfileDraft(dayFiveUserProfile, dayFivePlayerProfile)}
+                career={dayFiveCareer}
+                careerStats={dayFiveCareerStats}
+                playerProfile={dayFivePlayerProfile}
+                userProfile={dayFiveUserProfile}
+                onProfileChange={(draft) => {
+                  setDayFiveProfileDraft(draft);
+                  sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(draft));
+                }}
+                onCareerStats={() => navigate("/career-stats")}
+                onTrophyRoom={() => navigate("/trophy-room")}
+                onWorkoutLibrary={() => navigate("/drills")}
               />
             )}
 
