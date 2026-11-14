@@ -181,10 +181,32 @@ export default function ShootingTrackerPage() {
         const error = await response.json().catch(() => null);
         throw new Error(error?.message || "Could not analyze this recording.");
       }
-      const result = await response.json() as {
+      const { jobId } = await response.json() as { jobId: string };
+      const deadline = Date.now() + 10 * 60 * 1000;
+      let result: {
         suggestions: ShotSuggestion[];
         hoop: { x: number; y: number; halfWidth: number };
-      };
+      } | null = null;
+      while (!result && Date.now() < deadline) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1500));
+        const statusResponse = await nativeFetch(
+          `/api/shooting-tracker/clips/${encodeURIComponent(clip.id)}/analyze/${encodeURIComponent(jobId)}`,
+        );
+        if (!statusResponse.ok) throw new Error("The scan stopped before it finished.");
+        const status = await statusResponse.json() as {
+          status: "processing" | "complete" | "failed";
+          result?: {
+            suggestions: ShotSuggestion[];
+            hoop: { x: number; y: number; halfWidth: number };
+          };
+          message?: string;
+        };
+        if (status.status === "failed") {
+          throw new Error(status.message || "Could not analyze this recording.");
+        }
+        if (status.status === "complete" && status.result) result = status.result;
+      }
+      if (!result) throw new Error("The scan took too long. Try again with this clip.");
       setAnalysisProgress(100);
       setAnalysisSuggestions(result.suggestions);
       setAnalysisHoop(result.hoop);

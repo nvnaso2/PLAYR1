@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { spawn } from "child_process";
 import { unlink } from "node:fs/promises";
 import path from "path";
@@ -5496,6 +5496,14 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
   const shootingTrackerMarker = "[shooting-tracker]";
   const shootingTrackerUserKey = (userId: string) =>
     createHash("sha256").update(userId).digest("hex");
+  const shootingAnalysisJobs = new Map<string, {
+    userId: string;
+    clipId: string;
+    createdAt: number;
+    status: "processing" | "complete" | "failed";
+    result?: unknown;
+    error?: string;
+  }>();
   const encodeTrackerReview = (notes: string, shots: Array<{
     id: string;
     timeSeconds: number;
@@ -5620,7 +5628,6 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
         y: z.number().min(0).max(1),
       }).optional(),
     }).strict();
-    let tempPath: string | null = null;
     try {
       const { hoop } = requestSchema.parse(req.body);
       const userId = req.user.claims.sub;
@@ -5631,50 +5638,76 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
         video.videoUrl.startsWith(prefix));
       if (!clip) return res.status(404).json({ message: "Clip not found" });
 
-      const objectStorage = new ObjectStorageService();
-      ({ tempPath } = await objectStorage.downloadToTempFile(clip.videoUrl));
-      const scriptPath = path.join(process.cwd(), "scripts/shot-tracker/analyze_rim_sequence.py");
-      const args = [scriptPath, tempPath];
-      if (hoop) args.push("--hoop-x", String(hoop.x), "--hoop-y", String(hoop.y));
-      const result = await new Promise<unknown>((resolve, reject) => {
-        const child = spawn("python", args, { stdio: ["ignore", "pipe", "pipe"] });
-        let stdout = "";
-        let stderr = "";
-        const timeout = setTimeout(() => child.kill("SIGKILL"), 300_000);
-        child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
-        child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
-        child.on("error", (error) => {
-          clearTimeout(timeout);
-          reject(error);
-        });
-        child.on("close", (code) => {
-          clearTimeout(timeout);
-          if (code !== 0) {
-            reject(new Error(stderr.trim() || "Video analysis failed."));
-            return;
-          }
-          try {
-            resolve(JSON.parse(stdout));
-          } catch {
-            reject(new Error("Video analysis returned an invalid result."));
-          }
-        });
-      });
-      res.json(result);
+      for (const [jobId, job] of shootingAnalysisJobs) {
+        if (Date.now() - job.createdAt > 30 * 60 * 1000) shootingAnalysisJobs.delete(jobId);
+      }
+      const jobId = randomUUID();
+      const job = { userId, clipId: clip.id, createdAt: Date.now(), status: "processing" as const };
+      shootingAnalysisJobs.set(jobId, job);
+      res.status(202).json({ jobId });
+
+      void (async () => {
+        let tempPath: string | null = null;
+        try {
+          const objectStorage = new ObjectStorageService();
+          ({ tempPath } = await objectStorage.downloadToTempFile(clip.videoUrl));
+          const scriptPath = path.join(process.cwd(), "scripts/shot-tracker/analyze_rim_sequence.py");
+          const args = [scriptPath, tempPath];
+          if (hoop) args.push("--hoop-x", String(hoop.x), "--hoop-y", String(hoop.y));
+          const result = await new Promise<unknown>((resolve, reject) => {
+            const child = spawn("python", args, { stdio: ["ignore", "pipe", "pipe"] });
+            let stdout = "";
+            let stderr = "";
+            const timeout = setTimeout(() => child.kill("SIGKILL"), 600_000);
+            child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
+            child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+            child.on("error", (error) => {
+              clearTimeout(timeout);
+              reject(error);
+            });
+            child.on("close", (code) => {
+              clearTimeout(timeout);
+              if (code !== 0) {
+                reject(new Error(stderr.trim() || "Video analysis failed."));
+                return;
+              }
+              try {
+                resolve(JSON.parse(stdout));
+              } catch {
+                reject(new Error("Video analysis returned an invalid result."));
+              }
+            });
+          });
+          job.status = "complete";
+          job.result = result;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+          console.error("Shooting clip analysis failed:", message);
+          job.status = "failed";
+          job.error = message.includes("rim") || message.includes("decode")
+            ? message
+            : "The clip could not be analyzed. Try marking the hoop and scanning again.";
+        } finally {
+          if (tempPath) await unlink(tempPath).catch(() => undefined);
+        }
+      })();
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid hoop location" });
       }
-      const message = error instanceof Error ? error.message : "";
-      console.error("Shooting clip analysis failed:", message);
-      res.status(422).json({
-        message: message.includes("rim") || message.includes("decode")
-          ? message
-          : "The clip could not be analyzed. Try marking the hoop and scanning again.",
-      });
-    } finally {
-      if (tempPath) await unlink(tempPath).catch(() => undefined);
+      console.error("Could not start shooting clip analysis:", error);
+      res.status(500).json({ message: "Could not start this clip scan." });
     }
+  });
+
+  app.get("/api/shooting-tracker/clips/:id/analyze/:jobId", isAuthenticated, (req: AuthenticatedRequest, res) => {
+    const job = shootingAnalysisJobs.get(req.params.jobId);
+    if (!job || job.clipId !== req.params.id || job.userId !== req.user.claims.sub) {
+      return res.status(404).json({ message: "Analysis job not found" });
+    }
+    if (job.status === "processing") return res.json({ status: job.status });
+    if (job.status === "failed") return res.json({ status: job.status, message: job.error });
+    res.json({ status: job.status, result: job.result });
   });
 
   app.delete("/api/shooting-tracker/clips/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
