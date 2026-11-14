@@ -15,7 +15,12 @@ import cv2
 import numpy as np
 
 
-def candidates(frame: np.ndarray, output_width: int) -> tuple[list[tuple], float]:
+def candidates(
+    frame: np.ndarray,
+    output_width: int,
+    previous_gray: np.ndarray | None,
+    roi: tuple[float, float, float, float],
+) -> tuple[list[tuple], float, np.ndarray]:
     original_height, original_width = frame.shape[:2]
     scale = min(1.0, output_width / original_width)
     if scale < 1.0:
@@ -25,23 +30,51 @@ def candidates(frame: np.ndarray, output_width: int) -> tuple[list[tuple], float
             interpolation=cv2.INTER_AREA,
         )
 
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    orange = cv2.inRange(
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    x1 = round(frame.shape[1] * roi[0])
+    y1 = round(frame.shape[0] * roi[1])
+    x2 = round(frame.shape[1] * roi[2])
+    y2 = round(frame.shape[0] * roi[3])
+    crop = frame[y1:y2, x1:x2]
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    ball_color = cv2.inRange(
         hsv,
         np.array([4, 105, 55], dtype=np.uint8),
         np.array([27, 255, 255], dtype=np.uint8),
     )
-    orange = cv2.morphologyEx(
-        orange, cv2.MORPH_OPEN, np.ones((3, 3), dtype=np.uint8)
+    # Outdoor lighting can make the same ball appear deep red rather than
+    # orange, especially in the user's late-day footage.
+    red_low = cv2.inRange(
+        hsv,
+        np.array([0, 60, 45], dtype=np.uint8),
+        np.array([3, 255, 255], dtype=np.uint8),
+    )
+    red_high = cv2.inRange(
+        hsv,
+        np.array([165, 60, 45], dtype=np.uint8),
+        np.array([179, 255, 255], dtype=np.uint8),
+    )
+    ball_color = cv2.bitwise_or(
+        ball_color, cv2.bitwise_or(red_low, red_high)
+    )
+    if previous_gray is not None:
+        motion = cv2.absdiff(gray, previous_gray)
+        _, moving = cv2.threshold(motion, 18, 255, cv2.THRESH_BINARY)
+        moving = cv2.dilate(moving, np.ones((3, 3), dtype=np.uint8), iterations=1)
+        ball_color = cv2.bitwise_and(ball_color, moving[y1:y2, x1:x2])
+    ball_color = cv2.morphologyEx(
+        ball_color, cv2.MORPH_OPEN, np.ones((3, 3), dtype=np.uint8)
     )
 
     found, _ = cv2.findContours(
-        orange, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        ball_color, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
     results = []
     for contour in found:
         area = cv2.contourArea(contour)
-        if area < 12 or area > 1800:
+        # A near-camera ball can still occupy thousands of pixels after
+        # downscaling from 4K footage.
+        if area < 12 or area > 10000:
             continue
         perimeter = cv2.arcLength(contour, True)
         if perimeter <= 0:
@@ -54,8 +87,8 @@ def candidates(frame: np.ndarray, output_width: int) -> tuple[list[tuple], float
         moments = cv2.moments(contour)
         if moments["m00"] == 0:
             continue
-        center_x = moments["m10"] / moments["m00"] / scale
-        center_y = moments["m01"] / moments["m00"] / scale
+        center_x = (moments["m10"] / moments["m00"] + x1) / scale
+        center_y = (moments["m01"] / moments["m00"] + y1) / scale
         results.append(
             (
                 round(center_x, 1),
@@ -64,7 +97,7 @@ def candidates(frame: np.ndarray, output_width: int) -> tuple[list[tuple], float
                 round(circularity, 3),
             )
         )
-    return results, scale
+    return results, scale, gray
 
 
 def main() -> None:
@@ -74,7 +107,15 @@ def main() -> None:
     parser.add_argument("--stride", type=int, default=1, help="Process every Nth frame")
     parser.add_argument("--width", type=int, default=960, help="Working frame width")
     parser.add_argument("--max-frames", type=int, default=0, help="Limit frames for a quick test")
+    parser.add_argument(
+        "--roi",
+        default="0.2,0.08,0.8,0.95",
+        help="Normalized x1,y1,x2,y2 region; this clip keeps the hoop and shooter centered",
+    )
     args = parser.parse_args()
+    roi = tuple(float(part) for part in args.roi.split(","))
+    if len(roi) != 4 or not (0 <= roi[0] < roi[2] <= 1 and 0 <= roi[1] < roi[3] <= 1):
+        raise SystemExit("--roi must be normalized x1,y1,x2,y2 bounds")
 
     capture = cv2.VideoCapture(str(args.video))
     if not capture.isOpened():
@@ -84,6 +125,7 @@ def main() -> None:
     frame_index = 0
     processed = 0
     detections = 0
+    previous_gray = None
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", newline="", encoding="utf-8") as output_file:
         writer = csv.writer(output_file)
@@ -96,7 +138,8 @@ def main() -> None:
             frame_index += 1
             if current_index % max(args.stride, 1):
                 continue
-            found, _ = candidates(frame, args.width)
+            found, _, current_gray = candidates(frame, args.width, previous_gray, roi)
+            previous_gray = current_gray
             for x, y, area, circularity in found:
                 writer.writerow(
                     [

@@ -95,7 +95,6 @@ import type { Drill, DrillDiagramData, TrainingLog, DrillMetric, MetricTemplate,
 import { DRILL_CATEGORIES, DIFFICULTY_LEVELS, insertDrillSchema, insertWorkoutSchema } from "@shared/schema";
 import { HalfCourtMap, ShotChartButton, type ShotData } from "@/components/half-court-map";
 import { FreeShotMode, LiveShotCounter } from "@/components/free-shoot-mode";
-import { RecordShootingMode } from "@/components/record-shooting-mode";
 import { WorkoutShareDialog } from "@/components/workout-share-dialog";
 import { DrillTimer } from "@/components/drill-timer";
 import { QuickCompleteWorkout } from "@/components/quick-complete-workout";
@@ -356,7 +355,6 @@ export default function TrainingLogPage() {
   
   // Free Shoot / Live Record state
   const [showFreeShotMode, setShowFreeShotMode] = useState(false);
-  const [showRecordShootingMode, setShowRecordShootingMode] = useState(false);
   const [recordingEntryIndex, setRecordingEntryIndex] = useState<number | null>(null);
 
   // View/Edit log state
@@ -4411,13 +4409,6 @@ export default function TrainingLogPage() {
       {showFreeShotMode && (
         <FreeShotMode
           onClose={() => setShowFreeShotMode(false)}
-        />
-      )}
-
-      {/* Record Shooting Mode — full-screen overlay */}
-      {showRecordShootingMode && (
-        <RecordShootingMode
-          onClose={() => setShowRecordShootingMode(false)}
         />
       )}
 
