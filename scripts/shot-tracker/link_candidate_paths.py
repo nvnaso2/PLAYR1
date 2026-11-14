@@ -94,6 +94,11 @@ def main() -> None:
     parser.add_argument("--max-speed", type=float, default=2200, help="Maximum image-space pixels per second")
     parser.add_argument("--min-points", type=int, default=3)
     parser.add_argument("--min-travel", type=float, default=100, help="Minimum start-to-end pixels")
+    parser.add_argument(
+        "--points-output",
+        type=Path,
+        help="Optional CSV containing every point in each retained path",
+    )
     args = parser.parse_args()
 
     with args.candidates_csv.open(newline="", encoding="utf-8") as source:
@@ -101,6 +106,7 @@ def main() -> None:
     tracks = link_rows(rows, args.fps, args.max_gap, args.max_speed)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     written = 0
+    point_rows: list[list[float | int]] = []
     with args.output.open("w", newline="", encoding="utf-8") as target:
         writer = csv.writer(target)
         writer.writerow([
@@ -128,7 +134,17 @@ def main() -> None:
                 round(travel, 1),
                 "down" if last["y"] > first["y"] else "up",
             ])
+            point_rows.extend([
+                [track.track_id, int(point["frame"]), point["time_seconds"], point["x"], point["y"]]
+                for point in points
+            ])
             written += 1
+    if args.points_output:
+        args.points_output.parent.mkdir(parents=True, exist_ok=True)
+        with args.points_output.open("w", newline="", encoding="utf-8") as target:
+            writer = csv.writer(target)
+            writer.writerow(["track_id", "frame", "time_seconds", "x", "y"])
+            writer.writerows(point_rows)
     print(f"Linked {len(rows)} candidate detections into {written} moving paths: {args.output}")
 
 

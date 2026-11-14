@@ -21,6 +21,7 @@ def candidates(
     previous_gray: np.ndarray | None,
     roi: tuple[float, float, float, float],
     motion_filter: bool = True,
+    background_subtractor: cv2.BackgroundSubtractor | None = None,
 ) -> tuple[list[tuple], float, np.ndarray]:
     original_height, original_width = frame.shape[:2]
     scale = min(1.0, output_width / original_width)
@@ -63,6 +64,10 @@ def candidates(
         _, moving = cv2.threshold(motion, 18, 255, cv2.THRESH_BINARY)
         moving = cv2.dilate(moving, np.ones((3, 3), dtype=np.uint8), iterations=1)
         ball_color = cv2.bitwise_and(ball_color, moving[y1:y2, x1:x2])
+    if background_subtractor is not None:
+        foreground = background_subtractor.apply(frame, learningRate=0.002)
+        foreground = cv2.threshold(foreground, 200, 255, cv2.THRESH_BINARY)[1]
+        ball_color = cv2.bitwise_and(ball_color, foreground[y1:y2, x1:x2])
     ball_color = cv2.morphologyEx(
         ball_color, cv2.MORPH_OPEN, np.ones((3, 3), dtype=np.uint8)
     )
@@ -114,6 +119,11 @@ def main() -> None:
         help="Keep color/shape candidates even when frame-to-frame motion is weak",
     )
     parser.add_argument(
+        "--background-subtract",
+        action="store_true",
+        help="Mask the fixed-camera background to reduce stationary color false positives",
+    )
+    parser.add_argument(
         "--roi",
         default="0.34,0.06,0.66,0.42",
         help="Normalized x1,y1,x2,y2 region around the hoop and shot flight path",
@@ -132,6 +142,10 @@ def main() -> None:
     processed = 0
     detections = 0
     previous_gray = None
+    background_subtractor = (
+        cv2.createBackgroundSubtractorMOG2(history=300, varThreshold=32, detectShadows=False)
+        if args.background_subtract else None
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", newline="", encoding="utf-8") as output_file:
         writer = csv.writer(output_file)
@@ -145,7 +159,12 @@ def main() -> None:
             if current_index % max(args.stride, 1):
                 continue
             found, _, current_gray = candidates(
-                frame, args.width, previous_gray, roi, motion_filter=not args.no_motion_filter
+                frame,
+                args.width,
+                previous_gray,
+                roi,
+                motion_filter=not args.no_motion_filter,
+                background_subtractor=background_subtractor,
             )
             previous_gray = current_gray
             for x, y, area, circularity in found:
