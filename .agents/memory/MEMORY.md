@@ -51,3 +51,4 @@
 - [Workout tracking presentation](workout-tracking-presentation.md) — use an inset rounded workout surface; pin preview actions while omitting tracking descriptions and bottom summary bars
 - [Drill detail content](drill-detail-content.md) — omit Equipment and Pro Tips from the drill detail popup
 - [Live drill catalog boundary](live-drill-catalog.md) — production’s 105 curated drills exclude AI-generated and user-owned drills
+- [Offline shooting tracker](offline-shooting-tracker.md) — validate fixed-camera clips first with local OpenCV; avoid paid AI inference and defer live capture

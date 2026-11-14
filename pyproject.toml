@@ -1,0 +1,11 @@
+[project]
+name = "repl-nix-workspace"
+version = "0.1.0"
+description = "Offline computer-vision tools for PLAYR1's shooting tracker"
+requires-python = ">=3.11"
+dependencies = [
+    "opencv-python-headless>=5.0.0.93",
+]
+
+[tool.uv]
+package = false
