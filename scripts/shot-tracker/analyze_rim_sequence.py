@@ -55,22 +55,17 @@ def ball_candidates(
 ) -> tuple[list[tuple[float, float]], np.ndarray]:
     height, width = frame.shape[:2]
     rim_x, rim_y, half_width = hoop
-    radius_x = max(55, int(half_width * 8))
-    top = max(0, int(rim_y - max(220, half_width * 24)))
-    bottom = min(height, int(rim_y + max(100, half_width * 10)))
+    radius_x = max(40, int(half_width * 5))
+    top = max(0, int(rim_y - max(50, half_width * 5)))
+    bottom = min(height, int(rim_y + max(72, half_width * 7)))
     left = max(0, int(rim_x - radius_x))
     right = min(width, int(rim_x + radius_x))
     crop = frame[top:bottom, left:right]
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-    orange = cv2.inRange(
-        hsv, np.array([3, 55, 38], np.uint8), np.array([32, 255, 255], np.uint8)
+    mask = cv2.inRange(
+        hsv, np.array([0, 100, 50], np.uint8), np.array([34, 255, 255], np.uint8)
     )
-    red = cv2.bitwise_or(
-        cv2.inRange(hsv, np.array([0, 55, 38], np.uint8), np.array([3, 255, 255], np.uint8)),
-        cv2.inRange(hsv, np.array([165, 55, 38], np.uint8), np.array([179, 255, 255], np.uint8)),
-    )
-    mask = cv2.bitwise_or(orange, red)
     if previous_gray is not None:
         motion = cv2.absdiff(gray, previous_gray)
         moving = cv2.dilate(cv2.threshold(motion, 14, 255, cv2.THRESH_BINARY)[1], np.ones((3, 3), np.uint8))
@@ -80,7 +75,7 @@ def ball_candidates(
     candidates: list[tuple[float, float]] = []
     for contour in contours:
         area = cv2.contourArea(contour)
-        if not 3 <= area <= 500:
+        if not 8 <= area <= 220:
             continue
         perimeter = cv2.arcLength(contour, True)
         if perimeter <= 0:
@@ -88,7 +83,9 @@ def ball_candidates(
         circularity = 4 * math.pi * area / (perimeter * perimeter)
         x, y, box_width, box_height = cv2.boundingRect(contour)
         aspect = box_width / max(box_height, 1)
-        if circularity < 0.2 or not 0.4 <= aspect <= 2.5:
+        if circularity < 0.38 or not 0.65 <= aspect <= 1.5:
+            continue
+        if box_width < 3 or box_height < 3 or box_width > 17 or box_height > 17:
             continue
         moments = cv2.moments(contour)
         if moments["m00"] == 0:
@@ -151,25 +148,35 @@ def classify_tracks(
     events = []
     for track in tracks:
         points = track.points
-        if len(points) < 4 or points[-1][0] - points[0][0] > 2.5:
+        if len(points) < 3:
             continue
-        apex_index = min(range(len(points)), key=lambda index: points[index][2])
-        apex = points[apex_index]
-        if points[0][2] - apex[2] < 25:
-            continue
-        rim_point = next(
-            (
-                point for point in points[apex_index + 1:]
-                if point[2] >= rim_y - max(5, half_width * 0.6)
-                and abs(point[1] - rim_x) <= half_width * 5
-            ),
-            None,
-        )
-        if rim_point is None:
+        approach = None
+        rim_point = None
+        for index, point in enumerate(points):
+            if abs(point[1] - rim_x) > half_width * 5:
+                continue
+            if point[2] >= rim_y - max(5, half_width * 0.6):
+                for earlier in reversed(points[:index]):
+                    elapsed = point[0] - earlier[0]
+                    descended = point[2] - earlier[2]
+                    if elapsed > 0.9:
+                        break
+                    if (
+                        elapsed >= 0.08 and descended >= max(9, half_width * 1.1)
+                        and earlier[2] <= rim_y - half_width * 0.6
+                        and abs(earlier[1] - rim_x) <= half_width * 5
+                    ):
+                        approach = earlier
+                        rim_point = point
+                        break
+                if rim_point is not None:
+                    break
+        if approach is None or rim_point is None:
             continue
         crossing = next(
             (
-                point for point in points[apex_index + 1:]
+                point for point in points
+                if point[0] >= rim_point[0]
                 if point[2] >= rim_y and abs(point[1] - rim_x) <= half_width * 5
             ),
             None,
@@ -193,19 +200,23 @@ def classify_tracks(
             elif rebound:
                 result = "possible_miss"
         events.append({
-            "startSeconds": max(0.0, points[0][0] - 0.2),
+            "startSeconds": max(0.0, approach[0] - 0.2),
             "endSeconds": rim_point[0] + 0.3,
             "result": result,
             "reason": (
                 "The ball appears to continue below the rim."
                 if result == "possible_make"
+                else "The ball appears to pass outside the rim."
+                if crossing and abs(crossing[1] - rim_x) > half_width * 3
+                else "The ball appears to rebound upward near the rim."
+                if result == "possible_miss"
                 else "The ball approaches the rim, but the result is not clear enough to count."
             ),
         })
     events.sort(key=lambda event: float(event["startSeconds"]))
     deduped = []
     for event in events:
-        if deduped and float(event["startSeconds"]) - float(deduped[-1]["endSeconds"]) < 0.6:
+        if deduped and float(event["startSeconds"]) - float(deduped[-1]["endSeconds"]) < 1.0:
             if float(event["endSeconds"]) > float(deduped[-1]["endSeconds"]):
                 deduped[-1]["endSeconds"] = event["endSeconds"]
             continue

@@ -190,7 +190,7 @@ export default function ShootingTrackerPage() {
       setAnalysisHoop(result.hoop);
       setActiveId(clip.id);
       toast({
-        title: "Local scan finished",
+        title: "Rim scan finished",
         description: result.suggestions.length
           ? `Found ${result.suggestions.length} possible shot moment${result.suggestions.length === 1 ? "" : "s"}. The marker shows the hoop it found.`
           : "The hoop was found, but no ball sequences through the rim were detected.",
