@@ -52,11 +52,11 @@ Day 4 begins with a Player Profile-style interest question (Game Insights headin
 
 **How to apply:** reuse the four existing lead magnets and their real quiz questions/results; keep the interest page's centered logo, uppercase hierarchy, rounded saturated-orange outline controls, and exact concise labels. Route the completed preview to the Day 4 Hub, preserve Day 3's app-icon and workout-card composition, keep the specified card copy exact, and isolate preview completion from production onboarding and account submissions.
 
-Day 5 starts with a full-screen player-card completion step, then the Hub offers Edit Profile and Workout #3. Ask only for non-team profile details not already collected: name, jersey number, location, physical and academic details, headline, bio, and the player's selection of up to three card stats. Do not ask for team information or actual performance stats. Workout #3 is the 140-shot, six-drill game-like shooting workout; reuse the existing Duncan Robinson drill and keep the missing drills as shared library content. The Day 3 Volume workout is numbered Workout #1.
+Day 5 starts on the Profile tab itself: show the player card, an Edit Profile button above it, and a photo-upload prompt only when no photo exists. Edit Profile opens three short, non-scrolling question pages headed only “Finish your profile”; collect non-team information not already asked: name, jersey number, location, physical and academic details, headline, bio, and up to three card-stat choices. Do not ask for team information or actual performance stats. Finishing the questions goes to a Day 5 Hub with the player card followed by a compact Workout #3 card. Workout #3 is the 140-shot, six-drill game-like workout; reuse the existing Duncan Robinson drill and keep the missing drills as shared library content. The Day 3 Volume workout is numbered Workout #1.
 
-**Why:** the user wants Day 5 to finish the player card and introduce the supplied Workout #3 while preserving the established Day 2/3 workout flow.
+**Why:** the user wants Day 5 to finish the player card through a calm, uncluttered sequence and introduce the supplied Workout #3 while preserving the established Day 2/3 workout flow.
 
-**How to apply:** keep Day 5 inside the admin onboarding preview until rollout is explicitly requested. Save preview answers locally; use the existing profile editor's field meanings and link Workout #3 to real shared drill records and the existing workout logger.
+**How to apply:** keep Day 5 inside the admin onboarding preview until rollout is explicitly requested. Save preview answers and new photo uploads locally; reuse the existing Profile tab card and profile-field meanings, then link Workout #3 to real shared drill records and the existing workout logger.
 
 ## Retired setup answers
 

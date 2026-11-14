@@ -35,6 +35,9 @@ type ProfileSummaryCardProps = {
   onEditProfile: () => void;
   onOpenPro: () => void;
   onSettings: () => void;
+  onboardingMode?: boolean;
+  avatarSrcOverride?: string;
+  onUploadPhoto?: () => void;
 };
 
 const STAT_GROUPS: { label: string; keys: ProfileDisplayStatKey[] }[] = [
@@ -174,6 +177,9 @@ export function ProfileSummaryCard({
   onEditProfile,
   onOpenPro,
   onSettings,
+  onboardingMode = false,
+  avatarSrcOverride,
+  onUploadPhoto,
 }: ProfileSummaryCardProps) {
   const { toast } = useToast();
   const [statsDialogOpen, setStatsDialogOpen] = useState(false);
@@ -191,7 +197,7 @@ export function ProfileSummaryCard({
     .toUpperCase()
     .slice(0, 2);
   const avatarPath = userProfile?.profilePhotoUrl || user?.profileImageUrl;
-  const avatarSrc = avatarPath ? getObjectUrl(avatarPath) : undefined;
+  const avatarSrc = avatarSrcOverride || (avatarPath ? getObjectUrl(avatarPath) : undefined);
   const location = formatLocation(userProfile);
   const positions = Array.isArray(career?.positions)
     ? career.positions.filter((position: unknown) => typeof position === "string" && position.trim())
@@ -260,6 +266,7 @@ export function ProfileSummaryCard({
           >
             Edit Profile
           </Button>
+          {!onboardingMode && <>
           <Button
             type="button"
             size="sm"
@@ -282,7 +289,8 @@ export function ProfileSummaryCard({
             <Settings2 className="h-3.5 w-3.5 shrink-0" />
             Choose stats
           </Button>
-          <button
+          </>}
+          {!onboardingMode && <button
             type="button"
             onClick={onSettings}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-400 transition hover:border-zinc-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
@@ -290,7 +298,7 @@ export function ProfileSummaryCard({
             data-testid="card-profile-settings"
           >
             <Settings className="h-4 w-4" />
-          </button>
+          </button>}
         </div>
       </header>
 
@@ -315,12 +323,19 @@ export function ProfileSummaryCard({
           </div>
         ) : (
           <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-3 sm:grid-cols-[80px_minmax(0,1fr)_minmax(190px,0.68fr)] sm:gap-x-4 sm:gap-y-0">
-            <Avatar className="row-span-2 h-16 w-16 shrink-0 border-2 border-orange-500 ring-2 ring-orange-500/80 shadow-[0_0_16px_rgba(249,115,22,0.38)] sm:h-20 sm:w-20">
-              <AvatarImage src={avatarSrc} alt={`${displayName} profile photo`} />
-              <AvatarFallback className="bg-orange-500/20 text-lg font-bold text-orange-300">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+            {onboardingMode && !avatarSrc && onUploadPhoto ? (
+              <button type="button" onClick={onUploadPhoto} className="row-span-2 flex flex-col items-center justify-center gap-1 text-center" aria-label="Upload a profile photo">
+                <Avatar className="h-16 w-16 border-2 border-dashed border-orange-400 ring-2 ring-orange-500/40 sm:h-20 sm:w-20">
+                  <AvatarFallback className="bg-orange-500/15 text-lg font-bold text-orange-300">{initials}</AvatarFallback>
+                </Avatar>
+                <span className="max-w-20 text-[9px] font-bold uppercase leading-tight text-orange-300">Tap to add photo</span>
+              </button>
+            ) : (
+              <Avatar className="row-span-2 h-16 w-16 shrink-0 border-2 border-orange-500 ring-2 ring-orange-500/80 shadow-[0_0_16px_rgba(249,115,22,0.38)] sm:h-20 sm:w-20">
+                <AvatarImage src={avatarSrc} alt={`${displayName} profile photo`} />
+                <AvatarFallback className="bg-orange-500/20 text-lg font-bold text-orange-300">{initials}</AvatarFallback>
+              </Avatar>
+            )}
             <div className="min-w-0 pt-1">
               <h2 className="truncate text-lg font-bold leading-tight text-white">{displayName}</h2>
               {location && (
@@ -345,7 +360,7 @@ export function ProfileSummaryCard({
               )}
             </div>
 
-            <section className="min-w-0 sm:col-start-3 sm:row-start-1 sm:pt-1" aria-label="Player stats">
+            {(selectedStatValues.length > 0 || !onboardingMode) && <section className="min-w-0 sm:col-start-3 sm:row-start-1 sm:pt-1" aria-label="Player stats">
               <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500 sm:text-[10px] sm:tracking-[0.16em]">
                 Player stats
               </p>
@@ -374,7 +389,7 @@ export function ProfileSummaryCard({
                   Add stats or measurements to choose what appears here.
                 </p>
               )}
-            </section>
+            </section>}
 
             <div className="col-span-2 min-w-0 space-y-1.5 pl-[76px] pt-1 sm:col-span-1 sm:col-start-2 sm:row-start-2 sm:pl-0">
               {(playerProfile?.headline || playerProfile?.bio) ? (
@@ -390,9 +405,9 @@ export function ProfileSummaryCard({
                     </p>
                   )}
                 </>
-              ) : (
+              ) : !onboardingMode ? (
                 <p className="text-xs text-zinc-500 sm:text-sm">Add a headline and bio to introduce your game.</p>
-              )}
+              ) : null}
             </div>
           </div>
         )}

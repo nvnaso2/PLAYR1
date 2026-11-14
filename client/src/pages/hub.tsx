@@ -53,7 +53,7 @@ import { getDailyCoachPrompt } from "@/lib/coach-p-hub-prompts";
 import { OnboardingPreviewMenu } from "@/components/onboarding-preview-menu";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { Day4HubActionSurface } from "@/components/onboarding-day4/day4-components";
-import { DayFiveHubActionSurface, DayFiveWorkoutPreview } from "@/components/onboarding-day5/day5-components";
+import { DayFiveHubActionSurface, DayFiveWorkoutPreview, mergeDayFiveProfileDraft, readDayFiveProfileDraft, type DayFiveProfileDraft } from "@/components/onboarding-day5/day5-components";
 import { DAY_FIVE_GAME_LIKE_WORKOUT_ID } from "@shared/onboarding-workout-ids";
 import {
   PLAYER_SETUP_GOALS,
@@ -224,9 +224,18 @@ export default function HubPage() {
   const fitOnboardingDayThree = onboardingPreview && previewDay === 3 && !dayTwoProfileStep;
   const fitOnboardingDayFour = onboardingPreview && previewDay === 4 && !dayTwoProfileStep;
   const fitOnboardingDayFive = onboardingPreview && previewDay === 5 && !dayTwoProfileStep;
+  const { data: dayFiveUserProfile } = useQuery<any>({
+    queryKey: ["/api/profile"],
+    enabled: fitOnboardingDayFive,
+  });
+  const { data: dayFivePlayerProfile } = useQuery<any>({
+    queryKey: ["/api/player-profile"],
+    enabled: fitOnboardingDayFive,
+  });
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
   const [dayThreeWorkoutOpen, setDayThreeWorkoutOpen] = useState(false);
   const [dayFiveWorkoutOpen, setDayFiveWorkoutOpen] = useState(false);
+  const [dayFiveProfileDraft, setDayFiveProfileDraft] = useState<DayFiveProfileDraft>(() => readDayFiveProfileDraft());
   const [dayTwoCoachDraft, setDayTwoCoachDraft] = useState("");
   const dayTwoCoachInputRef = useRef<HTMLInputElement>(null);
   const [dayTwoSaving, setDayTwoSaving] = useState(false);
@@ -1768,6 +1777,15 @@ export default function HubPage() {
             {previewDay === 5 && (
               <DayFiveHubActionSurface
                 artwork={dayTwoCourtImageCropped}
+                profile={mergeDayFiveProfileDraft(dayFiveUserProfile, dayFivePlayerProfile)}
+                user={user}
+                existingPhotoUrl={dayFiveUserProfile?.profilePhotoUrl || user?.profileImageUrl
+                  ? getObjectUrl(dayFiveUserProfile?.profilePhotoUrl || user?.profileImageUrl)
+                  : undefined}
+                onProfileChange={(draft) => {
+                  setDayFiveProfileDraft(draft);
+                  sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(draft));
+                }}
                 onEditProfile={() => navigate("/admin/onboarding-preview?page=day5-profile")}
                 onPreviewWorkout={() => setDayFiveWorkoutOpen(true)}
               />

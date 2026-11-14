@@ -1,10 +1,10 @@
-import { useState, type FormEvent } from "react";
-import { ArrowRight, BarChart3, ChevronRight, Clock, Dumbbell, Pencil, UserRound, X } from "lucide-react";
+import { useRef, useState, type FormEvent, type ChangeEvent } from "react";
+import { ArrowLeft, ArrowRight, ChevronRight, Clock, Dumbbell, X } from "lucide-react";
 import type { Drill, WorkoutDrill } from "@shared/schema";
 import { DrillDiagramPreview } from "@/components/drill-diagram-preview";
 import { Button } from "@/components/ui/button";
 import { formatWorkoutDescription } from "@/lib/workout-description";
-import logoImg from "@assets/PNG_image_auth_trimmed.png";
+import { ProfileSummaryCard } from "@/components/profile/profile-summary-card";
 
 export type DayFiveProfileDraft = {
   displayName: string;
@@ -23,7 +23,55 @@ export type DayFiveProfileDraft = {
   headline: string;
   bio: string;
   cardCareerStats: string[];
+  profilePhotoDataUrl?: string;
 };
+
+export const EMPTY_DAY_FIVE_PROFILE: DayFiveProfileDraft = {
+  displayName: "", jerseyNumber: "", city: "", state: "", country: "", heightFeet: "", heightInches: "",
+  weight: "", wingspan: "", schoolName: "", gradeLevel: "", gradYear: "", gpa: "", headline: "", bio: "",
+  cardCareerStats: ["ppg", "rpg", "apg"],
+};
+
+export function readDayFiveProfileDraft(): DayFiveProfileDraft {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem("playr1-onboarding-day5-profile") || "{}");
+    const setup = JSON.parse(sessionStorage.getItem("playr1-onboarding-preview") || "{}");
+    return { ...EMPTY_DAY_FIVE_PROFILE, ...saved, displayName: saved.displayName || setup.playerName || "" };
+  } catch {
+    return EMPTY_DAY_FIVE_PROFILE;
+  }
+}
+
+export function mergeDayFiveProfileDraft(userProfile: any, playerProfile: any): DayFiveProfileDraft {
+  let saved: Partial<DayFiveProfileDraft> = {};
+  try {
+    saved = JSON.parse(sessionStorage.getItem("playr1-onboarding-day5-profile") || "{}");
+  } catch {}
+  const base = {
+    ...EMPTY_DAY_FIVE_PROFILE,
+    displayName: userProfile?.displayName || playerProfile?.displayName || "",
+    jerseyNumber: String(playerProfile?.jerseyNumber ?? ""),
+    city: userProfile?.city || "",
+    state: userProfile?.state || "",
+    country: userProfile?.country || "",
+    heightFeet: String(playerProfile?.heightFeet ?? ""),
+    heightInches: String(playerProfile?.heightInches ?? ""),
+    weight: String(playerProfile?.weight ?? ""),
+    wingspan: String(playerProfile?.wingspan ?? ""),
+    schoolName: playerProfile?.schoolName || "",
+    gradeLevel: playerProfile?.gradeLevel || "",
+    gradYear: String(playerProfile?.gradYear ?? ""),
+    gpa: String(playerProfile?.gpa ?? ""),
+    headline: playerProfile?.headline || "",
+    bio: playerProfile?.bio || "",
+  };
+  return {
+    ...base,
+    ...saved,
+    displayName: saved.displayName || base.displayName,
+    cardCareerStats: saved.cardCareerStats?.length ? saved.cardCareerStats : EMPTY_DAY_FIVE_PROFILE.cardCareerStats,
+  };
+}
 
 const CARD_STATS = [
   ["ppg", "PPG"], ["rpg", "RPG"], ["apg", "APG"],
@@ -33,118 +81,199 @@ const CARD_STATS = [
 export function DayFiveProfileStep({
   initialValue,
   onContinue,
+  onBack,
 }: {
   initialValue: DayFiveProfileDraft;
   onContinue: (draft: DayFiveProfileDraft) => void;
+  onBack: () => void;
 }) {
   const [draft, setDraft] = useState(initialValue);
-  const set = (key: keyof DayFiveProfileDraft, value: string) => setDraft((current) => ({ ...current, [key]: value }));
+  const [step, setStep] = useState(0);
+  const set = (key: keyof DayFiveProfileDraft, value: string) => setDraft((current) => {
+    const next = { ...current, [key]: value };
+    sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(next));
+    return next;
+  });
   const toggleStat = (stat: string) => setDraft((current) => {
     const includes = current.cardCareerStats.includes(stat);
-    if (includes) return current.cardCareerStats.length > 1
-      ? { ...current, cardCareerStats: current.cardCareerStats.filter((item) => item !== stat) }
-      : current;
-    if (current.cardCareerStats.length >= 3) return current;
-    return { ...current, cardCareerStats: [...current.cardCareerStats, stat] };
+    let next = current;
+    if (includes && current.cardCareerStats.length > 1) {
+      next = { ...current, cardCareerStats: current.cardCareerStats.filter((item) => item !== stat) };
+    } else if (!includes && current.cardCareerStats.length < 3) {
+      next = { ...current, cardCareerStats: [...current.cardCareerStats, stat] };
+    }
+    sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(next));
+    return next;
   });
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    onContinue(draft);
+    if (step < 2) setStep((current) => current + 1);
+    else onContinue(draft);
   };
-  const fieldClass = "auth-pill-input h-[50px] w-full px-4 text-sm text-[#f5f2eb] placeholder:text-[#88837e] outline-none focus-visible:ring-0";
-  const labelClass = "grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]";
+  const fieldClass = "auth-pill-input h-12 w-full px-4 text-sm text-[#f5f2eb] placeholder:text-[#88837e] outline-none focus-visible:ring-0";
+  const labelClass = "grid gap-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]";
+  const field = (key: keyof DayFiveProfileDraft, title: string, placeholder: string, props: Record<string, any> = {}) => (
+    <label className={labelClass}>{title}<input className={fieldClass} value={String(draft[key] ?? "")} onChange={(event) => set(key, event.target.value)} placeholder={placeholder} {...props} /></label>
+  );
 
   return (
-    <main className="min-h-[100dvh] overflow-y-auto bg-black px-5 pb-10 pt-[calc(env(safe-area-inset-top,0px)+2.75rem)] text-white sm:px-8" data-testid="day-five-profile-step">
-      <section className="mx-auto w-full max-w-[520px]">
-        <img src={logoImg} alt="PLAYR1" className="mx-auto mb-6 h-10 w-auto max-w-[190px] object-contain" />
-        <p className="font-mono text-[10px] font-black uppercase tracking-[.2em] text-orange-400">Day 5 · Player Card</p>
-        <h1 className="mt-2 font-heading text-3xl font-black uppercase leading-tight">Finish your profile</h1>
-        <p className="mt-2 text-sm leading-5 text-zinc-400">Add the details that make your player card yours. Everything here is optional.</p>
-
-        <form onSubmit={submit} className="mt-6 space-y-5">
-          <section className="space-y-3">
-            <h2 className="flex items-center gap-2 font-heading text-sm font-black uppercase tracking-wide"><UserRound className="h-4 w-4 text-orange-400" />Player Card</h2>
-            <div className="grid grid-cols-[1fr_92px] gap-3">
-              <label className={labelClass}>Name<input className={fieldClass} value={draft.displayName} onChange={(event) => set("displayName", event.target.value)} placeholder="Name shown on your card" /></label>
-              <label className={labelClass}>Jersey #<input inputMode="numeric" maxLength={2} className={fieldClass} value={draft.jerseyNumber} onChange={(event) => set("jerseyNumber", event.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="00" /></label>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <label className={labelClass}>City<input className={fieldClass} value={draft.city} onChange={(event) => set("city", event.target.value)} placeholder="City" /></label>
-              <label className={labelClass}>State / region<input className={fieldClass} value={draft.state} onChange={(event) => set("state", event.target.value)} placeholder="State" /></label>
-            </div>
-            <label className={labelClass}>Country<input className={fieldClass} value={draft.country} onChange={(event) => set("country", event.target.value)} placeholder="Country" /></label>
-            <label className={labelClass}>Headline<input maxLength={120} className={fieldClass} value={draft.headline} onChange={(event) => set("headline", event.target.value)} placeholder="A line that describes your game" /></label>
-            <label className={labelClass}>Bio<textarea maxLength={1000} rows={3} className="auth-pill-input w-full resize-y px-4 py-3 text-sm text-[#f5f2eb] placeholder:text-[#88837e] outline-none focus-visible:ring-0" value={draft.bio} onChange={(event) => set("bio", event.target.value)} placeholder="Your basketball journey, goals, and what makes you stand out" /></label>
-          </section>
-
-          <section className="space-y-3 border-t border-white/10 pt-4">
-            <h2 className="flex items-center gap-2 font-heading text-sm font-black uppercase tracking-wide"><Dumbbell className="h-4 w-4 text-orange-400" />Physical & Academics</h2>
-            <div className="grid grid-cols-3 gap-2">
-              <label className={labelClass}>Height · ft<input inputMode="numeric" maxLength={1} className={fieldClass} value={draft.heightFeet} onChange={(event) => set("heightFeet", event.target.value.replace(/\D/g, "").slice(0, 1))} placeholder="6" /></label>
-              <label className={labelClass}>Height · in<input inputMode="numeric" maxLength={2} className={fieldClass} value={draft.heightInches} onChange={(event) => set("heightInches", event.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="2" /></label>
-              <label className={labelClass}>Weight<input inputMode="numeric" className={fieldClass} value={draft.weight} onChange={(event) => set("weight", event.target.value.replace(/\D/g, ""))} placeholder="180 lb" /></label>
-            </div>
-            <label className={labelClass}>Wingspan<input className={fieldClass} value={draft.wingspan} onChange={(event) => set("wingspan", event.target.value)} placeholder="6'5&quot;" /></label>
-            <label className={labelClass}>School<input className={fieldClass} value={draft.schoolName} onChange={(event) => set("schoolName", event.target.value)} placeholder="School name" /></label>
-            <div className="grid grid-cols-3 gap-2">
-              <label className={labelClass}>Grade<input className={fieldClass} value={draft.gradeLevel} onChange={(event) => set("gradeLevel", event.target.value)} placeholder="Junior" /></label>
-              <label className={labelClass}>Grad year<input inputMode="numeric" maxLength={4} className={fieldClass} value={draft.gradYear} onChange={(event) => set("gradYear", event.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="2027" /></label>
-              <label className={labelClass}>GPA<input inputMode="decimal" className={fieldClass} value={draft.gpa} onChange={(event) => set("gpa", event.target.value)} placeholder="3.5" /></label>
-            </div>
-          </section>
-
-          <fieldset className="space-y-3 border-t border-white/10 pt-4">
-            <legend className="flex items-center gap-2 font-heading text-sm font-black uppercase tracking-wide"><BarChart3 className="h-4 w-4 text-orange-400" />Card Stats</legend>
-            <p className="text-xs text-zinc-400">Choose up to three career stats to show on your card.</p>
-            <div className="flex flex-wrap gap-2">
-              {CARD_STATS.map(([value, label]) => (
-                <button key={value} type="button" aria-pressed={draft.cardCareerStats.includes(value)} onClick={() => toggleStat(value)} className={`rounded-full border px-4 py-2.5 text-xs font-bold transition ${draft.cardCareerStats.includes(value) ? "border-orange-300 bg-orange-500/15 text-orange-100" : "border-white/15 bg-[#090909] text-zinc-400"}`}>{label}</button>
-              ))}
-            </div>
-          </fieldset>
-
-          <Button type="submit" className="h-[54px] w-full rounded-full bg-orange-500 font-black uppercase tracking-wide text-black hover:bg-orange-400" data-testid="button-day-five-profile-continue">
-            Continue to Day 5 Hub <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+    <main className="flex h-[100dvh] flex-col overflow-hidden bg-black px-5 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] text-white sm:px-8" data-testid="day-five-profile-step">
+      <section className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col">
+        <button type="button" onClick={onBack} className="mb-3 flex w-fit items-center gap-1 text-xs font-bold uppercase tracking-wide text-zinc-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Profile</button>
+        <div className="flex items-end justify-between">
+          <h1 className="font-heading text-3xl font-black uppercase leading-tight">Finish your profile</h1>
+          <span className="font-mono text-xs font-bold text-orange-400">{String(step + 1).padStart(2, "0")} / 03</span>
+        </div>
+        <div className="mt-3 flex gap-1.5" aria-label={`Page ${step + 1} of 3`}>
+          {[0, 1, 2].map((index) => <span key={index} className={`h-1 flex-1 rounded-full ${index <= step ? "bg-orange-500" : "bg-white/15"}`} />)}
+        </div>
+        <form onSubmit={submit} className="mt-5 flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-3">
+            {step === 0 && <>
+              <h2 className="font-heading text-lg font-black uppercase">Player details</h2>
+              <div className="grid grid-cols-[1fr_88px] gap-2">{field("displayName", "Name", "Name on your card")}{field("jerseyNumber", "Jersey #", "00", { inputMode: "numeric", maxLength: 2, onChange: (event: ChangeEvent<HTMLInputElement>) => set("jerseyNumber", event.target.value.replace(/\D/g, "").slice(0, 2)) })}</div>
+              <div className="grid grid-cols-2 gap-2">{field("city", "City", "City")}{field("state", "State / region", "State")}</div>
+              {field("country", "Country", "Country")}
+            </>}
+            {step === 1 && <>
+              <h2 className="font-heading text-lg font-black uppercase">Physical & academics</h2>
+              <div className="grid grid-cols-3 gap-2">{field("heightFeet", "Height · ft", "6", { inputMode: "numeric", maxLength: 1 })}{field("heightInches", "Height · in", "2", { inputMode: "numeric", maxLength: 2 })}{field("weight", "Weight", "180 lb", { inputMode: "numeric" })}</div>
+              {field("wingspan", "Wingspan", "6'5&quot;")}
+              {field("schoolName", "School", "School name")}
+              <div className="grid grid-cols-3 gap-2">{field("gradeLevel", "Grade", "Junior")}{field("gradYear", "Grad year", "2027", { inputMode: "numeric", maxLength: 4 })}{field("gpa", "GPA", "3.5", { inputMode: "decimal" })}</div>
+            </>}
+            {step === 2 && <>
+              <h2 className="font-heading text-lg font-black uppercase">About & card stats</h2>
+              {field("headline", "Headline", "A line about your game", { maxLength: 120 })}
+              <label className={labelClass}>Bio<textarea maxLength={1000} rows={3} className="auth-pill-input min-h-24 w-full resize-none px-4 py-3 text-sm text-[#f5f2eb] placeholder:text-[#88837e] outline-none focus-visible:ring-0" value={draft.bio} onChange={(event) => set("bio", event.target.value)} placeholder="Your basketball journey" /></label>
+              <fieldset className="space-y-2">
+                <legend className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#d7d3cb]">Card stats</legend>
+                <div className="flex flex-wrap gap-2">
+                  {CARD_STATS.map(([value, label]) => <button key={value} type="button" aria-pressed={draft.cardCareerStats.includes(value)} onClick={() => toggleStat(value)} className={`rounded-full border px-3 py-2 text-xs font-bold transition ${draft.cardCareerStats.includes(value) ? "border-orange-300 bg-orange-500/15 text-orange-100" : "border-white/15 bg-[#090909] text-zinc-400"}`}>{label}</button>)}
+                </div>
+              </fieldset>
+            </>}
+          </div>
+          <div className="mt-4 flex shrink-0 gap-2">
+            {step > 0 && <Button type="button" variant="outline" onClick={() => setStep((current) => current - 1)} className="h-12 flex-1 rounded-full border-white/20 bg-transparent text-white hover:bg-white/10"><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>}
+            <Button type="submit" className="h-12 flex-1 rounded-full bg-orange-500 font-black uppercase tracking-wide text-black hover:bg-orange-400" data-testid="button-day-five-profile-continue">
+              {step === 2 ? "Finish profile" : "Continue"} <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         </form>
       </section>
     </main>
   );
 }
 
+export function DayFiveProfileLanding({
+  initialValue, user, existingPhotoUrl, onEditProfile, onChange,
+}: {
+  initialValue: DayFiveProfileDraft;
+  user?: any;
+  existingPhotoUrl?: string;
+  onEditProfile: () => void;
+  onChange: (draft: DayFiveProfileDraft) => void;
+}) {
+  return (
+    <main className="min-h-[100dvh] overflow-y-auto bg-black px-4 pb-8 pt-[calc(env(safe-area-inset-top,0px)+2rem)] text-white sm:px-8" data-testid="day-five-profile-landing">
+      <section className="mx-auto w-full max-w-xl">
+        <ProfileSummaryCard
+          user={user}
+          userProfile={{ displayName: initialValue.displayName, city: initialValue.city, state: initialValue.state, country: initialValue.country }}
+          playerProfile={{ headline: initialValue.headline, bio: initialValue.bio, heightFeet: initialValue.heightFeet, heightInches: initialValue.heightInches, weight: initialValue.weight, wingspan: initialValue.wingspan, gradYear: initialValue.gradYear, gpa: initialValue.gpa }}
+          career={{ jerseyNumber: initialValue.jerseyNumber ? Number(initialValue.jerseyNumber) : null, positions: [] }}
+          careerStats={null}
+          isLoading={false}
+          onEditProfile={onEditProfile}
+          onOpenPro={() => undefined}
+          onSettings={() => undefined}
+          onboardingMode
+          avatarSrcOverride={initialValue.profilePhotoDataUrl || existingPhotoUrl}
+          onUploadPhoto={() => document.getElementById("day-five-profile-photo")?.click()}
+        />
+        <input id="day-five-profile-photo" type="file" accept="image/*" className="sr-only" onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          const url = URL.createObjectURL(file);
+          const image = new Image();
+          image.onload = () => {
+            const canvas = document.createElement("canvas");
+            const scale = Math.min(1, 640 / Math.max(image.width, image.height));
+            canvas.width = Math.round(image.width * scale);
+            canvas.height = Math.round(image.height * scale);
+            canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+            const next = { ...initialValue, profilePhotoDataUrl: canvas.toDataURL("image/jpeg", 0.82) };
+            sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(next));
+            onChange(next);
+            URL.revokeObjectURL(url);
+            event.target.value = "";
+          };
+          image.onerror = () => URL.revokeObjectURL(url);
+          image.src = url;
+        }} />
+      </section>
+    </main>
+  );
+}
+
 export function DayFiveHubActionSurface({
-  artwork,
-  onEditProfile,
-  onPreviewWorkout,
+  artwork, profile, user, existingPhotoUrl, onEditProfile, onProfileChange, onPreviewWorkout,
 }: {
   artwork?: string;
+  profile: DayFiveProfileDraft;
+  user?: any;
+  existingPhotoUrl?: string;
   onEditProfile: () => void;
+  onProfileChange: (draft: DayFiveProfileDraft) => void;
   onPreviewWorkout: () => void;
 }) {
   return (
-    <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col justify-between gap-3 pb-2 text-white" data-testid="card-day-five-mission">
-      <button type="button" onClick={onEditProfile} className="group flex min-h-14 items-center gap-3 rounded-2xl border border-white/15 bg-zinc-950/80 px-4 py-3 text-left transition hover:border-orange-400/60" data-testid="button-day-five-edit-profile">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-400/40 bg-orange-500/10 text-orange-300"><Pencil className="h-5 w-5" /></span>
-        <span className="flex-1"><span className="block text-[10px] font-bold uppercase tracking-[.16em] text-orange-300">Player Card</span><span className="font-heading text-base font-black uppercase">Edit Profile</span></span>
-        <ChevronRight className="h-5 w-5 text-orange-300 transition group-hover:translate-x-1" />
-      </button>
-      <button type="button" onClick={onPreviewWorkout} className="group flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-[#f6f6f4] text-left text-zinc-950 shadow-[0_14px_38px_rgba(0,0,0,.3)]" data-testid="button-preview-day-five-workout">
-        <span className="relative flex min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-6">
-          <span className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(135deg, transparent 0 34%, rgba(0,0,0,.035) 34% 35%, transparent 35% 65%, rgba(0,0,0,.025) 65% 66%, transparent 66%), repeating-linear-gradient(135deg, transparent 0 54px, rgba(0,0,0,.018) 55px 56px, transparent 57px 96px), radial-gradient(ellipse at top right, white, transparent 55%)" }} />
-          <span className="relative z-10 border-b-[3px] border-black pb-3">
-            <span className="block font-heading text-4xl font-black uppercase leading-none">Workout <span className="text-orange-600">#3</span></span>
-            <span className="mt-2 block font-heading text-base font-black uppercase">Game-Like Reps</span>
-            <span className="mt-1 block text-xs font-semibold text-zinc-600">6 drills · 140 shots · Advanced shooting</span>
-          </span>
-          <span className="relative flex min-h-0 flex-1 items-center justify-center">
-            {artwork ? <img src={artwork} alt="Workout #3 basketball court diagram" className="max-h-full max-w-full object-contain mix-blend-multiply" /> : <Dumbbell className="h-16 w-16 text-zinc-700" />}
-          </span>
-          <span className="relative mt-2 flex min-h-12 items-center justify-between rounded-xl bg-black px-4 py-2 text-white">
-            <span><span className="block text-xs font-black uppercase">Preview the workout</span><span className="mt-0.5 block text-[10px] text-zinc-400">140 shots · 6 drills</span></span>
-            <span className="flex h-7 w-7 items-center justify-center text-orange-400"><ChevronRight className="h-5 w-5" /></span>
-          </span>
+    <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-3 pb-1 text-white" data-testid="card-day-five-mission">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ProfileSummaryCard
+          user={user}
+          userProfile={{ displayName: profile.displayName, city: profile.city, state: profile.state, country: profile.country }}
+          playerProfile={{ headline: profile.headline, bio: profile.bio, heightFeet: profile.heightFeet, heightInches: profile.heightInches, weight: profile.weight, wingspan: profile.wingspan, gradYear: profile.gradYear, gpa: profile.gpa }}
+          career={{ jerseyNumber: profile.jerseyNumber ? Number(profile.jerseyNumber) : null, positions: [] }}
+          careerStats={null}
+          isLoading={false}
+          onEditProfile={onEditProfile}
+          onOpenPro={() => undefined}
+          onSettings={() => undefined}
+          onboardingMode
+          avatarSrcOverride={profile.profilePhotoDataUrl || existingPhotoUrl}
+          onUploadPhoto={() => document.getElementById("day-five-hub-photo")?.click()}
+        />
+        <input id="day-five-hub-photo" type="file" accept="image/*" className="sr-only" onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          const url = URL.createObjectURL(file);
+          const image = new Image();
+          image.onload = () => {
+            const canvas = document.createElement("canvas");
+            const scale = Math.min(1, 640 / Math.max(image.width, image.height));
+            canvas.width = Math.round(image.width * scale);
+            canvas.height = Math.round(image.height * scale);
+            canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+            const next = { ...profile, profilePhotoDataUrl: canvas.toDataURL("image/jpeg", 0.82) };
+            sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(next));
+            onProfileChange(next);
+            URL.revokeObjectURL(url);
+            event.target.value = "";
+          };
+          image.onerror = () => URL.revokeObjectURL(url);
+          image.src = url;
+        }} />
+      </div>
+      <button type="button" onClick={onPreviewWorkout} className="flex h-[150px] shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-zinc-300 bg-[#f6f6f4] p-3 text-left text-zinc-950 shadow-[0_8px_24px_rgba(0,0,0,.25)] transition hover:-translate-y-0.5 sm:h-[170px] sm:p-4" data-testid="button-preview-day-five-workout">
+        <span className="min-w-0 flex-1">
+          <span className="block font-heading text-2xl font-black uppercase leading-none">Workout <span className="text-orange-600">#3</span></span>
+          <span className="mt-1 block font-heading text-sm font-black uppercase">Game-Like Reps</span>
+          <span className="mt-1 block text-[10px] font-semibold text-zinc-600">6 drills · 140 shots</span>
+          <span className="mt-3 inline-flex min-h-8 items-center gap-1 rounded-md bg-black px-3 text-[10px] font-black uppercase text-white">Preview workout <ChevronRight className="h-3.5 w-3.5 text-orange-400" /></span>
         </span>
+        {artwork && <img src={artwork} alt="" className="h-full w-[36%] shrink-0 object-contain mix-blend-multiply" />}
       </button>
     </section>
   );
