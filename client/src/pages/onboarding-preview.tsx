@@ -14,10 +14,9 @@ import LeadMagnetsPage from "./lead-magnets";
 import { clearLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
 import { Day4LeadMagnetInterestStep } from "@/components/onboarding-day4/day4-components";
 import { DAY4_LEAD_MAGNET_OPTIONS } from "@/components/onboarding-day4/day4-lead-magnet-options";
-import { DayFiveProfileLanding, DayFiveProfileStep, mergeDayFiveProfileDraft } from "@/components/onboarding-day5/day5-components";
+import { DayFiveProfileStep, mergeDayFiveProfileDraft } from "@/components/onboarding-day5/day5-components";
 import type { DayFiveProfileDraft } from "@/components/onboarding-day5/day5-components";
-import { useAuth } from "@/hooks/use-auth";
-import { getObjectUrl } from "@/lib/queryClient";
+import ProfileHubPage from "./profile-hub";
 import type { LeadMagnetId } from "@shared/lead-magnet-submissions";
 
 function tomorrowAtFive() {
@@ -40,7 +39,6 @@ function formatSessionDate(value: string) {
 
 export default function OnboardingPreviewPage() {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
   const search = useSearch();
   const requestedPage = new URLSearchParams(search).get("page");
   const page = (["login", "register", "profile", "welcome", "hub", "player-profile", "day2", "day3", "day4-interest", "day4-magnet", "day4-hub", "day5-profile", "day5-profile-edit", "day5-hub"].includes(requestedPage || "")
@@ -51,8 +49,6 @@ export default function OnboardingPreviewPage() {
   const { data: existingUserProfile, isLoading: userProfileLoading } = useQuery<any>({ queryKey: ["/api/profile"], enabled: dayFiveRoute });
   const { data: existingPlayerProfile, isLoading: playerProfileLoading } = useQuery<any>({ queryKey: ["/api/player-profile"], enabled: dayFiveRoute });
   const dayFiveDraft = mergeDayFiveProfileDraft(existingUserProfile, existingPlayerProfile);
-  const savedProfilePhotoPath = existingUserProfile?.profilePhotoUrl || user?.profileImageUrl;
-  const existingPhotoUrl = savedProfilePhotoPath ? getObjectUrl(savedProfilePhotoPath) : undefined;
   const selectedMagnet = DAY4_LEAD_MAGNET_OPTIONS.find((option) => option.id === requestedMagnet)?.id ?? DAY4_LEAD_MAGNET_OPTIONS[0].id;
   const [playerName, setPlayerName] = useState("");
   const [trainingFrequency, setTrainingFrequency] = useState("");
@@ -118,13 +114,7 @@ export default function OnboardingPreviewPage() {
     return (
       <>
         <OnboardingPreviewMenu page="day5-profile" />
-        <DayFiveProfileLanding
-          initialValue={dayFiveDraft}
-          user={user}
-          existingPhotoUrl={existingPhotoUrl}
-          onEditProfile={() => navigate("/admin/onboarding-preview?page=day5-profile-edit")}
-          onChange={(draft) => sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(draft))}
-        />
+        <ProfileHubPage dayFivePreview />
       </>
     );
   }

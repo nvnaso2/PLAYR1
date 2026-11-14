@@ -109,7 +109,11 @@ export function BottomTabBar({ previewMode = false }: { previewMode?: boolean })
   const tabs = isTrainerView ? trainerTabs : playerTabs;
 
   function isTabActive(tab: typeof tabs[0]): boolean {
-    if (previewMode && location.startsWith("/admin/onboarding-preview")) return tab.id === "hub";
+    if (previewMode && location.startsWith("/admin/onboarding-preview")) {
+      const previewPage = new URLSearchParams(window.location.search).get("page");
+      if (previewPage === "day5-profile" || previewPage === "day5-profile-edit") return tab.id === "profile";
+      return tab.id === "hub";
+    }
     if (location.startsWith("/streak-challenges/")) {
       const returnTo = new URLSearchParams(window.location.search).get("returnTo");
       if (tab.id === "hub") return returnTo === "/hub";

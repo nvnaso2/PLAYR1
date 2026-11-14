@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { BaseballCard, StatsTab } from "@/pages/career";
@@ -33,11 +33,20 @@ type CareerNumbers = {
   }>;
 };
 
-export default function ProfileHubPage() {
+export default function ProfileHubPage(props: any = {}) {
+  const dayFivePreview = props.dayFivePreview === true;
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { openProOffer } = useProUpgrade();
   const cardRef = useRef<HTMLDivElement>(null);
+  const [dayFivePhoto, setDayFivePhoto] = useState(() => {
+    if (!dayFivePreview) return null;
+    try {
+      return JSON.parse(sessionStorage.getItem("playr1-onboarding-day5-profile") || "{}").profilePhotoDataUrl || null;
+    } catch {
+      return null;
+    }
+  });
   useLayoutEffect(() => {
     const appScroller = document.querySelector<HTMLElement>("[data-app-scroll-container]");
     if (appScroller) appScroller.scrollTop = 0;
@@ -91,21 +100,24 @@ export default function ProfileHubPage() {
           <h1 className="font-display text-2xl font-black tracking-tight text-zinc-50 sm:text-3xl" data-testid="text-page-title">My Profile</h1>
         </div>
         <div className="flex items-center gap-2">
-          <ProfileCardShareButton
-            cardRef={cardRef}
-            slug={playerProfile?.slug}
-            canShareInteractiveCard={playerProfile?.isPublic === true && playerProfile?.cardShowPlayerCard !== false}
-            compact
-            testId="button-share-profile"
-            className="h-9 w-9 border-zinc-700 bg-zinc-900 p-0 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-          />
+          <div className={dayFivePreview ? "pointer-events-none" : undefined}>
+            <ProfileCardShareButton
+              cardRef={cardRef}
+              slug={playerProfile?.slug}
+              canShareInteractiveCard={playerProfile?.isPublic === true && playerProfile?.cardShowPlayerCard !== false}
+              compact
+              testId="button-share-profile"
+              className="h-9 w-9 border-zinc-700 bg-zinc-900 p-0 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            />
+          </div>
           <Button
             type="button"
             size="icon"
             variant="outline"
             aria-label="Settings"
             title="Settings"
-            onClick={() => navigate("/settings")}
+            onClick={() => !dayFivePreview && navigate("/settings")}
+            disabled={dayFivePreview}
             className="h-9 w-9 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
           >
             <Settings className="h-4 w-4" />
@@ -117,7 +129,9 @@ export default function ProfileHubPage() {
           <Button
             type="button"
             size="sm"
-            onClick={() => navigate("/profile/edit?returnTo=%2Fprofile-hub")}
+            onClick={() => dayFivePreview
+              ? navigate("/admin/onboarding-preview?page=day5-profile-edit")
+              : navigate("/profile/edit?returnTo=%2Fprofile-hub")}
             className="h-10 border border-orange-400/80 bg-[#11100f] px-4 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18)] hover:bg-[#1b1510] hover:text-white"
             data-testid="button-edit-profile"
           >
@@ -127,7 +141,8 @@ export default function ProfileHubPage() {
           <Button
             type="button"
             size="sm"
-            onClick={() => openProOffer()}
+            onClick={() => !dayFivePreview && openProOffer()}
+            disabled={dayFivePreview}
             className="h-10 rounded-full border border-orange-200/60 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 px-4 text-xs font-black text-zinc-950 shadow-[0_0_16px_rgba(249,115,22,0.28)] hover:brightness-110"
             data-testid="button-playr1-pro"
           >
@@ -147,6 +162,15 @@ export default function ProfileHubPage() {
                 userProfile={profile}
                 userName={displayName}
                 rootRef={cardRef}
+                previewOnly={dayFivePreview}
+                previewPhotoUrl={dayFivePhoto}
+                onPreviewPhotoChange={(dataUrl) => {
+                  setDayFivePhoto(dataUrl);
+                  try {
+                    const saved = JSON.parse(sessionStorage.getItem("playr1-onboarding-day5-profile") || "{}");
+                    sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify({ ...saved, profilePhotoDataUrl: dataUrl }));
+                  } catch {}
+                }}
               />
           )}
       </div>
@@ -165,7 +189,8 @@ export default function ProfileHubPage() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => navigate("/career-stats")}
+          onClick={() => !dayFivePreview && navigate("/career-stats")}
+          disabled={dayFivePreview}
           className="h-10 rounded-full border border-orange-400/35 bg-zinc-950 px-4 text-xs font-bold text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.16)] hover:border-orange-300/70 hover:bg-zinc-900 hover:shadow-[0_0_24px_rgba(249,115,22,0.28)]"
           data-testid="button-career-stats-hub"
         >
@@ -178,7 +203,7 @@ export default function ProfileHubPage() {
           className="h-10 rounded-full border border-amber-300/50 bg-[radial-gradient(ellipse_at_top,rgba(245,190,65,0.16),transparent_75%),#17140e] px-4 text-xs font-bold text-amber-100 shadow-[0_0_18px_rgba(245,190,65,0.18)] hover:border-amber-200 hover:bg-[#201a0e]"
           data-testid="button-open-trophy-room-hub"
         >
-          <Link href="/trophy-room" className="flex items-center gap-2">
+          <Link href={dayFivePreview ? "#" : "/trophy-room"} onClick={(event) => dayFivePreview && event.preventDefault()} className="flex items-center gap-2" aria-disabled={dayFivePreview}>
             <Trophy className="h-4 w-4 text-amber-300" />
             Trophy Room
           </Link>

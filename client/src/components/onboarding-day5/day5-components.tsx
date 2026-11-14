@@ -4,7 +4,7 @@ import type { Drill, WorkoutDrill } from "@shared/schema";
 import { DrillDiagramPreview } from "@/components/drill-diagram-preview";
 import { Button } from "@/components/ui/button";
 import { formatWorkoutDescription } from "@/lib/workout-description";
-import { ProfileSummaryCard } from "@/components/profile/profile-summary-card";
+import { BaseballCard } from "@/pages/career";
 
 export type DayFiveProfileDraft = {
   displayName: string;
@@ -166,105 +166,66 @@ export function DayFiveProfileStep({
   );
 }
 
-export function DayFiveProfileLanding({
-  initialValue, user, existingPhotoUrl, onEditProfile, onChange,
-}: {
-  initialValue: DayFiveProfileDraft;
-  user?: any;
-  existingPhotoUrl?: string;
-  onEditProfile: () => void;
-  onChange: (draft: DayFiveProfileDraft) => void;
-}) {
-  return (
-    <main className="min-h-[100dvh] overflow-y-auto bg-black px-4 pb-8 pt-[calc(env(safe-area-inset-top,0px)+2rem)] text-white sm:px-8" data-testid="day-five-profile-landing">
-      <section className="mx-auto w-full max-w-xl">
-        <ProfileSummaryCard
-          user={user}
-          userProfile={{ displayName: initialValue.displayName, city: initialValue.city, state: initialValue.state, country: initialValue.country }}
-          playerProfile={{ headline: initialValue.headline, bio: initialValue.bio, heightFeet: initialValue.heightFeet, heightInches: initialValue.heightInches, weight: initialValue.weight, wingspan: initialValue.wingspan, gradYear: initialValue.gradYear, gpa: initialValue.gpa }}
-          career={{ jerseyNumber: initialValue.jerseyNumber ? Number(initialValue.jerseyNumber) : null, positions: [] }}
-          careerStats={null}
-          isLoading={false}
-          onEditProfile={onEditProfile}
-          onOpenPro={() => undefined}
-          onSettings={() => undefined}
-          onboardingMode
-          avatarSrcOverride={initialValue.profilePhotoDataUrl || existingPhotoUrl}
-          onUploadPhoto={() => document.getElementById("day-five-profile-photo")?.click()}
-        />
-        <input id="day-five-profile-photo" type="file" accept="image/*" className="sr-only" onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (!file) return;
-          const url = URL.createObjectURL(file);
-          const image = new Image();
-          image.onload = () => {
-            const canvas = document.createElement("canvas");
-            const scale = Math.min(1, 640 / Math.max(image.width, image.height));
-            canvas.width = Math.round(image.width * scale);
-            canvas.height = Math.round(image.height * scale);
-            canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
-            const next = { ...initialValue, profilePhotoDataUrl: canvas.toDataURL("image/jpeg", 0.82) };
-            sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(next));
-            onChange(next);
-            URL.revokeObjectURL(url);
-            event.target.value = "";
-          };
-          image.onerror = () => URL.revokeObjectURL(url);
-          image.src = url;
-        }} />
-      </section>
-    </main>
-  );
-}
-
 export function DayFiveHubActionSurface({
-  artwork, profile, user, existingPhotoUrl, onEditProfile, onProfileChange, onPreviewWorkout,
+  artwork, profile, user, career, careerStats, playerProfile, userProfile, onEditProfile, onProfileChange, onPreviewWorkout,
 }: {
   artwork?: string;
   profile: DayFiveProfileDraft;
   user?: any;
-  existingPhotoUrl?: string;
+  career?: any;
+  careerStats?: any;
+  playerProfile?: any;
+  userProfile?: any;
   onEditProfile: () => void;
   onProfileChange: (draft: DayFiveProfileDraft) => void;
   onPreviewWorkout: () => void;
 }) {
+  const cardCareer = {
+    ...(career || {}),
+    jerseyNumber: profile.jerseyNumber ? Number(profile.jerseyNumber) : career?.jerseyNumber ?? null,
+    schoolName: profile.schoolName || career?.schoolName || null,
+    cardPhotoUrl: career?.cardPhotoUrl || null,
+  };
+  const cardUserProfile = {
+    ...(userProfile || {}),
+    displayName: profile.displayName || userProfile?.displayName || user?.firstName || "Player",
+    city: profile.city || userProfile?.city || null,
+    state: profile.state || userProfile?.state || null,
+    country: profile.country || userProfile?.country || null,
+  };
+  const cardPlayerProfile = {
+    ...(playerProfile || {}),
+    headline: profile.headline,
+    bio: profile.bio,
+    heightFeet: profile.heightFeet ? Number(profile.heightFeet) : null,
+    heightInches: profile.heightInches ? Number(profile.heightInches) : null,
+    weight: profile.weight ? Number(profile.weight) : null,
+    wingspan: profile.wingspan,
+    schoolName: profile.schoolName,
+    gradeLevel: profile.gradeLevel,
+    gradYear: profile.gradYear ? Number(profile.gradYear) : null,
+    gpa: profile.gpa,
+    cardCareerStats: profile.cardCareerStats,
+  };
   return (
     <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-3 pb-1 text-white" data-testid="card-day-five-mission">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <ProfileSummaryCard
-          user={user}
-          userProfile={{ displayName: profile.displayName, city: profile.city, state: profile.state, country: profile.country }}
-          playerProfile={{ headline: profile.headline, bio: profile.bio, heightFeet: profile.heightFeet, heightInches: profile.heightInches, weight: profile.weight, wingspan: profile.wingspan, gradYear: profile.gradYear, gpa: profile.gpa }}
-          career={{ jerseyNumber: profile.jerseyNumber ? Number(profile.jerseyNumber) : null, positions: [] }}
-          careerStats={null}
-          isLoading={false}
-          onEditProfile={onEditProfile}
-          onOpenPro={() => undefined}
-          onSettings={() => undefined}
-          onboardingMode
-          avatarSrcOverride={profile.profilePhotoDataUrl || existingPhotoUrl}
-          onUploadPhoto={() => document.getElementById("day-five-hub-photo")?.click()}
-        />
-        <input id="day-five-hub-photo" type="file" accept="image/*" className="sr-only" onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (!file) return;
-          const url = URL.createObjectURL(file);
-          const image = new Image();
-          image.onload = () => {
-            const canvas = document.createElement("canvas");
-            const scale = Math.min(1, 640 / Math.max(image.width, image.height));
-            canvas.width = Math.round(image.width * scale);
-            canvas.height = Math.round(image.height * scale);
-            canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
-            const next = { ...profile, profilePhotoDataUrl: canvas.toDataURL("image/jpeg", 0.82) };
-            sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(next));
-            onProfileChange(next);
-            URL.revokeObjectURL(url);
-            event.target.value = "";
-          };
-          image.onerror = () => URL.revokeObjectURL(url);
-          image.src = url;
-        }} />
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+        <div className="origin-center scale-[0.78]">
+          <BaseballCard
+            profile={cardCareer}
+            careerStats={careerStats}
+            playerProfile={cardPlayerProfile}
+            userProfile={cardUserProfile}
+            userName={cardUserProfile.displayName}
+            previewOnly
+            previewPhotoUrl={profile.profilePhotoDataUrl}
+            onPreviewPhotoChange={(profilePhotoDataUrl) => {
+              const next = { ...profile, profilePhotoDataUrl };
+              sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(next));
+              onProfileChange(next);
+            }}
+          />
+        </div>
       </div>
       <button type="button" onClick={onPreviewWorkout} className="flex h-[150px] shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-zinc-300 bg-[#f6f6f4] p-3 text-left text-zinc-950 shadow-[0_8px_24px_rgba(0,0,0,.25)] transition hover:-translate-y-0.5 sm:h-[170px] sm:p-4" data-testid="button-preview-day-five-workout">
         <span className="min-w-0 flex-1">

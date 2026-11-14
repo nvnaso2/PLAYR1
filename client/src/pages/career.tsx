@@ -2427,6 +2427,9 @@ export function BaseballCard({
   userProfile,
   rootRef,
   hidePhotoUpload = false,
+  previewOnly = false,
+  previewPhotoUrl,
+  onPreviewPhotoChange,
 }: {
   profile: CareerProfile;
   careerStats?: CareerStats;
@@ -2436,6 +2439,9 @@ export function BaseballCard({
   userProfile?: any;
   rootRef?: Ref<HTMLDivElement>;
   hidePhotoUpload?: boolean;
+  previewOnly?: boolean;
+  previewPhotoUrl?: string | null;
+  onPreviewPhotoChange?: (dataUrl: string) => void;
 }) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -2456,9 +2462,9 @@ export function BaseballCard({
   const backW = frontW;
   const backH = frontH;
 
-  const photoSrc = profile.cardPhotoUrl
+  const photoSrc = previewPhotoUrl || (profile.cardPhotoUrl
     ? (getObjectUrl(profile.cardPhotoUrl) ?? defaultPlayerImg)
-    : defaultPlayerImg;
+    : defaultPlayerImg);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
@@ -2479,6 +2485,27 @@ export function BaseballCard({
 
     setUploading(true);
     try {
+      if (previewOnly) {
+        const objectUrl = URL.createObjectURL(file);
+        try {
+          const image = new Image();
+          await new Promise<void>((resolve, reject) => {
+            image.onload = () => resolve();
+            image.onerror = () => reject(new Error("Could not read image"));
+            image.src = objectUrl;
+          });
+          const scale = Math.min(1, 640 / Math.max(image.width, image.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(image.width * scale);
+          canvas.height = Math.round(image.height * scale);
+          canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+          onPreviewPhotoChange?.(canvas.toDataURL("image/jpeg", 0.82));
+          toast({ title: "Photo added to preview" });
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
+        return;
+      }
       const urlRes = await apiRequest("POST", "/api/user/uploads/photo-url", {
         name: fileName,
         size: file.size,

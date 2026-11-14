@@ -232,6 +232,14 @@ export default function HubPage() {
     queryKey: ["/api/player-profile"],
     enabled: fitOnboardingDayFive,
   });
+  const { data: dayFiveCareer } = useQuery<any>({
+    queryKey: ["/api/career"],
+    enabled: fitOnboardingDayFive,
+  });
+  const { data: dayFiveCareerStats } = useQuery<any>({
+    queryKey: ["/api/stats/career"],
+    enabled: fitOnboardingDayFive,
+  });
   const [dayTwoWorkoutOpen, setDayTwoWorkoutOpen] = useState(false);
   const [dayThreeWorkoutOpen, setDayThreeWorkoutOpen] = useState(false);
   const [dayFiveWorkoutOpen, setDayFiveWorkoutOpen] = useState(false);
@@ -1779,9 +1787,10 @@ export default function HubPage() {
                 artwork={dayTwoCourtImageCropped}
                 profile={mergeDayFiveProfileDraft(dayFiveUserProfile, dayFivePlayerProfile)}
                 user={user}
-                existingPhotoUrl={dayFiveUserProfile?.profilePhotoUrl || user?.profileImageUrl
-                  ? getObjectUrl(dayFiveUserProfile?.profilePhotoUrl || user?.profileImageUrl)
-                  : undefined}
+                career={dayFiveCareer}
+                careerStats={dayFiveCareerStats}
+                playerProfile={dayFivePlayerProfile}
+                userProfile={dayFiveUserProfile}
                 onProfileChange={(draft) => {
                   setDayFiveProfileDraft(draft);
                   sessionStorage.setItem("playr1-onboarding-day5-profile", JSON.stringify(draft));
