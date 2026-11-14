@@ -10,7 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, nativeFetch, queryClient } from "@/lib/queryClient";
 import { useUpload } from "@/hooks/use-upload";
-import { analyzeShootingVideo, type ShotSuggestion } from "@/lib/shooting-video-analysis";
+import {
+  analyzeShootingVideo,
+  type ManualHoopLocation,
+  type ShotSuggestion,
+} from "@/lib/shooting-video-analysis";
 
 type TrackerClip = {
   id: string;
@@ -38,6 +42,10 @@ export default function ShootingTrackerPage() {
   const [playbackUrl, setPlaybackUrl] = useState("");
   const [analysisClipId, setAnalysisClipId] = useState<string | null>(null);
   const [analysisSuggestions, setAnalysisSuggestions] = useState<ShotSuggestion[]>([]);
+  const [analysisHoop, setAnalysisHoop] = useState<{ x: number; y: number; halfWidth: number } | null>(null);
+  const [manualHoop, setManualHoop] = useState<ManualHoopLocation | null>(null);
+  const [isCalibrating, setIsCalibrating] = useState(false);
+  const [videoAspect, setVideoAspect] = useState("16 / 9");
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const upload = useUpload({ requestUrl: "/api/shooting-tracker/upload-url", finalizeVideo: false });
@@ -136,6 +144,10 @@ export default function ShootingTrackerPage() {
   const chooseClip = async (clip: TrackerClip) => {
     setActiveId(clip.id);
     setPlaybackUrl("");
+    setAnalysisHoop(null);
+    setManualHoop(null);
+    setIsCalibrating(false);
+    setVideoAspect("16 / 9");
     try {
       const response = await nativeFetch(`/api/shooting-tracker/clips/${encodeURIComponent(clip.id)}/playback`);
       if (!response.ok) throw new Error("Could not open this recording.");
@@ -152,8 +164,10 @@ export default function ShootingTrackerPage() {
 
   const analyzeClip = async (clip: TrackerClip) => {
     setIsAnalyzing(true);
+    setIsCalibrating(false);
     setAnalysisClipId(clip.id);
     setAnalysisSuggestions([]);
+    setAnalysisHoop(null);
     setAnalysisProgress(0);
     try {
       let url = activeId === clip.id ? playbackUrl : "";
@@ -162,15 +176,16 @@ export default function ShootingTrackerPage() {
         if (!response.ok) throw new Error("Could not open this recording for analysis.");
         url = (await response.json()).playbackUrl;
       }
-      const suggestions = await analyzeShootingVideo(url, setAnalysisProgress);
-      setAnalysisSuggestions(suggestions);
+      const result = await analyzeShootingVideo(url, setAnalysisProgress, manualHoop ?? undefined);
+      setAnalysisSuggestions(result.suggestions);
+      setAnalysisHoop(result.hoop);
       setActiveId(clip.id);
       setPlaybackUrl(url);
       toast({
         title: "Local scan finished",
-        description: suggestions.length
-          ? `Found ${suggestions.length} possible shot moment${suggestions.length === 1 ? "" : "s"}. Review the suggestions before counting results.`
-          : "No clear shot paths were found. Try a clip with the hoop fully visible.",
+        description: result.suggestions.length
+          ? `Found ${result.suggestions.length} possible shot moment${result.suggestions.length === 1 ? "" : "s"}. The marker shows the hoop it found.`
+          : "The hoop was found, but no complete ball paths back to it were tracked.",
       });
     } catch (error) {
       toast({
@@ -203,9 +218,8 @@ export default function ShootingTrackerPage() {
           <div className="space-y-1 text-sm">
             <p className="font-semibold">Review your uploaded footage privately</p>
             <p className="text-muted-foreground">
-              Scan this fixed-angle clip on your device. Only complete rises and descents near the
-              rim are suggested; rebounds, dribbles, and partial paths should be skipped. Review
-              each suggestion before counting it.
+              The scan keeps the original video shape and estimates the hoop from the opening
+              frames. Check the marker; if it is off, set the hoop center before scanning.
             </p>
           </div>
         </CardContent>
@@ -270,7 +284,45 @@ export default function ShootingTrackerPage() {
             {clipsQuery.data.map((clip) => (
               <Card key={clip.id} className="overflow-hidden">
                 {activeId === clip.id && playbackUrl ? (
-                  <video ref={playerRef} className="aspect-video w-full bg-black" src={playbackUrl} controls playsInline />
+                  <div className="relative w-full bg-black" style={{ aspectRatio: videoAspect }}>
+                    <video
+                      ref={playerRef}
+                      className="h-full w-full object-contain"
+                      src={playbackUrl}
+                      controls
+                      playsInline
+                      onLoadedMetadata={(event) => {
+                        const { videoWidth, videoHeight } = event.currentTarget;
+                        if (videoWidth && videoHeight) setVideoAspect(`${videoWidth} / ${videoHeight}`);
+                      }}
+                    />
+                    {activeId === clip.id && analysisHoop && (
+                      <div
+                        aria-label={manualHoop ? "Marked hoop location" : "Estimated hoop location"}
+                        title={manualHoop ? "Marked hoop" : "Estimated hoop — tap to correct"}
+                        className={`pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-[0_0_0_2px_rgba(0,0,0,.65)] ${manualHoop ? "border-lime-400" : "border-amber-400"}`}
+                        style={{ left: `${analysisHoop.x * 100}%`, top: `${analysisHoop.y * 100}%` }}
+                      />
+                    )}
+                    {isCalibrating && (
+                      <button
+                        type="button"
+                        aria-label="Set hoop center at this point"
+                        className="absolute inset-0 z-20 cursor-crosshair bg-transparent"
+                        onClick={(event) => {
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          const location = {
+                            x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
+                            y: Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)),
+                          };
+                          playerRef.current?.pause();
+                          setManualHoop(location);
+                          setAnalysisHoop({ ...location, halfWidth: 0.03 });
+                          setIsCalibrating(false);
+                        }}
+                      />
+                    )}
+                  </div>
                 ) : (
                   <button type="button" onClick={() => void chooseClip(clip)} className="flex aspect-video w-full items-center justify-center bg-zinc-950 text-white" aria-label={`Play ${clip.title}`}>
                     {activeId === clip.id ? <Loader2 className="h-8 w-8 animate-spin" /> : <Play className="h-9 w-9" />}
@@ -289,6 +341,21 @@ export default function ShootingTrackerPage() {
                   {clip.notes && <p className="text-sm text-muted-foreground">{clip.notes}</p>}
                   {activeId === clip.id && (
                     <div className="space-y-3 border-t pt-3">
+                      <div className="space-y-2">
+                        <Button
+                          variant={isCalibrating ? "default" : "outline"}
+                          className="w-full"
+                          onClick={() => {
+                            playerRef.current?.pause();
+                            setIsCalibrating((active) => !active);
+                          }}
+                        >
+                          {isCalibrating ? "Tap the center of the rim" : manualHoop ? "Adjust hoop location" : "Set hoop location"}
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Check the hoop marker on your video. Tap the rim center to set it for this camera angle before scanning.
+                        </p>
+                      </div>
                       <div className="space-y-2">
                         <Button variant="secondary" className="w-full" onClick={() => void analyzeClip(clip)} disabled={isAnalyzing}>
                           {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Scanning {analysisProgress}%</> : <><ScanLine className="mr-2 h-4 w-4" />Analyze this clip locally</>}

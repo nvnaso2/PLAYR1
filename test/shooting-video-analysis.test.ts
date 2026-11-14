@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ballCandidates, classifyShotPath, isShotArc, linkCandidates } from "../client/src/lib/shooting-video-analysis";
+import {
+  ballCandidates,
+  classifyShotPath,
+  detectHoop,
+  getAnalysisFrameSize,
+  isShotArc,
+  linkCandidates,
+} from "../client/src/lib/shooting-video-analysis";
 
 function orangeFrame(cx: number, cy: number): ImageData {
   const width = 180;
@@ -27,6 +34,33 @@ test("finds a moving orange ball component in a fixed-camera crop", () => {
   assert.equal(detected.candidates.length, 1);
   assert.ok(Math.abs(detected.candidates[0].x - 80) < 1);
   assert.ok(Math.abs(detected.candidates[0].y - 70) < 1);
+});
+
+test("keeps portrait video dimensions instead of stretching to landscape", () => {
+  assert.deepEqual(getAnalysisFrameSize(2160, 3840), { width: 360, height: 640 });
+});
+
+test("finds the centered red rim rather than a matching red object farther away", () => {
+  const width = 360;
+  const height = 640;
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let i = 3; i < data.length; i += 4) data[i] = 255;
+  const addRedRectangle = (left: number, top: number, w: number, h: number) => {
+    for (let y = top; y < top + h; y++) {
+      for (let x = left; x < left + w; x++) {
+        const index = (y * width + x) * 4;
+        data[index] = 220;
+        data[index + 1] = 45;
+        data[index + 2] = 35;
+      }
+    }
+  };
+  addRedRectangle(20, 205, 28, 9);
+  addRedRectangle(166, 240, 28, 12);
+  const hoop = detectHoop({ data, width, height } as ImageData);
+  assert.ok(hoop);
+  assert.ok(Math.abs(hoop.x - 179.5) < 1);
+  assert.ok(Math.abs(hoop.y - 245.5) < 1);
 });
 
 test("links sampled ball positions into one moving path", () => {

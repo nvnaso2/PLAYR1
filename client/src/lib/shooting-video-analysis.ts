@@ -4,19 +4,26 @@ export type ShotSuggestion = {
   result: "possible_make" | "possible_miss" | "uncertain";
   reason: string;
 };
+export type ShotAnalysisResult = {
+  suggestions: ShotSuggestion[];
+  hoop: { x: number; y: number; halfWidth: number };
+};
+export type ManualHoopLocation = { x: number; y: number };
 
 type Point = { time: number; x: number; y: number };
 type Candidate = { x: number; y: number; area: number };
 type Track = { points: Point[] };
 
-const WORK_WIDTH = 480;
-const WORK_HEIGHT = 270;
-const ROI = { x: 0.1, y: 0.05, right: 0.9, bottom: 0.92 };
-const RIM_X = 77;
-const RIM_LEFT = 68;
-const RIM_RIGHT = 86;
-const RIM_Y = 123;
-const NET_Y = 148;
+const WORK_WIDTH = 360;
+type HoopGeometry = { x: number; y: number; halfWidth: number; netY: number };
+const TEST_HOOP: HoopGeometry = { x: 77, y: 123, halfWidth: 9, netY: 148 };
+
+export function getAnalysisFrameSize(videoWidth: number, videoHeight: number) {
+  return {
+    width: WORK_WIDTH,
+    height: Math.max(1, Math.round(WORK_WIDTH * videoHeight / videoWidth)),
+  };
+}
 
 export function ballCandidates(
   image: ImageData,
@@ -109,6 +116,84 @@ export function ballCandidates(
   return { candidates: found, gray };
 }
 
+export function detectHoop(image: ImageData): HoopGeometry | null {
+  const { data, width, height } = image;
+  const mask = new Uint8Array(width * height);
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+    const r = data[i] / 255;
+    const g = data[i + 1] / 255;
+    const b = data[i + 2] / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    if (max < 0.15 || delta / max < 0.2) continue;
+    let hue = 0;
+    if (max === r) hue = 60 * (((g - b) / delta) % 6);
+    else if (max === g) hue = 60 * ((b - r) / delta + 2);
+    else hue = 60 * ((r - g) / delta + 4);
+    if (hue < 0) hue += 360;
+    if (hue <= 38 || hue >= 345) mask[p] = 1;
+  }
+
+  const visited = new Uint8Array(mask.length);
+  const queue = new Int32Array(mask.length);
+  const candidates: Array<{ x: number; y: number; width: number; height: number; area: number; score: number }> = [];
+  for (let seed = 0; seed < mask.length; seed++) {
+    if (!mask[seed] || visited[seed]) continue;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = seed;
+    visited[seed] = 1;
+    let minX = width, maxX = 0, minY = height, maxY = 0;
+    let sumX = 0, sumY = 0;
+    while (head < tail) {
+      const index = queue[head++];
+      const x = index % width;
+      const y = Math.floor(index / width);
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      sumX += x; sumY += y;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          const next = ny * width + nx;
+          if (mask[next] && !visited[next]) {
+            visited[next] = 1;
+            queue[tail++] = next;
+          }
+        }
+      }
+    }
+    const boxWidth = maxX - minX + 1;
+    const boxHeight = maxY - minY + 1;
+    const aspect = boxWidth / boxHeight;
+    const centerX = sumX / tail;
+    const centerY = sumY / tail;
+    if (tail < 12 || tail > 1200 || boxWidth < 8 || boxHeight < 3 ||
+        aspect < 1.3 || aspect > 5.5 || boxWidth > width * 0.25 ||
+        boxHeight > height * 0.06 || centerY < height * 0.12 ||
+        centerY > height * 0.7) continue;
+    const aspectScore = Math.max(0.2, 1 - Math.abs(aspect - 2.2) / 4);
+    const centerScore = Math.max(0.5, 1 - Math.abs(centerX / width - 0.5));
+    const heightScore = Math.max(0.25, 1 - 4.5 * Math.abs(centerY / height - 0.38));
+    candidates.push({
+      x: centerX, y: centerY, width: boxWidth, height: boxHeight, area: tail,
+      score: Math.pow(tail, 0.15) * aspectScore * centerScore * centerScore * heightScore,
+    });
+  }
+  const best = candidates.sort((a, b) => b.score - a.score)[0];
+  if (!best) return null;
+  const halfWidth = Math.max(4, best.width * 0.35);
+  return {
+    x: best.x,
+    y: best.y,
+    halfWidth,
+    netY: best.y + Math.max(best.height * 1.1, halfWidth * 1.8),
+  };
+}
+
 export function linkCandidates(samples: Array<{ time: number; candidates: Candidate[] }>): Track[] {
   const active: Track[] = [];
   const complete: Track[] = [];
@@ -173,26 +258,30 @@ function upwardCrossing(points: Point[], yLine: number): { time: number; x: numb
   return null;
 }
 
-export function isShotArc(points: Point[]): boolean {
-  if (points.length < 5 || points[0].y < RIM_Y + 12 || points.at(-1)!.y < RIM_Y + 8) return false;
-  const up = upwardCrossing(points, RIM_Y);
-  const down = downwardCrossing(points, RIM_Y);
+export function isShotArc(points: Point[], hoop = TEST_HOOP): boolean {
+  if (points.length < 5 || points[0].y < hoop.y + 12 || points.at(-1)!.y < hoop.y + 8) return false;
+  const up = upwardCrossing(points, hoop.y);
+  const down = downwardCrossing(points, hoop.y);
   if (!up || !down || down.time <= up.time) return false;
   const apex = points.reduce((best, point) => point.y < best.y ? point : best, points[0]);
-  if (apex.y > RIM_Y - 25 || apex.time <= up.time || apex.time >= down.time) return false;
-  if (down.x < RIM_LEFT - 48 || down.x > RIM_RIGHT + 48) return false;
+  if (apex.y > hoop.y - 25 || apex.time <= up.time || apex.time >= down.time) return false;
+  if (down.x < hoop.x - hoop.halfWidth * 5 || down.x > hoop.x + hoop.halfWidth * 5) return false;
   return down.time - up.time >= 0.12;
 }
 
-export function classifyShotPath(points: Point[]): ShotSuggestion["result"] {
-  const rim = downwardCrossing(points, RIM_Y);
-  const net = downwardCrossing(points, NET_Y);
-  if (rim && (rim.x < RIM_LEFT - 10 || rim.x > RIM_RIGHT + 10)) {
+export function classifyShotPath(
+  points: Point[],
+  hoop = TEST_HOOP,
+): ShotSuggestion["result"] {
+  const rim = downwardCrossing(points, hoop.y);
+  const net = downwardCrossing(points, hoop.netY);
+  if (rim && (rim.x < hoop.x - hoop.halfWidth * 1.5 ||
+      rim.x > hoop.x + hoop.halfWidth * 1.5)) {
     return "possible_miss";
   }
   if (rim && net && net.time > rim.time &&
-      RIM_LEFT <= rim.x && rim.x <= RIM_RIGHT &&
-      RIM_LEFT <= net.x && net.x <= RIM_RIGHT) {
+      Math.abs(rim.x - hoop.x) <= hoop.halfWidth &&
+      Math.abs(net.x - hoop.x) <= hoop.halfWidth) {
     return "possible_make";
   }
   if (rim && !net) {
@@ -200,7 +289,7 @@ export function classifyShotPath(points: Point[]): ShotSuggestion["result"] {
     for (let i = 1; i < afterRim.length; i++) {
       const first = afterRim[i - 1];
       const second = afterRim[i];
-      if (first.y >= RIM_Y && second.y < first.y - 12) return "possible_miss";
+      if (first.y >= hoop.y && second.y < first.y - 12) return "possible_miss";
     }
   }
   return "uncertain";
@@ -209,7 +298,8 @@ export function classifyShotPath(points: Point[]): ShotSuggestion["result"] {
 export async function analyzeShootingVideo(
   url: string,
   onProgress: (progress: number) => void,
-): Promise<ShotSuggestion[]> {
+  manualHoop?: ManualHoopLocation,
+): Promise<ShotAnalysisResult> {
   const video = document.createElement("video");
   video.crossOrigin = "anonymous";
   video.muted = true;
@@ -225,7 +315,6 @@ export async function analyzeShootingVideo(
   document.body.appendChild(video);
   const canvas = document.createElement("canvas");
   canvas.width = WORK_WIDTH;
-  canvas.height = WORK_HEIGHT;
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("This browser cannot run local video analysis.");
 
@@ -237,14 +326,18 @@ export async function analyzeShootingVideo(
     });
     const duration = video.duration;
     if (!Number.isFinite(duration) || duration <= 0) throw new Error("Video duration could not be read.");
-    const sx = Math.round(WORK_WIDTH * ROI.x);
-    const sy = Math.round(WORK_HEIGHT * ROI.y);
-    const sw = Math.round(WORK_WIDTH * (ROI.right - ROI.x));
-    const sh = Math.round(WORK_HEIGHT * (ROI.bottom - ROI.y));
+    if (!video.videoWidth || !video.videoHeight) throw new Error("Video dimensions could not be read.");
+    canvas.height = getAnalysisFrameSize(video.videoWidth, video.videoHeight).height;
     const samples: Array<{ time: number; candidates: Candidate[] }> = [];
     let nextSampleAt = 0;
     let lastProgress = 0;
     let previousGray: Uint8Array | null = null;
+    let hoop: HoopGeometry | null = manualHoop ? {
+      x: manualHoop.x * canvas.width,
+      y: manualHoop.y * canvas.height,
+      halfWidth: canvas.width * 0.03,
+      netY: manualHoop.y * canvas.height + canvas.width * 0.054,
+    } : null;
     video.playbackRate = 3;
     await video.play();
 
@@ -263,11 +356,15 @@ export async function analyzeShootingVideo(
         }
         if (video.currentTime >= nextSampleAt) {
           try {
-            context.drawImage(video, 0, 0, WORK_WIDTH, WORK_HEIGHT);
-            const image = context.getImageData(sx, sy, sw, sh);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const image = context.getImageData(0, 0, canvas.width, canvas.height);
+            hoop ??= detectHoop(image);
             const frame = ballCandidates(image, previousGray);
             previousGray = frame.gray;
-            samples.push({ time: video.currentTime, candidates: frame.candidates });
+            samples.push({
+              time: video.currentTime,
+              candidates: samples.length ? frame.candidates : [],
+            });
           } catch {
             return fail();
           }
@@ -283,6 +380,10 @@ export async function analyzeShootingVideo(
       animation = requestAnimationFrame(tick);
     });
     onProgress(100);
+    const detectedHoop = hoop as HoopGeometry | null;
+    if (!detectedHoop) {
+      throw new Error("Could not locate the rim automatically. Tap Set hoop location and mark its center.");
+    }
 
     const tracks = linkCandidates(samples).filter((track) => {
       const points = track.points;
@@ -291,9 +392,13 @@ export async function analyzeShootingVideo(
       const end = points.at(-1)!.time;
       const minY = Math.min(...points.map((point) => point.y));
       const maxY = Math.max(...points.map((point) => point.y));
-      const nearRim = points.some((point) => Math.abs(point.x - RIM_X) <= 42);
+      const nearRim = points.some((point) =>
+        Math.abs(point.x - detectedHoop.x) <= detectedHoop.halfWidth * 3 &&
+        Math.abs(point.y - detectedHoop.y) <= detectedHoop.halfWidth * 4);
       return end - start >= 0.25 && end - start <= 2.3 &&
-        maxY - minY >= 35 && nearRim && minY <= RIM_Y - 25 && maxY >= RIM_Y + 12;
+        maxY - minY >= Math.max(35, detectedHoop.halfWidth * 3) && nearRim &&
+        minY <= detectedHoop.y - Math.max(25, detectedHoop.halfWidth * 2.5) &&
+        maxY >= detectedHoop.y + 12;
     }).sort((a, b) => a.points[0].time - b.points[0].time);
 
     const events: Track[] = [];
@@ -307,11 +412,11 @@ export async function analyzeShootingVideo(
         events.push({ points: [...track.points] });
       }
     }
-    return events.filter((event) => isShotArc(event.points)).map((event) => {
+    const suggestions = events.filter((event) => isShotArc(event.points, detectedHoop)).map((event) => {
       const points = event.points;
-      const result = classifyShotPath(points);
-      const release = upwardCrossing(points, RIM_Y);
-      const rim = downwardCrossing(points, RIM_Y);
+      const result = classifyShotPath(points, detectedHoop);
+      const release = upwardCrossing(points, detectedHoop.y);
+      const rim = downwardCrossing(points, detectedHoop.y);
       return {
         startSeconds: Math.max(0, (release?.time ?? points[0].time) - 0.5),
         endSeconds: (rim?.time ?? points.at(-1)!.time) + 0.3,
@@ -319,10 +424,18 @@ export async function analyzeShootingVideo(
         reason: result === "possible_make"
           ? "The tracked path appears to pass downward through the rim and net bands."
           : result === "possible_miss"
-            ? "The tracked path appears to pass clearly outside the calibrated rim opening."
+            ? "The tracked path appears to pass clearly outside the located rim opening."
             : "The clip does not show a clear enough rim-to-net path to label this attempt.",
       };
     });
+    return {
+      suggestions,
+      hoop: {
+        x: detectedHoop.x / canvas.width,
+        y: detectedHoop.y / canvas.height,
+        halfWidth: detectedHoop.halfWidth / canvas.width,
+      },
+    };
   } finally {
     video.pause();
     video.removeAttribute("src");
