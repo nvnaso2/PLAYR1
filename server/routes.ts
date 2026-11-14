@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { createHash } from "crypto";
 import { spawn } from "child_process";
 import path from "path";
 import { storage } from "./storage";
@@ -5490,6 +5491,148 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
   });
 
   // ===== USER VIDEOS =====
+
+  const shootingTrackerMarker = "[shooting-tracker]";
+  const shootingTrackerUserKey = (userId: string) =>
+    createHash("sha256").update(userId).digest("hex");
+  const encodeTrackerReview = (notes: string, shots: Array<{
+    id: string;
+    timeSeconds: number;
+    outcome: "made" | "missed" | "uncertain";
+  }>) => `${shootingTrackerMarker}\n${JSON.stringify({ notes, shots })}`;
+  const decodeTrackerReview = (description: string | null) => {
+    const content = description?.slice(shootingTrackerMarker.length + 1) ?? "";
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed && typeof parsed === "object") {
+        return {
+          notes: typeof parsed.notes === "string" ? parsed.notes : "",
+          shots: Array.isArray(parsed.shots) ? parsed.shots : [],
+        };
+      }
+    } catch {
+      // Read older clips whose marker was followed by plain-text notes.
+    }
+    return { notes: content, shots: [] };
+  };
+
+  app.get("/api/shooting-tracker/clips", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clips = (await storage.getUserVideos(userId))
+        .filter((video) => video.description?.startsWith(`${shootingTrackerMarker}\n`))
+        .map(({ id, title, videoUrl, description, createdAt }) => ({
+          id, title, videoUrl, ...decodeTrackerReview(description), createdAt,
+        }));
+      res.json(clips);
+    } catch (error) {
+      console.error("Error loading shooting tracker clips:", error);
+      res.status(500).json({ message: "Failed to load shooting tracker clips" });
+    }
+  });
+
+  app.post("/api/shooting-tracker/clips", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const title = typeof req.body.title === "string" ? req.body.title.trim() : "";
+      const notes = typeof req.body.notes === "string" ? req.body.notes.trim() : "";
+      const videoUrl = typeof req.body.objectPath === "string" ? req.body.objectPath : "";
+      const ownedPrefix = `/objects/shooting-tracker-private/${shootingTrackerUserKey(userId)}/`;
+      if (!title || title.length > 120 || !videoUrl.startsWith(ownedPrefix) ||
+          videoUrl.includes("..") || notes.length > 1000) {
+        return res.status(400).json({ message: "Invalid shooting clip details" });
+      }
+      const saved = await storage.createUserVideo({
+        userId,
+        title,
+        videoUrl,
+        description: encodeTrackerReview(notes, []),
+        isPublic: false,
+        drillId: null,
+        thumbnailUrl: null,
+      });
+      res.status(201).json({ id: saved.id, title: saved.title, createdAt: saved.createdAt });
+    } catch (error) {
+      console.error("Error saving shooting tracker clip:", error);
+      res.status(500).json({ message: "Failed to save shooting tracker clip" });
+    }
+  });
+
+  app.patch("/api/shooting-tracker/clips/:id/review", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    const reviewSchema = z.object({
+      notes: z.string().max(1000),
+      shots: z.array(z.object({
+        id: z.string().min(1).max(80),
+        timeSeconds: z.number().min(0).max(14400),
+        outcome: z.enum(["made", "missed", "uncertain"]),
+      })).max(500),
+    });
+    try {
+      const review = reviewSchema.parse(req.body);
+      if (new Set(review.shots.map((shot) => shot.id)).size !== review.shots.length) {
+        return res.status(400).json({ message: "Shot markers must have unique IDs" });
+      }
+      const userId = req.user.claims.sub;
+      const clip = (await storage.getUserVideos(userId))
+        .find((video) => video.id === req.params.id &&
+          video.description?.startsWith(`${shootingTrackerMarker}\n`) &&
+          video.videoUrl.startsWith(
+            `/objects/shooting-tracker-private/${shootingTrackerUserKey(userId)}/`,
+          ));
+      if (!clip) return res.status(404).json({ message: "Clip not found" });
+      await storage.updateUserVideo(clip.id, userId, {
+        description: encodeTrackerReview(review.notes, review.shots),
+      });
+      res.json({ saved: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid review data", errors: error.errors });
+      }
+      console.error("Error saving shooting tracker review:", error);
+      res.status(500).json({ message: "Failed to save shooting tracker review" });
+    }
+  });
+
+  app.get("/api/shooting-tracker/clips/:id/playback", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clip = (await storage.getUserVideos(userId))
+        .find((video) => video.id === req.params.id &&
+          video.description?.startsWith(`${shootingTrackerMarker}\n`));
+      if (!clip || !clip.videoUrl.startsWith(
+        `/objects/shooting-tracker-private/${shootingTrackerUserKey(userId)}/`,
+      )) {
+        return res.status(404).json({ message: "Clip not found" });
+      }
+      const objectStorage = new ObjectStorageService();
+      res.json({ playbackUrl: await objectStorage.getObjectEntityReadURL(clip.videoUrl, 600) });
+    } catch (error) {
+      console.error("Error creating shooting tracker playback URL:", error);
+      res.status(500).json({ message: "Could not open this clip" });
+    }
+  });
+
+  app.delete("/api/shooting-tracker/clips/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clip = (await storage.getUserVideos(userId))
+        .find((video) => video.id === req.params.id &&
+          video.description?.startsWith(`${shootingTrackerMarker}\n`));
+      if (!clip) return res.status(404).json({ message: "Clip not found" });
+      if (!clip.videoUrl.startsWith(
+        `/objects/shooting-tracker-private/${shootingTrackerUserKey(userId)}/`,
+      )) {
+        return res.status(404).json({ message: "Clip not found" });
+      }
+      const objectStorage = new ObjectStorageService();
+      await objectStorage.deleteObjectEntity(clip.videoUrl);
+      await storage.deleteUserVideo(clip.id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting shooting tracker clip:", error);
+      res.status(500).json({ message: "Failed to delete shooting tracker clip" });
+    }
+  });
 
   // Get user's videos
   app.get("/api/videos", isAuthenticated, async (req: AuthenticatedRequest, res) => {

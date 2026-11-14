@@ -228,6 +228,9 @@ export default function VideosPage() {
   const { data: videos, isLoading } = useQuery<UserVideo[]>({
     queryKey: ['/api/videos'],
   });
+  const visibleVideos = videos?.filter((video) =>
+    !video.description?.startsWith("[shooting-tracker]\n"),
+  );
 
   const { data: drills } = useQuery<Drill[]>({
     queryKey: ['/api/drills'],
@@ -706,9 +709,9 @@ export default function VideosPage() {
             </Card>
           ))}
         </div>
-      ) : videos && videos.length > 0 ? (
+      ) : visibleVideos && visibleVideos.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {videos.map((video) => (
+          {visibleVideos.map((video) => (
             <Card 
               key={video.id} 
               className="group overflow-hidden border-zinc-800 bg-zinc-900 transition hover:border-zinc-600"

@@ -1913,6 +1913,13 @@ export default function TrainingLogPage() {
         </div>
         
         <div className="flex shrink-0 gap-2">
+          <Button asChild variant="outline" className="h-9 gap-1.5 px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm">
+            <Link href="/shooting-tracker">
+              <Video className="h-4 w-4" />
+              <span className="hidden sm:inline">Shooting Tracker</span>
+              <span className="sm:hidden">Tracker</span>
+            </Link>
+          </Button>
           <Button 
             variant={activeView === "history" ? "default" : "outline"} 
             onClick={() => setActiveView(activeView === "history" ? "library" : "history")}

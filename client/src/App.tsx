@@ -41,6 +41,7 @@ const DrillPage = lazy(pageLoaders.drill);
 const AppOnboardingPage = lazy(() => import("@/pages/app-onboarding"));
 const WelcomeTrailerPage = lazy(() => import("@/pages/welcome-trailer"));
 const TrainingLog = lazy(pageLoaders.trainingLog);
+const ShootingTracker = lazy(pageLoaders.shootingTracker);
 const Dashboard = lazy(pageLoaders.dashboard);
 const Videos = lazy(pageLoaders.videos);
 const TrophyRoom = lazy(() => import("@/pages/trophy-room"));
@@ -497,6 +498,7 @@ function Router() {
                 <Route path="/courses/:slug" component={ProgramDetail} />
                 <Route path="/admin/events/:id/edit" component={EventEditor} />
                 <Route path="/log" component={TrainingLog} />
+                <Route path="/shooting-tracker" component={ShootingTracker} />
                 <Route path="/videos" component={Videos} />
                 <Route path="/career">{() => <Redirect to="/profile-hub" />}</Route>
                 <Route path="/career-stats" component={CareerStatsPage} />

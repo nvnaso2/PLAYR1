@@ -7,6 +7,7 @@ export const pageLoaders = {
   drills: () => import("@/pages/drills"),
   drill: () => import("@/pages/drill"),
   trainingLog: () => import("@/pages/training-log"),
+  shootingTracker: () => import("@/pages/shooting-tracker"),
   dashboard: () => import("@/pages/progress"),
   videos: () => import("@/pages/videos"),
   profile: () => import("@/pages/profile"),

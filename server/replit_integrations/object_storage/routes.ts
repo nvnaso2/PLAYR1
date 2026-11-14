@@ -6,7 +6,7 @@ import { hasActiveShootingCohortMembership } from "../../shooting-cohort";
 import { exec } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 // ffmpeg-static ships a pre-built ffmpeg binary that works in any environment,
 // including the production deployment container which has no system ffmpeg.
 import ffmpegStaticPath from "ffmpeg-static";
@@ -293,6 +293,38 @@ export function registerObjectStorageRoutes(app: Express): void {
     }
   });
 
+  // Private shooting-tracker uploads use a per-user namespace. They are only
+  // served through the ownership-checked playback endpoint in server/routes.ts.
+  app.post("/api/shooting-tracker/upload-url", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { name, size, contentType } = req.body;
+      if (!name || typeof size !== "number" || !Number.isFinite(size) || size <= 0 || !contentType) {
+        return res.status(400).json({ error: "Missing or invalid video upload details." });
+      }
+      if (!ALLOWED_VIDEO_TYPES.includes(contentType)) {
+        return res.status(400).json({ error: `Unsupported video type. Allowed: ${ALLOWED_VIDEO_TYPES.join(", ")}` });
+      }
+      if (size > MAX_VIDEO_SIZE) {
+        return res.status(400).json({ error: "Video must be under 4GB." });
+      }
+
+      const userKey = createHash("sha256")
+        .update(req.user.claims.sub)
+        .digest("hex");
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL(
+        `shooting-tracker-private/${userKey}/${randomUUID()}`,
+      );
+      res.json({
+        uploadURL,
+        objectPath: objectStorageService.normalizeObjectEntityPath(uploadURL),
+        metadata: { name, size, contentType },
+      });
+    } catch (error) {
+      console.error("Error generating shooting tracker upload URL:", error);
+      res.status(500).json({ error: "Failed to generate shooting tracker upload URL" });
+    }
+  });
+
   app.post("/api/shooting-cohort/videos/upload-url", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -429,7 +461,7 @@ export function registerObjectStorageRoutes(app: Express): void {
    */
   app.get("/objects/{*objectPath}", async (req, res) => {
     try {
-      if (req.path.startsWith("/objects/cohort-private/")) {
+      if (req.path.startsWith("/objects/cohort-private/") || req.path.startsWith("/objects/shooting-tracker-private/")) {
         return res.status(404).json({ error: "Object not found" });
       }
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
