@@ -312,8 +312,8 @@ export function RecordShootingMode({ onClose }: RecordShootingModeProps) {
             Point your camera at the court and record your shooting workout. AI will analyze
             your session and track your shots by zone.
           </p>
-          <p className="text-zinc-600 text-xs mt-2">
-            Video is processed locally and never stored.
+          <p className="text-zinc-500 text-xs mt-2">
+            The current prototype sends up to 12 low-resolution frames to OpenAI for analysis. The full video is not sent.
           </p>
         </div>
 
