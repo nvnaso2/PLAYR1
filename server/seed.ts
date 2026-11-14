@@ -6,6 +6,7 @@ import { eq, sql, notInArray, inArray, isNull, and, or, like } from "drizzle-orm
 import { readFileSync } from "fs";
 import { join } from "path";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
+import { DAY_FIVE_GAME_LIKE_WORKOUT_ID } from "@shared/onboarding-workout-ids";
 
 async function retainOnlyMechanicalFoundationCourse() {
   await db.transaction(async (tx) => {
@@ -514,6 +515,105 @@ async function ensureDayThreeVolumeWorkout() {
     workoutId: DAY_THREE_VOLUME_WORKOUT_ID, drillId: drill.id, sortOrder,
     defaultDuration: duration, defaultReps: reps, coachingNotes: drill.description,
   })));
+}
+
+type DayFiveWorkoutDrillSeed = {
+  title: string;
+  description: string;
+  duration: number;
+  reps: number;
+  rounds: Array<[string, number]>;
+  diagramData: any;
+  reuseExisting?: boolean;
+};
+
+const dayFiveGameLikeDrills: DayFiveWorkoutDrillSeed[] = [
+  {
+    title: "Ball Screen Drill #1",
+    description: "Start from the wing a few steps beyond the 3-point line. Dribble toward the middle, simulate a ball screen, and take one of three shots: pull-up three, pull-up mid-range, or side-step mid-range. Complete on both sides.",
+    duration: 600, reps: 30, rounds: [["wing-left", 15], ["wing-right", 15]],
+    diagramData: { version: 1, elements: [{ id: "s1", type: "start", x: 18, y: 43 }, { id: "c1", type: "screen", x: 33, y: 48 }, { id: "a1", type: "arrow", x: 53, y: 34, startX: 18, startY: 43, controlX: 36, controlY: 56, endX: 53, endY: 34 }, { id: "p1", type: "shot", x: 53, y: 34, shots: 15 }, { id: "p2", type: "shot", x: 82, y: 34, shots: 15 }] },
+  },
+  {
+    title: "Running 3's",
+    description: "Start in one corner and alternate shots between corners until you reach 20 total shots. Keep running until the drill is complete to simulate quick corner threes and conditioning.",
+    duration: 480, reps: 20, rounds: [["corner-left", 10], ["corner-right", 10]],
+    diagramData: { version: 1, elements: [{ id: "s1", type: "start", x: 12, y: 87 }, { id: "p1", type: "shot", x: 12, y: 87, shots: 10 }, { id: "p2", type: "shot", x: 88, y: 87, shots: 10 }, { id: "a1", type: "arrow", x: 88, y: 87, startX: 12, startY: 87, endX: 88, endY: 87 }, { id: "a2", type: "arrow", x: 12, y: 90, startX: 88, startY: 90, endX: 12, endY: 90 }] },
+  },
+  {
+    title: "Duncan Robinson Drill",
+    description: "Start on the wing and spin the ball out to the corner. Chase it and, just before you catch it, plant your inside foot and square to the basket. Drag that foot into a slide that gathers your feet, then shoot.",
+    duration: 600, reps: 20, rounds: [["corner-left", 10], ["corner-right", 10]],
+    diagramData: { version: 1, elements: [{ id: "s1", type: "start", x: 12, y: 52 }, { id: "s2", type: "start", x: 88, y: 52 }, { id: "p1", type: "shot", x: 12, y: 86, shots: 10 }, { id: "p2", type: "shot", x: 88, y: 86, shots: 10 }, { id: "a1", type: "arrow", x: 12, y: 86, startX: 12, startY: 52, endX: 12, endY: 86 }, { id: "a2", type: "arrow", x: 88, y: 86, startX: 88, startY: 52, endX: 88, endY: 86 }] },
+    reuseExisting: true,
+  },
+  {
+    title: "Transition 3's",
+    description: "Start near half court. Spin the ball toward the 3-point line and sprint to it as if catching in transition. Use comfortable footwork to catch the ball and shoot.",
+    duration: 600, reps: 30, rounds: [["corner-left", 10], ["top-of-key", 10], ["corner-right", 10]],
+    diagramData: { version: 1, elements: [{ id: "s1", type: "start", x: 50, y: 6 }, { id: "p1", type: "shot", x: 12, y: 80, shots: 10 }, { id: "p2", type: "shot", x: 50, y: 54, shots: 10 }, { id: "p3", type: "shot", x: 88, y: 80, shots: 10 }, { id: "a1", type: "arrow", x: 12, y: 80, startX: 50, startY: 6, endX: 12, endY: 80 }, { id: "a2", type: "arrow", x: 50, y: 54, startX: 50, startY: 6, endX: 50, endY: 54 }, { id: "a3", type: "arrow", x: 88, y: 80, startX: 50, startY: 6, endX: 88, endY: 80 }] },
+  },
+  {
+    title: "Ball Screen Drill #2",
+    description: "Start near half court and simulate a high ball screen. Come off the screen, immediately snake in the opposite direction, then finish with one of three shots. Complete on both sides.",
+    duration: 600, reps: 30, rounds: [["wing-left", 15], ["wing-right", 15]],
+    diagramData: { version: 1, elements: [{ id: "s1", type: "start", x: 20, y: 8 }, { id: "c1", type: "screen", x: 34, y: 38 }, { id: "p1", type: "shot", x: 24, y: 52, shots: 15 }, { id: "p2", type: "shot", x: 76, y: 52, shots: 15 }, { id: "a1", type: "arrow", x: 24, y: 52, startX: 20, startY: 8, controlX: 40, controlY: 30, endX: 24, endY: 52 }, { id: "a2", type: "arrow", x: 76, y: 52, startX: 80, startY: 8, controlX: 60, controlY: 30, endX: 76, endY: 52 }] },
+  },
+  {
+    title: "Pressure Free Throws",
+    description: "Shoot a free throw. Each make adds one point and each miss subtracts two. Continue until you reach 10 points to win or reach −5 points and lose.",
+    duration: 300, reps: 10, rounds: [["free-throw", 10]],
+    diagramData: { version: 1, elements: [{ id: "p1", type: "shot", x: 50, y: 55, shots: 10 }] },
+  },
+];
+
+export async function ensureDayFiveGameLikeWorkout() {
+  const metricRows = await db.select().from(metricTemplates);
+  const makesId = metricRows.find((metric) => metric.name === "shots-made")?.id;
+  const attemptsId = metricRows.find((metric) => metric.name === "shot-attempts")?.id;
+  if (!makesId || !attemptsId) throw new Error("Day 5 shooting metric templates are missing");
+
+  const saved: Array<{ drill: Drill; reps: number; duration: number; description: string }> = [];
+  for (const item of dayFiveGameLikeDrills) {
+    let [drill] = await db.select().from(drills).where(and(eq(drills.title, item.title), isNull(drills.userId))).limit(1);
+    const presetRounds = item.rounds.map(([shotLocation, attempts]) => ({
+      ...(shotLocation ? { shotLocation } : {}),
+      metricValues: { [makesId]: 0, [attemptsId]: attempts },
+    }));
+    if (!drill) {
+      [drill] = await db.insert(drills).values({
+        title: item.title, description: item.description, category: "shooting", difficulty: "advanced",
+        duration: item.duration, equipment: ["Basketball", "Hoop"], tips: [], isFeatured: false,
+        trackShots: true, presetRounds, diagramData: item.diagramData as any, userId: null,
+      }).returning();
+    } else {
+      [drill] = await db.update(drills).set({
+        duration: item.duration, trackShots: true,
+        presetRounds: item.reuseExisting && drill.presetRounds ? drill.presetRounds : presetRounds,
+        diagramData: drill.diagramData ?? item.diagramData as any,
+        ...(item.reuseExisting ? {} : { description: item.description }),
+      }).where(eq(drills.id, drill.id)).returning();
+    }
+    saved.push({ drill, reps: item.reps, duration: Math.ceil(item.duration / 60), description: item.description });
+  }
+
+  const existing = await db.select().from(workouts).where(eq(workouts.id, DAY_FIVE_GAME_LIKE_WORKOUT_ID)).limit(1);
+  if (!existing.length) await db.insert(workouts).values({
+    id: DAY_FIVE_GAME_LIKE_WORKOUT_ID, name: "Workout #3: Game-Like Reps",
+    description: "A 140-shot workout for game-like reps and advanced shooting skills.",
+    userId: null, category: "shooting", estimatedDuration: 53, isFavorite: false,
+  });
+  const oldLinks = await db.select({ id: workoutDrills.id }).from(workoutDrills).where(eq(workoutDrills.workoutId, DAY_FIVE_GAME_LIKE_WORKOUT_ID)).limit(1);
+  if (!oldLinks.length) await db.insert(workoutDrills).values(saved.map((entry, sortOrder) => ({
+    workoutId: DAY_FIVE_GAME_LIKE_WORKOUT_ID, drillId: entry.drill.id, sortOrder,
+    defaultDuration: entry.duration, defaultReps: entry.reps, coachingNotes: entry.description,
+  })));
+
+  await db.insert(drillMetrics).values(saved.flatMap(({ drill }) => [
+    { drillId: drill.id, metricTemplateId: makesId, isRequired: false, sortOrder: 0 },
+    { drillId: drill.id, metricTemplateId: attemptsId, isRequired: true, sortOrder: 1 },
+  ]) as any).onConflictDoNothing();
+  console.log("Day 5 Game-Like Reps workout is ready");
 }
 
 const sampleBenchmarks = [
@@ -1960,6 +2060,7 @@ export async function seedDatabase() {
     // Day 2 presets depend on canonical shot-location and metric-template rows,
     // so seed them only after those shared tables have been synchronized.
     await ensureDayTwoRangeWorkout();
+    await ensureDayFiveGameLikeWorkout();
 
     const existingTeams = await db.select().from(teamClubs).limit(1);
     if (existingTeams.length === 0) {

@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { spawn } from "child_process";
 import path from "path";
 import { storage } from "./storage";
-import { DAY_TWO_RANGE_WORKOUT_ID, ensureDayTwoRangeWorkout } from "./seed";
+import { DAY_TWO_RANGE_WORKOUT_ID, ensureDayTwoRangeWorkout, ensureDayFiveGameLikeWorkout } from "./seed";
+import { DAY_FIVE_GAME_LIKE_WORKOUT_ID } from "@shared/onboarding-workout-ids";
 import { FREE_SAVED_WORKOUT_LIMIT } from "@shared/workout-limits";
 import {
   buildWorkoutShareDrills,
@@ -57,6 +58,7 @@ import {
 } from "./coach-p-workouts";
 
 let dayTwoRangeWorkoutEnsurePromise: Promise<void> | null = null;
+let dayFiveWorkoutEnsurePromise: Promise<void> | null = null;
 import {
   formatCoachPLeadMagnetResults,
   selectRelevantCoachPLeadMagnetResults,
@@ -3998,6 +4000,14 @@ ${JSON.stringify(catalogForPrompt)}
           throw error;
         });
         await dayTwoRangeWorkoutEnsurePromise;
+        result = await storage.getWorkoutWithDrills(req.params.id);
+      }
+      if (!result && req.params.id === DAY_FIVE_GAME_LIKE_WORKOUT_ID) {
+        dayFiveWorkoutEnsurePromise ??= ensureDayFiveGameLikeWorkout().catch((error) => {
+          dayFiveWorkoutEnsurePromise = null;
+          throw error;
+        });
+        await dayFiveWorkoutEnsurePromise;
         result = await storage.getWorkoutWithDrills(req.params.id);
       }
       if (!result) {
