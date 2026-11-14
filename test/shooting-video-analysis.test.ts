@@ -73,6 +73,29 @@ test("links sampled ball positions into one moving path", () => {
   assert.equal(tracks[0].points.length, 3);
 });
 
+test("bridges a short occlusion through the apex and down to the hoop", () => {
+  const hoop = { x: 185, y: 244, halfWidth: 7, netY: 256 };
+  const samples = [
+    { time: 0, candidates: [{ x: 163, y: 148, area: 24 }] },
+    { time: 0.1, candidates: [] },
+    { time: 0.2, candidates: [] },
+    { time: 0.3, candidates: [{ x: 160, y: 38, area: 25 }] },
+    { time: 0.4, candidates: [] },
+    { time: 0.5, candidates: [] },
+    { time: 0.6, candidates: [] },
+    { time: 0.7, candidates: [] },
+    { time: 0.8, candidates: [{ x: 174, y: 92, area: 23 }] },
+    { time: 0.9, candidates: [{ x: 170, y: 117, area: 28 }] },
+    { time: 1, candidates: [{ x: 171, y: 147, area: 32 }] },
+    { time: 1.1, candidates: [{ x: 171, y: 181, area: 35 }] },
+    { time: 1.2, candidates: [{ x: 172, y: 216, area: 37 }] },
+    { time: 1.3, candidates: [{ x: 183, y: 247, area: 34 }] },
+  ];
+  const tracks = linkCandidates(samples);
+  assert.equal(tracks.length, 1);
+  assert.equal(isShotArc(tracks[0].points, hoop), true);
+});
+
 test("accepts a complete rise-apex-descent shot arc", () => {
   assert.equal(isShotArc([
     { time: 0, x: 100, y: 200 },
@@ -95,6 +118,20 @@ test("accepts a shot whose release is outside frame when its apex and rim descen
     { time: 0.8, x: 170, y: 181 },
     { time: 0.9, x: 180, y: 217 },
     { time: 1, x: 182, y: 247 },
+  ], hoop), true);
+});
+
+test("accepts a descending ball that reaches the rim even if its center is briefly occluded", () => {
+  const hoop = { x: 182, y: 246, halfWidth: 9, netY: 263 };
+  assert.equal(isShotArc([
+    { time: 0, x: 163, y: 148 },
+    { time: 0.3, x: 160, y: 38 },
+    { time: 0.8, x: 174, y: 92 },
+    { time: 0.9, x: 170, y: 117 },
+    { time: 1, x: 171, y: 147 },
+    { time: 1.1, x: 171, y: 181 },
+    { time: 1.2, x: 172, y: 216 },
+    { time: 1.3, x: 171, y: 244 },
   ], hoop), true);
 });
 
@@ -129,6 +166,17 @@ test("classifies a clear outside-rim crossing as a possible miss", () => {
     { time: 0.1, x: 49, y: 123 },
   ];
   assert.equal(classifyShotPath(points), "possible_miss");
+});
+
+test("keeps a near-rim path uncertain instead of calling it a miss", () => {
+  const hoop = { x: 185, y: 244, halfWidth: 7, netY: 256 };
+  assert.equal(classifyShotPath([
+    { time: 0, x: 163, y: 38 },
+    { time: 0.1, x: 170, y: 117 },
+    { time: 0.2, x: 171, y: 181 },
+    { time: 0.3, x: 172, y: 216 },
+    { time: 0.4, x: 171, y: 247 },
+  ], hoop), "uncertain");
 });
 
 test("classifies an inside-rim path that rebounds upward before the net as a possible miss", () => {

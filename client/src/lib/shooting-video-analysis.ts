@@ -199,7 +199,7 @@ export function linkCandidates(samples: Array<{ time: number; candidates: Candid
   const complete: Track[] = [];
   for (const sample of samples) {
     for (let i = active.length - 1; i >= 0; i--) {
-      if (sample.time - active[i].points.at(-1)!.time > 0.42) {
+      if (sample.time - active[i].points.at(-1)!.time > 0.65) {
         complete.push(active[i]);
         active.splice(i, 1);
       }
@@ -212,8 +212,8 @@ export function linkCandidates(samples: Array<{ time: number; candidates: Candid
       const previous = points.at(-2);
       const vx = previous ? (last.x - previous.x) / (last.time - previous.time) : 0;
       const vy = previous ? (last.y - previous.y) / (last.time - previous.time) : 0;
-      const predictedX = last.x + vx * dt;
-      const predictedY = last.y + vy * dt;
+      const predictedX = dt <= 0.25 ? last.x + vx * dt : last.x;
+      const predictedY = dt <= 0.25 ? last.y + vy * dt : last.y;
       for (const candidate of sample.candidates) {
         const distance = Math.hypot(candidate.x - predictedX, candidate.y - predictedY);
         if (distance <= 420 * dt + 18) pairs.push({ distance, track, candidate });
@@ -261,12 +261,19 @@ function upwardCrossing(points: Point[], yLine: number): { time: number; x: numb
 export function isShotArc(points: Point[], hoop = TEST_HOOP): boolean {
   if (points.length < 5) return false;
   const down = downwardCrossing(points, hoop.y);
-  if (!down) return false;
   const apex = points.reduce((best, point) => point.y < best.y ? point : best, points[0]);
   const visibleRise = points[0].y - apex.y;
-  if (apex.y > hoop.y - 25 || visibleRise < 25 || apex.time >= down.time) return false;
-  if (down.x < hoop.x - hoop.halfWidth * 5 || down.x > hoop.x + hoop.halfWidth * 5) return false;
-  return down.time - apex.time >= 0.12;
+  if (apex.y > hoop.y - 25 || visibleRise < 25) return false;
+  if (down) {
+    if (apex.time >= down.time ||
+        down.x < hoop.x - hoop.halfWidth * 5 ||
+        down.x > hoop.x + hoop.halfWidth * 5) return false;
+    return down.time - apex.time >= 0.12;
+  }
+  const end = points.at(-1)!;
+  const approachTolerance = Math.max(5, hoop.halfWidth * 0.6);
+  return end.time > apex.time && end.y >= hoop.y - approachTolerance &&
+    end.y > apex.y + 30 && Math.abs(end.x - hoop.x) <= hoop.halfWidth * 5;
 }
 
 export function classifyShotPath(
@@ -275,13 +282,12 @@ export function classifyShotPath(
 ): ShotSuggestion["result"] {
   const rim = downwardCrossing(points, hoop.y);
   const net = downwardCrossing(points, hoop.netY);
-  if (rim && (rim.x < hoop.x - hoop.halfWidth * 1.5 ||
-      rim.x > hoop.x + hoop.halfWidth * 1.5)) {
+  if (rim && Math.abs(rim.x - hoop.x) > hoop.halfWidth * 3) {
     return "possible_miss";
   }
   if (rim && net && net.time > rim.time &&
-      Math.abs(rim.x - hoop.x) <= hoop.halfWidth &&
-      Math.abs(net.x - hoop.x) <= hoop.halfWidth) {
+      Math.abs(rim.x - hoop.x) <= hoop.halfWidth * 2 &&
+      Math.abs(net.x - hoop.x) <= hoop.halfWidth * 2) {
     return "possible_make";
   }
   if (rim && !net) {
@@ -401,18 +407,20 @@ export async function analyzeShootingVideo(
         maxY >= detectedHoop.y - 4;
     }).sort((a, b) => a.points[0].time - b.points[0].time);
 
+    const shotTracks = tracks.filter((track) => isShotArc(track.points, detectedHoop));
     const events: Track[] = [];
-    for (const track of tracks) {
+    for (const track of shotTracks) {
       const event = events.at(-1);
       const start = track.points[0].time;
-      if (event && start - event.points.at(-1)!.time <= 1.1) {
-        event.points.push(...track.points);
-        event.points.sort((a, b) => a.time - b.time);
+      if (event && start - event.points.at(-1)!.time <= 0.4) {
+        if (track.points.length > event.points.length) {
+          events[events.length - 1] = track;
+        }
       } else {
-        events.push({ points: [...track.points] });
+        events.push(track);
       }
     }
-    const suggestions = events.filter((event) => isShotArc(event.points, detectedHoop)).map((event) => {
+    const suggestions = events.map((event) => {
       const points = event.points;
       const result = classifyShotPath(points, detectedHoop);
       const release = upwardCrossing(points, detectedHoop.y);
