@@ -1,8 +1,8 @@
 import { useLocation } from "wouter";
-import { ArrowUpRight, Dumbbell } from "lucide-react";
-import workoutOneCover from "@/assets/onboarding-workout-covers/workout-1-cover.png";
-import workoutTwoCover from "@/assets/onboarding-workout-covers/workout-2-cover.png";
-import workoutThreeCover from "@/assets/onboarding-workout-covers/workout-3-cover.png";
+import { Play } from "lucide-react";
+import workoutOneCover from "@/assets/onboarding-workout-covers/workout-1-cover-cropped.png";
+import workoutTwoCover from "@/assets/onboarding-workout-covers/workout-2-cover-cropped.png";
+import workoutThreeCover from "@/assets/onboarding-workout-covers/workout-3-cover-cropped.png";
 import { DAY_TWO_RANGE_WORKOUT_ID } from "@/lib/day-two-workout-art";
 import { DAY_THREE_VOLUME_WORKOUT_ID } from "@/lib/day-three-workout-art";
 import { DAY_FIVE_GAME_LIKE_WORKOUT_ID } from "@shared/onboarding-workout-ids";
@@ -41,70 +41,47 @@ export default function WorkoutLibraryPage() {
   const [, navigate] = useLocation();
 
   return (
-    <section className="min-h-full bg-[#10100f] px-4 pb-10 pt-7 text-[#f4f0e8] sm:px-7 sm:pt-10 lg:px-10">
-      <div className="mx-auto max-w-6xl">
-        <header className="mb-7 border-b border-[#393733] pb-6 sm:mb-9 sm:pb-8">
-          <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#ef6b3d]">
-            <Dumbbell aria-hidden="true" className="h-4 w-4" />
-            <span>Training plans</span>
-          </div>
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-            <div>
-              <h1 className="font-display text-4xl font-black leading-[0.98] tracking-[-0.045em] sm:text-5xl">
-                Workout library
-              </h1>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-[#aaa59d] sm:text-base">
-                Three focused sessions to take from the page to the court.
-              </p>
-            </div>
-            <p className="shrink-0 font-mono text-xs tracking-[0.12em] text-[#827d75]">
-              03 WORKOUTS
-            </p>
-          </div>
-        </header>
+    <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6" data-testid="page-workout-library">
+      <header className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold sm:text-2xl" data-testid="text-page-title">Workout Library</h1>
+        <span className="shrink-0 text-xs text-muted-foreground">3 workouts</span>
+      </header>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-          {workouts.map((workout, index) => (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+        {workouts.map((workout) => (
             <button
               key={workout.id}
               type="button"
               onClick={() => navigate(`/log?workoutId=${encodeURIComponent(workout.id)}`)}
               aria-label={`Start ${workout.name}, ${workout.detail}`}
-              className="group flex min-w-0 flex-col overflow-hidden rounded-[1.35rem] border border-[#373430] bg-[#1a1917] text-left shadow-[0_16px_40px_rgba(0,0,0,0.16)] transition-[transform,border-color,background-color] duration-200 hover:-translate-y-1 hover:border-[#ef6b3d]/70 hover:bg-[#201e1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8a5f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#10100f]"
-              style={{ animationDelay: `${index * 70}ms` }}
+              className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-white/10 bg-black text-left text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-200 hover:border-white/50 hover:shadow-[0_12px_30px_rgba(255,255,255,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+              data-testid={`card-workout-${workout.number}`}
             >
-              <div className="relative w-full overflow-hidden bg-[#e9e7e2]">
-                <div className="aspect-[4/5] w-full">
+              <div className="relative aspect-[3/4] w-full shrink-0 overflow-hidden bg-white">
                   <img
                     src={workout.cover}
                     alt={workout.alt}
                     loading="lazy"
-                    className="h-full w-full object-contain"
+                    className="h-full w-full object-cover"
                   />
-                </div>
-                <span className="absolute left-3 top-3 rounded-full border border-black/10 bg-[#171615]/90 px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.14em] text-[#f7f2e9]">
-                  WORKOUT #{workout.number}
-                </span>
-                <span aria-hidden="true" className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#ef6b3d] text-[#1b1512] shadow-lg transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-                  <ArrowUpRight className="h-5 w-5" />
+                <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-transparent transition-colors group-hover:bg-black/20">
+                  <span className="flex h-11 w-11 scale-90 items-center justify-center rounded-full border border-white/25 bg-zinc-950/70 text-orange-300 opacity-0 shadow-lg backdrop-blur-md transition-all duration-200 group-hover:scale-100 group-hover:border-white/60 group-hover:bg-zinc-950/90 group-hover:text-orange-400 group-hover:opacity-100">
+                    <Play className="ml-0.5 h-4 w-4 fill-current" />
+                  </span>
                 </span>
               </div>
-              <div className="flex flex-1 flex-col px-5 pb-5 pt-4 sm:px-6 sm:pb-6">
-                <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ef8059]">
-                  {workout.detail}
-                </p>
-                <h2 className="font-display text-xl font-bold leading-tight tracking-[-0.02em] text-[#f5f1e9] sm:text-[1.35rem]">
+              <div className="flex min-h-[66px] flex-1 flex-col justify-between gap-1.5 bg-black p-2">
+                <h2 className="line-clamp-2 text-[11px] font-semibold leading-snug text-white">
                   {workout.name}
                 </h2>
-                <div className="mt-4 flex items-center justify-between border-t border-[#393733] pt-3 text-xs text-[#aaa59d]">
-                  <span>{workout.focus}</span>
-                  <span className="font-semibold text-[#f0a084]">Start</span>
+                <div className="flex items-center justify-between gap-1 text-[9px] text-zinc-400">
+                  <span className="truncate">{workout.detail}</span>
+                  <span className="shrink-0 text-orange-400">#{workout.number}</span>
                 </div>
               </div>
             </button>
           ))}
-        </div>
       </div>
-    </section>
+    </main>
   );
 }
