@@ -5642,7 +5642,14 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
         if (Date.now() - job.createdAt > 30 * 60 * 1000) shootingAnalysisJobs.delete(jobId);
       }
       const jobId = randomUUID();
-      const job = { userId, clipId: clip.id, createdAt: Date.now(), status: "processing" as const };
+      const job: {
+        userId: string;
+        clipId: string;
+        createdAt: number;
+        status: "processing" | "complete" | "failed";
+        result?: unknown;
+        error?: string;
+      } = { userId, clipId: clip.id, createdAt: Date.now(), status: "processing" };
       shootingAnalysisJobs.set(jobId, job);
       res.status(202).json({ jobId });
 

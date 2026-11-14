@@ -5,8 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import shutil
-import subprocess
 from dataclasses import dataclass, field
 
 import cv2
@@ -249,54 +247,30 @@ def analyze_video(
     if not source_width or not source_height or duration <= 0:
         capture.release()
         raise RuntimeError("Video duration or dimensions could not be read.")
-    capture.release()
-    decoder = shutil.which("ffmpeg")
-    if not decoder:
-        raise RuntimeError("The server video decoder is unavailable.")
-    width = min(WORK_WIDTH, source_width)
-    height = max(2, round(width * source_height / source_width))
-    if height % 2:
-        height += 1
+    scale = min(1.0, WORK_WIDTH / source_width)
+    width = max(1, round(source_width * scale))
+    height = max(1, round(source_height * scale))
     hoop = None
     if manual_hoop:
         hoop = (manual_hoop[0] * width, manual_hoop[1] * height, width * 0.03)
 
-    process = subprocess.Popen(
-        [
-            decoder, "-v", "error", "-i", video_path,
-            "-vf", f"fps=10,scale={width}:{height}:flags=area",
-            "-an", "-f", "rawvideo", "-pix_fmt", "bgr24", "pipe:1",
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-    )
+    stride = max(1, round(fps / 10))
     previous_gray = None
     samples = []
     frame_index = 0
-    frame_bytes = width * height * 3
-    assert process.stdout is not None
-    try:
-        while True:
-            chunks = bytearray()
-            while len(chunks) < frame_bytes:
-                chunk = process.stdout.read(frame_bytes - len(chunks))
-                if not chunk:
-                    break
-                chunks.extend(chunk)
-            if len(chunks) != frame_bytes:
-                break
-            frame = np.frombuffer(chunks, dtype=np.uint8).reshape((height, width, 3))
+    while True:
+        ok, frame = capture.read()
+        if not ok:
+            break
+        if frame_index % stride == 0:
+            resized = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA) if scale < 1 else frame
             if hoop is None:
-                hoop = detect_rim(frame)
+                hoop = detect_rim(resized)
             if hoop is not None:
-                candidates, previous_gray = ball_candidates(frame, previous_gray, hoop)
-                samples.append((frame_index / 10, candidates))
-            frame_index += 1
-    finally:
-        process.stdout.close()
-    return_code = process.wait(timeout=60)
-    if return_code != 0:
-        raise RuntimeError("The server could not decode this video.")
+                candidates, previous_gray = ball_candidates(resized, previous_gray, hoop)
+                samples.append((frame_index / fps, candidates))
+        frame_index += 1
+    capture.release()
     if hoop is None:
         raise RuntimeError("Could not find the rim. Mark its center in the clip and scan again.")
     return {
