@@ -54,7 +54,7 @@ export function DaySixHubActionSurface({
 
   return (
     <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-1 pb-3 text-white" data-testid="card-day-six-hub">
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-end gap-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-start gap-1 overflow-hidden pt-4">
         <div className="origin-center scale-[0.9]">
           <BaseballCard
             profile={cardCareer}
