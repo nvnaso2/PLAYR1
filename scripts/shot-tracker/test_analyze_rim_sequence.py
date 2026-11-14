@@ -10,7 +10,7 @@ class RimSequenceTests(unittest.TestCase):
     def test_counts_ball_continuing_below_rim_as_possible_make(self):
         track = Track([
             (0.0, 180, 145), (0.1, 180, 100), (0.2, 181, 200),
-            (0.3, 180, 240), (0.4, 180, 270),
+            (0.3, 180, 240), (0.4, 180, 270), (0.5, 180, 282),
         ])
         result = classify_tracks([track], HOOP)
         self.assertEqual(len(result), 1)
@@ -31,6 +31,15 @@ class RimSequenceTests(unittest.TestCase):
         ])
         result = classify_tracks([track], HOOP)
         self.assertEqual(result[0]["result"], "uncertain")
+
+    def test_counts_a_rim_rebound_as_a_possible_miss(self):
+        track = Track([
+            (0.0, 180, 145), (0.1, 180, 100), (0.2, 181, 210),
+            (0.3, 180, 240), (0.4, 180, 258), (0.5, 180, 234),
+            (0.6, 180, 210),
+        ])
+        result = classify_tracks([track], HOOP)
+        self.assertEqual(result[0]["result"], "possible_miss")
 
     def test_ignores_movement_that_never_reaches_the_rim(self):
         track = Track([
