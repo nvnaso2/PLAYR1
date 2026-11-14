@@ -12,7 +12,7 @@ const playerTabs = [
     label: "Train",
     icon: Dumbbell,
     path: "/log",
-    activePatterns: ["/log", "/programs", "/courses"],
+    activePatterns: ["/log", "/programs", "/courses", "/workout-library"],
   },
   {
     id: "dashboard",

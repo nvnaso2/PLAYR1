@@ -84,6 +84,7 @@ const TrainerPrograms = lazy(pageLoaders.trainerPrograms);
 const Journal = lazy(pageLoaders.journal);
 const CoachP = lazy(pageLoaders.coachP);
 const WelcomeWorkout = lazy(() => import("@/pages/welcome-workout"));
+const WorkoutLibraryPage = lazy(() => import("@/pages/workout-library"));
 const CustomWorkouts = lazy(pageLoaders.customWorkouts);
 const GameDay = lazy(pageLoaders.gameDay);
 const Archetypes = lazy(pageLoaders.archetypes);
@@ -504,6 +505,7 @@ function Router() {
                 <Route path="/profile/edit" component={PlayerProfile} />
                 <Route path="/profile">{() => <Redirect to="/profile-hub" />}</Route>
                 <Route path="/welcome-workout" component={WelcomeWorkout} />
+                <Route path="/workout-library" component={WorkoutLibraryPage} />
                 <Route path="/trophy-room" component={TrophyRoom} />
                 <Route path="/subscription" component={SubscriptionPage} />
                 <Route path="/settings">{() => <Suspense fallback={<LoadingScreen />}><SettingsPage /></Suspense>}</Route>

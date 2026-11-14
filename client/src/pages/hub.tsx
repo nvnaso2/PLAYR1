@@ -1816,7 +1816,7 @@ export default function HubPage() {
                 }}
                 onCareerStats={() => navigate("/career-stats")}
                 onTrophyRoom={() => navigate("/trophy-room")}
-                onWorkoutLibrary={() => navigate("/drills")}
+                onWorkoutLibrary={() => navigate("/workout-library")}
               />
             )}
 
