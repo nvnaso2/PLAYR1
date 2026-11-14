@@ -259,14 +259,14 @@ function upwardCrossing(points: Point[], yLine: number): { time: number; x: numb
 }
 
 export function isShotArc(points: Point[], hoop = TEST_HOOP): boolean {
-  if (points.length < 5 || points[0].y < hoop.y + 12 || points.at(-1)!.y < hoop.y + 8) return false;
-  const up = upwardCrossing(points, hoop.y);
+  if (points.length < 5) return false;
   const down = downwardCrossing(points, hoop.y);
-  if (!up || !down || down.time <= up.time) return false;
+  if (!down) return false;
   const apex = points.reduce((best, point) => point.y < best.y ? point : best, points[0]);
-  if (apex.y > hoop.y - 25 || apex.time <= up.time || apex.time >= down.time) return false;
+  const visibleRise = points[0].y - apex.y;
+  if (apex.y > hoop.y - 25 || visibleRise < 25 || apex.time >= down.time) return false;
   if (down.x < hoop.x - hoop.halfWidth * 5 || down.x > hoop.x + hoop.halfWidth * 5) return false;
-  return down.time - up.time >= 0.12;
+  return down.time - apex.time >= 0.12;
 }
 
 export function classifyShotPath(
@@ -398,7 +398,7 @@ export async function analyzeShootingVideo(
       return end - start >= 0.25 && end - start <= 2.3 &&
         maxY - minY >= Math.max(35, detectedHoop.halfWidth * 3) && nearRim &&
         minY <= detectedHoop.y - Math.max(25, detectedHoop.halfWidth * 2.5) &&
-        maxY >= detectedHoop.y + 12;
+        maxY >= detectedHoop.y - 4;
     }).sort((a, b) => a.points[0].time - b.points[0].time);
 
     const events: Track[] = [];

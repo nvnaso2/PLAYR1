@@ -85,6 +85,19 @@ test("accepts a complete rise-apex-descent shot arc", () => {
   ]), true);
 });
 
+test("accepts a shot whose release is outside frame when its apex and rim descent are visible", () => {
+  const hoop = { x: 185, y: 244, halfWidth: 7, netY: 256 };
+  assert.equal(isShotArc([
+    { time: 0, x: 157, y: 92 },
+    { time: 0.1, x: 158, y: 60 },
+    { time: 0.3, x: 162, y: 34 },
+    { time: 0.5, x: 165, y: 91 },
+    { time: 0.8, x: 170, y: 181 },
+    { time: 0.9, x: 180, y: 217 },
+    { time: 1, x: 182, y: 247 },
+  ], hoop), true);
+});
+
 test("rejects a rebound or dribble without a complete shot arc", () => {
   assert.equal(isShotArc([
     { time: 0, x: 77, y: 100 },
