@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle2, Clapperboard, Loader2, Play, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clapperboard, Loader2, Play, ScanLine, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, nativeFetch, queryClient } from "@/lib/queryClient";
 import { useUpload } from "@/hooks/use-upload";
+import { analyzeShootingVideo, type ShotSuggestion } from "@/lib/shooting-video-analysis";
 
 type TrackerClip = {
   id: string;
@@ -35,6 +36,10 @@ export default function ShootingTrackerPage() {
   const [uploadedPath, setUploadedPath] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [playbackUrl, setPlaybackUrl] = useState("");
+  const [analysisClipId, setAnalysisClipId] = useState<string | null>(null);
+  const [analysisSuggestions, setAnalysisSuggestions] = useState<ShotSuggestion[]>([]);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const upload = useUpload({ requestUrl: "/api/shooting-tracker/upload-url", finalizeVideo: false });
 
   const clipsQuery = useQuery<TrackerClip[]>({
@@ -145,6 +150,39 @@ export default function ShootingTrackerPage() {
     }
   };
 
+  const analyzeClip = async (clip: TrackerClip) => {
+    setIsAnalyzing(true);
+    setAnalysisClipId(clip.id);
+    setAnalysisSuggestions([]);
+    setAnalysisProgress(0);
+    try {
+      let url = activeId === clip.id ? playbackUrl : "";
+      if (!url) {
+        const response = await nativeFetch(`/api/shooting-tracker/clips/${encodeURIComponent(clip.id)}/playback`);
+        if (!response.ok) throw new Error("Could not open this recording for analysis.");
+        url = (await response.json()).playbackUrl;
+      }
+      const suggestions = await analyzeShootingVideo(url, setAnalysisProgress);
+      setAnalysisSuggestions(suggestions);
+      setActiveId(clip.id);
+      setPlaybackUrl(url);
+      toast({
+        title: "Local scan finished",
+        description: suggestions.length
+          ? `Found ${suggestions.length} possible shot moment${suggestions.length === 1 ? "" : "s"}. Review the suggestions before counting results.`
+          : "No clear shot paths were found. Try a clip with the hoop fully visible.",
+      });
+    } catch (error) {
+      toast({
+        title: "Could not analyze this clip",
+        description: error instanceof Error ? error.message : "Try again with this recording.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const isBusy = upload.isUploading || saveMutation.isPending;
 
   return (
@@ -165,8 +203,8 @@ export default function ShootingTrackerPage() {
           <div className="space-y-1 text-sm">
             <p className="font-semibold">Review your uploaded footage privately</p>
             <p className="text-muted-foreground">
-              Shot detection is still being validated, so it assigns no automatic results.
-              Mark attempts manually while watching, and leave unclear shots uncertain.
+              Scan a clip on this device for likely shot paths. This first pass is calibrated for
+              your fixed camera angle; suggestions are not counted until you review and mark them.
             </p>
           </div>
         </CardContent>
@@ -250,6 +288,48 @@ export default function ShootingTrackerPage() {
                   {clip.notes && <p className="text-sm text-muted-foreground">{clip.notes}</p>}
                   {activeId === clip.id && (
                     <div className="space-y-3 border-t pt-3">
+                      <div className="space-y-2">
+                        <Button variant="secondary" className="w-full" onClick={() => void analyzeClip(clip)} disabled={isAnalyzing}>
+                          {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Scanning {analysisProgress}%</> : <><ScanLine className="mr-2 h-4 w-4" />Analyze this clip locally</>}
+                        </Button>
+                        {isAnalyzing && <Progress value={analysisProgress} />}
+                        {analysisClipId === clip.id && !isAnalyzing && analysisSuggestions.length > 0 && (
+                          <div className="space-y-2 rounded-lg border p-3">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide">Possible shot moments</p>
+                              <p className="text-xs text-muted-foreground">These are computer-vision suggestions, not verified results.</p>
+                            </div>
+                            <ul className="max-h-48 space-y-2 overflow-y-auto">
+                              {analysisSuggestions.map((suggestion, index) => (
+                                <li key={`${suggestion.startSeconds}-${index}`} className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="min-w-0">
+                                    <span>
+                                      <span className="font-mono">{formatClipTime(suggestion.startSeconds)}</span>
+                                      <span className="ml-2 font-semibold">
+                                        {suggestion.result === "possible_make" ? "Possible make" : suggestion.result === "possible_miss" ? "Possible miss" : "Uncertain"}
+                                      </span>
+                                    </span>
+                                    <span className="mt-0.5 block text-muted-foreground">{suggestion.reason}</span>
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 shrink-0 px-2"
+                                    onClick={() => {
+                                      if (playerRef.current) {
+                                        playerRef.current.currentTime = suggestion.startSeconds;
+                                        playerRef.current.pause();
+                                      }
+                                    }}
+                                  >
+                                    Review
+                                  </Button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide">Mark the current moment</p>
                         <p className="text-xs text-muted-foreground">Pause near the shot, then add your verified result.</p>
