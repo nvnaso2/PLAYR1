@@ -189,7 +189,7 @@ export default function HubPage() {
   const dayTwoProfileOpen = dayTwoProfileStep;
   const reopenBaseline = new URLSearchParams(search).get("baseline") === "1";
   const onboardingPreview = reopenBaseline || new URLSearchParams(search).get("preview") === "onboarding"
-    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2", "day3", "day4-hub", "day5-hub", "day6-hub"].includes(previewPage || ""));
+    || (location.split("?")[0] === "/admin/onboarding-preview" && ["hub", "player-profile", "day2", "day3", "day4-hub", "day5-hub", "day6-hub", "day7-hub"].includes(previewPage || ""));
   const [baselineId, setBaselineId] = useState<"full" | "standard" | "quick">("standard");
   const [baselinePickerOpen, setBaselinePickerOpen] = useState(reopenBaseline);
   const [baselineLogging, setBaselineLogging] = useState(false);
@@ -213,11 +213,11 @@ export default function HubPage() {
   const [nextSessionOpen, setNextSessionOpen] = useState(false);
   const [previewDay, setPreviewDay] = useState(() => {
     const page = new URLSearchParams(search).get("page");
-    return page === "day6-hub" ? 6 : page === "day5-hub" ? 5 : page === "day4-hub" ? 4 : page === "day3" ? 3 : page === "day2" ? 2 : 1;
+    return page === "day7-hub" ? 7 : page === "day6-hub" ? 6 : page === "day5-hub" ? 5 : page === "day4-hub" ? 4 : page === "day3" ? 3 : page === "day2" ? 2 : 1;
   });
   useEffect(() => {
     if (location.split("?")[0] === "/admin/onboarding-preview") {
-      setPreviewDay(previewPage === "day6-hub" ? 6 : previewPage === "day5-hub" ? 5 : previewPage === "day4-hub" ? 4 : previewPage === "day3" ? 3 : previewPage === "day2" ? 2 : 1);
+      setPreviewDay(previewPage === "day7-hub" ? 7 : previewPage === "day6-hub" ? 6 : previewPage === "day5-hub" ? 5 : previewPage === "day4-hub" ? 4 : previewPage === "day3" ? 3 : previewPage === "day2" ? 2 : 1);
     }
   }, [location, previewPage]);
   const fitOnboardingHub = onboardingPreview && previewDay === 1 && !dayTwoProfileStep;
@@ -226,6 +226,7 @@ export default function HubPage() {
   const fitOnboardingDayFour = onboardingPreview && previewDay === 4 && !dayTwoProfileStep;
   const fitOnboardingDayFive = onboardingPreview && previewDay === 5 && !dayTwoProfileStep;
   const fitOnboardingDaySix = onboardingPreview && previewDay === 6 && !dayTwoProfileStep;
+  const fitOnboardingDaySeven = onboardingPreview && previewDay === 7 && !dayTwoProfileStep;
   const fitOnboardingProfilePreview = fitOnboardingDayFive || fitOnboardingDaySix;
   const { data: dayFiveUserProfile } = useQuery<any>({
     queryKey: ["/api/profile"],
@@ -889,14 +890,14 @@ export default function HubPage() {
   );
 
   return (
-    <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour || fitOnboardingDayFive || fitOnboardingDaySix
+    <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour || fitOnboardingDayFive || fitOnboardingDaySix || fitOnboardingDaySeven
       ? "flex h-[100dvh] flex-col overflow-hidden bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
       : onboardingPreview
         ? "min-h-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
         : "min-h-full bg-background pb-6"}>
       {/* Greeting Header */}
       <div className="shrink-0 px-5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
-        {onboardingPreview && <OnboardingPreviewMenu page={dayTwoProfileStep ? "player-profile" : previewDay === 6 ? "day6-hub" : previewDay === 5 ? "day5-hub" : previewDay === 4 ? "day4-hub" : previewDay === 3 ? "day3" : previewDay === 2 ? "day2" : "hub"} showFeedback />}
+        {onboardingPreview && <OnboardingPreviewMenu page={dayTwoProfileStep ? "player-profile" : previewDay === 7 ? "day7-hub" : previewDay === 6 ? "day6-hub" : previewDay === 5 ? "day5-hub" : previewDay === 4 ? "day4-hub" : previewDay === 3 ? "day3" : previewDay === 2 ? "day2" : "hub"} showFeedback />}
         {import.meta.env.DEV && SHOW_HUB_DEV_TEST_TOOLS && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-amber-500/35 bg-amber-500/[0.06] px-3 py-2" data-testid="hub-test-view-toggle">
             <div className="flex flex-wrap items-center gap-2">
@@ -1176,12 +1177,26 @@ export default function HubPage() {
         )}
       </div>
 
-      <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour || fitOnboardingDayFive || fitOnboardingDaySix
+      <div className={fitOnboardingHub || fitOnboardingDayTwo || fitOnboardingDayThree || fitOnboardingDayFour || fitOnboardingDayFive || fitOnboardingDaySix || fitOnboardingDaySeven
         ? "min-h-0 flex flex-1 flex-col overflow-hidden px-4 mt-1"
         : "px-4 space-y-5 mt-4"}>
         {onboardingPreview ? (
           <>
-            <div className={previewDay === 1 ? "flex min-h-0 flex-1 flex-col" : "hidden"} data-testid="card-day-one-mission">
+            <div className={previewDay === 1 || previewDay === 7 ? "flex min-h-0 flex-1 flex-col" : "hidden"} data-testid={previewDay === 7 ? "card-day-seven-mission" : "card-day-one-mission"}>
+
+                {previewDay === 7 && (
+                  <div className="grid shrink-0 grid-cols-2 items-center gap-3 py-1" aria-label="Day 7 player tools">
+                    <button type="button" onClick={() => navigate("/shooting-cohort")} className="group relative flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" aria-label={(supportUnread?.unreadCount || 0) > 0 ? `Shooting Cohort, ${supportUnread?.unreadCount} unread messages` : "Shooting Cohort"} data-testid="button-day-seven-shooting-cohort">
+                      {(supportUnread?.unreadCount || 0) > 0 && <span className="absolute right-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{supportUnread?.unreadCount}</span>}
+                      <span className="flex h-[68px] w-[68px] items-center justify-center rounded-full border border-orange-200/80 bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 shadow-[0_0_16px_rgba(249,115,22,0.42),inset_0_2px_5px_rgba(255,255,255,0.4)] transition group-hover:scale-[1.04]"><Target className="h-8 w-8 text-zinc-950" strokeWidth={2.6} /></span>
+                      <span className="max-w-[100px] text-[10px] font-bold leading-tight text-zinc-300">Shooting Cohort</span>
+                    </button>
+                    <button type="button" onClick={() => navigate("/courses")} className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" aria-label="Courses" data-testid="button-day-seven-courses">
+                      <span className="flex h-[68px] w-[68px] items-center justify-center rounded-[20px] border border-sky-200/65 bg-gradient-to-br from-sky-300 via-sky-500 to-blue-700 shadow-[0_7px_22px_rgba(56,189,248,0.22)] transition group-hover:scale-[1.04]"><BookOpen className="h-8 w-8 text-zinc-950" strokeWidth={2} /></span>
+                      <span className="text-[10px] font-bold leading-tight text-zinc-300">Courses</span>
+                    </button>
+                  </div>
+                )}
 
             {/*
             <div className="px-1 pt-1">
@@ -1515,7 +1530,7 @@ export default function HubPage() {
                         </>
                       );
                     })()}
-                  {previewDay === 1 && baselinePickerOpen && (
+                  {(previewDay === 1 || previewDay === 7) && baselinePickerOpen && (
                     <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/80 px-0 pt-8 backdrop-blur-sm sm:items-center sm:p-4" onClick={closeBaselinePicker}>
                       <section role="dialog" aria-modal="true" aria-labelledby="baseline-picker-title" className="max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-white/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
                         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700 sm:hidden" />
@@ -1560,7 +1575,7 @@ export default function HubPage() {
                     </div>
                   )}
 
-                  {previewDay === 1 && baselineLogging && !baselineComplete && (
+                  {(previewDay === 1 || previewDay === 7) && baselineLogging && !baselineComplete && (
                     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/80 px-0 pt-10 backdrop-blur-sm sm:items-center sm:p-4" onClick={closeBaselineLogging}>
                       <section role="dialog" aria-modal="true" aria-labelledby="baseline-log-title" className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-orange-400/25 bg-[#101010] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-20px_70px_rgba(0,0,0,0.7)] sm:rounded-3xl sm:p-6" onClick={(event) => event.stopPropagation()}>
                         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700 sm:hidden" />
@@ -1647,7 +1662,7 @@ export default function HubPage() {
                 </section>
             </div>
 
-            {previewDay === 1 && baselineComplete && (
+            {(previewDay === 1 || previewDay === 7) && baselineComplete && (
               <div className="mx-4 mt-2 flex items-center justify-between gap-2 rounded-xl border border-orange-400/20 bg-orange-500/[0.04] px-3 py-2">
                 <p className="min-w-0 truncate text-[8px] font-bold uppercase tracking-wide text-orange-200">Day 1 complete · Next: your profile</p>
                 <button
