@@ -124,9 +124,15 @@ def main() -> None:
         help="Mask the fixed-camera background to reduce stationary color false positives",
     )
     parser.add_argument(
+        "--start-seconds",
+        type=float,
+        default=0,
+        help="Seek to this source-video time before processing",
+    )
+    parser.add_argument(
         "--roi",
-        default="0.34,0.06,0.66,0.42",
-        help="Normalized x1,y1,x2,y2 region around the hoop and shot flight path",
+        default="0.10,0.05,0.48,0.72",
+        help="Normalized x1,y1,x2,y2 region around the basket and nearby shot paths",
     )
     args = parser.parse_args()
     roi = tuple(float(part) for part in args.roi.split(","))
@@ -138,7 +144,9 @@ def main() -> None:
         raise SystemExit(f"Could not open video: {args.video}")
 
     fps = capture.get(cv2.CAP_PROP_FPS) or 30.0
-    frame_index = 0
+    frame_index = max(0, round(args.start_seconds * fps))
+    if frame_index:
+        capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
     processed = 0
     detections = 0
     previous_gray = None
