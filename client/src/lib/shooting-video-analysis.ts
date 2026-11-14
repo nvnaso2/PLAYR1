@@ -11,7 +11,7 @@ type Track = { points: Point[] };
 
 const WORK_WIDTH = 480;
 const WORK_HEIGHT = 270;
-const ROI = { x: 0.1, y: 0.05, right: 0.48, bottom: 0.72 };
+const ROI = { x: 0.1, y: 0.05, right: 0.9, bottom: 0.92 };
 const RIM_X = 77;
 const RIM_LEFT = 68;
 const RIM_RIGHT = 86;
@@ -162,6 +162,28 @@ function downwardCrossing(points: Point[], yLine: number): { time: number; x: nu
   return null;
 }
 
+function upwardCrossing(points: Point[], yLine: number): { time: number; x: number } | null {
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    if (b.y >= a.y || a.y < yLine || b.y > yLine) continue;
+    const ratio = (yLine - a.y) / (b.y - a.y);
+    return { time: a.time + ratio * (b.time - a.time), x: a.x + ratio * (b.x - a.x) };
+  }
+  return null;
+}
+
+export function isShotArc(points: Point[]): boolean {
+  if (points.length < 5 || points[0].y < RIM_Y + 12 || points.at(-1)!.y < RIM_Y + 8) return false;
+  const up = upwardCrossing(points, RIM_Y);
+  const down = downwardCrossing(points, RIM_Y);
+  if (!up || !down || down.time <= up.time) return false;
+  const apex = points.reduce((best, point) => point.y < best.y ? point : best, points[0]);
+  if (apex.y > RIM_Y - 25 || apex.time <= up.time || apex.time >= down.time) return false;
+  if (down.x < RIM_LEFT - 48 || down.x > RIM_RIGHT + 48) return false;
+  return down.time - up.time >= 0.12;
+}
+
 export function classifyShotPath(points: Point[]): ShotSuggestion["result"] {
   const rim = downwardCrossing(points, RIM_Y);
   const net = downwardCrossing(points, NET_Y);
@@ -270,8 +292,8 @@ export async function analyzeShootingVideo(
       const minY = Math.min(...points.map((point) => point.y));
       const maxY = Math.max(...points.map((point) => point.y));
       const nearRim = points.some((point) => Math.abs(point.x - RIM_X) <= 42);
-      return end - start >= 0.25 && end - start <= 1.8 &&
-        maxY - minY >= 28 && nearRim && minY <= NET_Y + 20 && maxY >= RIM_Y - 20;
+      return end - start >= 0.25 && end - start <= 2.3 &&
+        maxY - minY >= 35 && nearRim && minY <= RIM_Y - 25 && maxY >= RIM_Y + 12;
     }).sort((a, b) => a.points[0].time - b.points[0].time);
 
     const events: Track[] = [];
@@ -285,12 +307,14 @@ export async function analyzeShootingVideo(
         events.push({ points: [...track.points] });
       }
     }
-    return events.map((event) => {
+    return events.filter((event) => isShotArc(event.points)).map((event) => {
       const points = event.points;
       const result = classifyShotPath(points);
+      const release = upwardCrossing(points, RIM_Y);
+      const rim = downwardCrossing(points, RIM_Y);
       return {
-        startSeconds: Math.max(0, points[0].time - 0.4),
-        endSeconds: points.at(-1)!.time + 0.2,
+        startSeconds: Math.max(0, (release?.time ?? points[0].time) - 0.5),
+        endSeconds: (rim?.time ?? points.at(-1)!.time) + 0.3,
         result,
         reason: result === "possible_make"
           ? "The tracked path appears to pass downward through the rim and net bands."

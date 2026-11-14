@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ballCandidates, classifyShotPath, linkCandidates } from "../client/src/lib/shooting-video-analysis";
+import { ballCandidates, classifyShotPath, isShotArc, linkCandidates } from "../client/src/lib/shooting-video-analysis";
 
 function orangeFrame(cx: number, cy: number): ImageData {
   const width = 180;
@@ -37,6 +37,33 @@ test("links sampled ball positions into one moving path", () => {
   ]);
   assert.equal(tracks.length, 1);
   assert.equal(tracks[0].points.length, 3);
+});
+
+test("accepts a complete rise-apex-descent shot arc", () => {
+  assert.equal(isShotArc([
+    { time: 0, x: 100, y: 200 },
+    { time: 0.1, x: 94, y: 160 },
+    { time: 0.2, x: 87, y: 100 },
+    { time: 0.3, x: 80, y: 70 },
+    { time: 0.4, x: 78, y: 95 },
+    { time: 0.5, x: 77, y: 123 },
+    { time: 0.6, x: 76, y: 155 },
+  ]), true);
+});
+
+test("rejects a rebound or dribble without a complete shot arc", () => {
+  assert.equal(isShotArc([
+    { time: 0, x: 77, y: 100 },
+    { time: 0.1, x: 78, y: 123 },
+    { time: 0.2, x: 79, y: 140 },
+    { time: 0.3, x: 78, y: 119 },
+  ]), false);
+  assert.equal(isShotArc([
+    { time: 0, x: 150, y: 200 },
+    { time: 0.1, x: 151, y: 170 },
+    { time: 0.2, x: 150, y: 190 },
+    { time: 0.3, x: 150, y: 155 },
+  ]), false);
 });
 
 test("classifies a clear downward rim-to-net path as a possible make", () => {
