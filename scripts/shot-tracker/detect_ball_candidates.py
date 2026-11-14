@@ -109,8 +109,8 @@ def main() -> None:
     parser.add_argument("--max-frames", type=int, default=0, help="Limit frames for a quick test")
     parser.add_argument(
         "--roi",
-        default="0.2,0.08,0.8,0.95",
-        help="Normalized x1,y1,x2,y2 region; this clip keeps the hoop and shooter centered",
+        default="0.34,0.06,0.66,0.42",
+        help="Normalized x1,y1,x2,y2 region around the hoop and shot flight path",
     )
     args = parser.parse_args()
     roi = tuple(float(part) for part in args.roi.split(","))
