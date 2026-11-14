@@ -203,8 +203,9 @@ export default function ShootingTrackerPage() {
           <div className="space-y-1 text-sm">
             <p className="font-semibold">Review your uploaded footage privately</p>
             <p className="text-muted-foreground">
-              Scan a clip on this device for likely shot paths. This first pass is calibrated for
-              your fixed camera angle; suggestions are not counted until you review and mark them.
+              Scan this fixed-angle clip on your device. Only complete rises and descents near the
+              rim are suggested; rebounds, dribbles, and partial paths should be skipped. Review
+              each suggestion before counting it.
             </p>
           </div>
         </CardContent>
