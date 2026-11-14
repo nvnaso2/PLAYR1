@@ -64,7 +64,7 @@ def ball_candidates(
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(
-        hsv, np.array([0, 100, 50], np.uint8), np.array([34, 255, 255], np.uint8)
+        hsv, np.array([0, 70, 38], np.uint8), np.array([34, 255, 255], np.uint8)
     )
     if previous_gray is not None:
         motion = cv2.absdiff(gray, previous_gray)
@@ -75,7 +75,7 @@ def ball_candidates(
     candidates: list[tuple[float, float]] = []
     for contour in contours:
         area = cv2.contourArea(contour)
-        if not 8 <= area <= 220:
+        if not 5 <= area <= 260:
             continue
         perimeter = cv2.arcLength(contour, True)
         if perimeter <= 0:
@@ -83,9 +83,9 @@ def ball_candidates(
         circularity = 4 * math.pi * area / (perimeter * perimeter)
         x, y, box_width, box_height = cv2.boundingRect(contour)
         aspect = box_width / max(box_height, 1)
-        if circularity < 0.38 or not 0.65 <= aspect <= 1.5:
+        if circularity < 0.25 or not 0.55 <= aspect <= 1.8:
             continue
-        if box_width < 3 or box_height < 3 or box_width > 17 or box_height > 17:
+        if box_width < 2 or box_height < 2 or box_width > 20 or box_height > 20:
             continue
         moments = cv2.moments(contour)
         if moments["m00"] == 0:
@@ -185,20 +185,29 @@ def classify_tracks(
         if crossing and abs(crossing[1] - rim_x) > half_width * 3:
             result = "possible_miss"
         elif crossing:
+            after_crossing = [
+                point for point in points
+                if crossing[0] < point[0] <= crossing[0] + 1.0
+            ]
+            deepest = max(after_crossing, key=lambda point: point[2], default=None)
+            rebound = bool(deepest and any(
+                deepest[0] < point[0] <= crossing[0] + 1.0
+                and deepest[2] - point[2] >= max(15, half_width * 2)
+                for point in after_crossing
+            ))
+            below_points = [
+                point for point in after_crossing
+                if point[2] >= rim_y + max(16, half_width * 3)
+                and abs(point[1] - rim_x) <= half_width * 1.7
+            ]
             below = any(
-                point[0] > crossing[0] and point[2] >= rim_y + half_width * 1.8
-                and abs(point[1] - rim_x) <= half_width * 2.5
-                for point in points
+                second[0] - first[0] >= 0.08
+                for first, second in zip(below_points, below_points[1:])
             )
-            rebound = any(
-                points[index - 1][0] > crossing[0]
-                and points[index][2] < points[index - 1][2] - 12
-                for index in range(1, len(points))
-            )
-            if below:
-                result = "possible_make"
-            elif rebound:
+            if rebound:
                 result = "possible_miss"
+            elif below:
+                result = "possible_make"
         events.append({
             "startSeconds": max(0.0, approach[0] - 0.2),
             "endSeconds": rim_point[0] + 0.3,
