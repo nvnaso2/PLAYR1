@@ -20,6 +20,7 @@ def candidates(
     output_width: int,
     previous_gray: np.ndarray | None,
     roi: tuple[float, float, float, float],
+    motion_filter: bool = True,
 ) -> tuple[list[tuple], float, np.ndarray]:
     original_height, original_width = frame.shape[:2]
     scale = min(1.0, output_width / original_width)
@@ -57,7 +58,7 @@ def candidates(
     ball_color = cv2.bitwise_or(
         ball_color, cv2.bitwise_or(red_low, red_high)
     )
-    if previous_gray is not None:
+    if motion_filter and previous_gray is not None:
         motion = cv2.absdiff(gray, previous_gray)
         _, moving = cv2.threshold(motion, 18, 255, cv2.THRESH_BINARY)
         moving = cv2.dilate(moving, np.ones((3, 3), dtype=np.uint8), iterations=1)
@@ -108,6 +109,11 @@ def main() -> None:
     parser.add_argument("--width", type=int, default=960, help="Working frame width")
     parser.add_argument("--max-frames", type=int, default=0, help="Limit frames for a quick test")
     parser.add_argument(
+        "--no-motion-filter",
+        action="store_true",
+        help="Keep color/shape candidates even when frame-to-frame motion is weak",
+    )
+    parser.add_argument(
         "--roi",
         default="0.34,0.06,0.66,0.42",
         help="Normalized x1,y1,x2,y2 region around the hoop and shot flight path",
@@ -138,7 +144,9 @@ def main() -> None:
             frame_index += 1
             if current_index % max(args.stride, 1):
                 continue
-            found, _, current_gray = candidates(frame, args.width, previous_gray, roi)
+            found, _, current_gray = candidates(
+                frame, args.width, previous_gray, roi, motion_filter=not args.no_motion_filter
+            )
             previous_gray = current_gray
             for x, y, area, circularity in found:
                 writer.writerow(
