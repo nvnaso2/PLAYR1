@@ -4,6 +4,7 @@ import { ArrowLeft, Check, ChevronRight } from "lucide-react";
 import { LeadMagnetResultGate } from "@/components/lead-magnets/lead-magnet-result-gate";
 import { RecommendedDrillCards } from "@/components/lead-magnets/recommended-drill-cards";
 import { LeadMagnetResultActions } from "@/components/lead-magnets/lead-magnet-result-actions";
+import { Playr1Logo } from "@/components/playr1-logo";
 import { clearLeadMagnetDraft, readLeadMagnetDraft } from "@/lib/lead-magnet-drafts";
 import {
   footworkCourtRoles,
@@ -99,6 +100,7 @@ export function FootworkOpenShotsQuiz() {
 
   return (
     <div className="lm-quiz">
+      <Playr1Logo className="mx-auto mb-2 h-8 w-32 object-contain" />
       <header className="mb-6">
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-400">Game Insights</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Game Insights</h2>

@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { LeadMagnetCatalog } from "@/components/lead-magnets/scouting-report-catalog";
 import { RecommendedDrillCards } from "@/components/lead-magnets/recommended-drill-cards";
 import { LeadMagnetResultActions } from "@/components/lead-magnets/lead-magnet-result-actions";
+import { Playr1Logo } from "@/components/playr1-logo";
 import { ConfidenceRealityCheckQuiz } from "@/components/lead-magnets/confidence-reality-check-quiz";
 import { FootworkOpenShotsQuiz } from "@/components/lead-magnets/footwork-open-shots-quiz";
 import { GameSpeedShootingQuiz } from "@/components/lead-magnets/game-speed-shooting-quiz";
@@ -160,6 +161,7 @@ export default function LeadMagnetsPage({
         <div className="mx-auto max-w-2xl">
           <div className="lm-quiz min-w-0 max-w-2xl">
             <div id="shooting-mechanics" hidden={activeLeadMagnet !== "shooting-mechanics"}>
+              <Playr1Logo className="mx-auto mb-2 h-8 w-32 object-contain" />
               <header className="lm-quiz-topbar">
                 {onboardingPreview ? (
                   <Button type="button" variant="ghost" onClick={onPreviewBack} className="lm-quiz-hub-button">

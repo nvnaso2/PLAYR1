@@ -38,3 +38,9 @@ For Shooting Mechanics, keep the Hub arrow, “Game Insights” title, and resul
 **Why:** the user asked to remove the orange eyebrow and explanatory copy, and to simplify the header/actions into one row.
 
 **How to apply:** keep this route’s top row concise on both questions and results, with the action controls appearing alongside the title once a result is available.
+
+Keep the existing questionnaire presentation; add PLAYR1 branding with the logo rather than redesigning the question layout or answer choices.
+
+**Why:** the user rejected a recent visual restyle and asked to restore the prior questionnaire, adding only the PLAYR1 logo.
+
+**How to apply:** preserve the orange-outline pill answers and compact heading across all quiz flows.

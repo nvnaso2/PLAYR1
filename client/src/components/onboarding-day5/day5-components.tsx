@@ -5,7 +5,6 @@ import { DrillDiagramPreview } from "@/components/drill-diagram-preview";
 import { Button } from "@/components/ui/button";
 import { formatWorkoutDescription } from "@/lib/workout-description";
 import { BaseballCard } from "@/pages/career";
-import workoutThreeCover from "@/assets/onboarding-workout-covers/workout-3-cover-cropped.png";
 
 export type DayFiveProfileDraft = {
   displayName: string;
@@ -168,8 +167,9 @@ export function DayFiveProfileStep({
 }
 
 export function DayFiveHubActionSurface({
-  profile, user, career, careerStats, playerProfile, userProfile, onEditProfile, onProfileChange, onPreviewWorkout,
+  artwork, profile, user, career, careerStats, playerProfile, userProfile, onEditProfile, onProfileChange, onPreviewWorkout,
 }: {
+  artwork?: string;
   profile: DayFiveProfileDraft;
   user?: any;
   career?: any;
@@ -208,14 +208,12 @@ export function DayFiveHubActionSurface({
     cardCareerStats: profile.cardCareerStats,
   };
   return (
-    <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-2 pb-3 text-white" data-testid="card-day-five-mission">
-      <div className="flex shrink-0 justify-center">
+    <section className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-0 pb-3 text-white" data-testid="card-day-five-mission">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-end gap-1 overflow-hidden">
         <button type="button" onClick={onEditProfile} className="inline-flex h-9 min-w-[190px] items-center justify-center rounded-full border border-orange-400/80 bg-[#11100f] px-5 text-xs font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.18)] hover:bg-[#1b1510]" data-testid="button-day-five-edit-profile">
           <Pencil className="mr-1.5 h-3.5 w-3.5" />
           Complete Profile
         </button>
-      </div>
-      <div className="flex min-h-0 flex-1 items-start justify-center overflow-hidden pt-1">
         <div className="origin-center scale-[0.9]">
           <BaseballCard
             profile={cardCareer}
@@ -240,7 +238,7 @@ export function DayFiveHubActionSurface({
           <span className="mt-1 block text-[10px] font-semibold text-zinc-600">6 drills · 140 shots</span>
           <span className="mt-3 inline-flex min-h-8 items-center gap-1 rounded-md bg-black px-3 text-[10px] font-black uppercase text-white">Preview workout <ChevronRight className="h-3.5 w-3.5 text-orange-400" /></span>
         </span>
-         <img src={workoutThreeCover} alt="Workout 3 cover with its six game-like shooting drills" className="h-full w-[36%] shrink-0 rounded-lg object-cover" />
+        {artwork && <img src={artwork} alt="" className="h-full w-[36%] shrink-0 object-contain mix-blend-multiply" />}
       </button>
     </section>
   );
