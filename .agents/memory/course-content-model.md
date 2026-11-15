@@ -7,6 +7,8 @@ Paid courses use the existing programs and program items system rather than a pa
 
 Every course makes Day 1's lesson and workout fully available to all players; Days 2 onward require Pro. Free players may browse locked days and see read-only lesson/workout title previews with the course-cover poster, but do not receive locked video URLs, drill lists, notes, or completion data. Locked lesson and workout controls are disabled; day navigation and the upgrade action remain available. Enrollments store the player's chosen training days per week, and the course schedule spaces its sessions across that pace.
 
+The Mechanical Foundation's initial release has the complete day-by-day workout structure and preview UI, but lesson videos and many course-specific drills still need to be created and added to the drill catalog. The current catalog gaps are listed in `docs/mechanical-foundation-missing-drills.md`.
+
 **Why:** The existing enrollment, completion, progress, and Pro entitlement boundaries already cover the product behavior; duplicating them in a separate course model would create two competing training systems.
 
 **Why:** The user specified a free first day and Pro access for the remaining course, and wants the player's selected weekly frequency to set the course pace.

@@ -96,7 +96,7 @@ export function CourseDayPlan({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden" data-testid="course-day-plan" aria-label="Course day plan">
-      <nav aria-label="Choose a course day" className="overflow-x-auto border-y border-white/20 [scrollbar-width:thin]">
+      <nav aria-label="Choose a course day" className="overflow-x-auto border-y border-white/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ol className="flex min-w-max">
           {days.map((day) => {
             const dayItems = byDay.get(day) ?? [];
