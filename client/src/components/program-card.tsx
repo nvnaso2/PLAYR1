@@ -41,7 +41,7 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
   if (isCourse) {
     return (
       <Link href={`${hrefBase}/${program.slug}`} data-testid={`link-program-${program.slug}`}>
-        <Card className="group relative h-full cursor-pointer overflow-hidden rounded-xl border-border/60 bg-transparent transition-all hover-elevate active-elevate-2" data-testid={`card-program-${program.slug}`}>
+        <Card className="group relative h-full cursor-pointer overflow-hidden rounded-xl border border-white/15 bg-zinc-900 shadow-[0_14px_38px_rgba(0,0,0,0.55),0_2px_10px_rgba(249,115,22,0.08)] ring-1 ring-white/5 transition-all duration-200 hover:-translate-y-1 hover:border-white/25 hover:shadow-[0_20px_48px_rgba(0,0,0,0.65),0_4px_16px_rgba(249,115,22,0.12)] hover:ring-white/10 active:translate-y-0" data-testid={`card-program-${program.slug}`}>
           <div
             className="relative aspect-video w-full overflow-hidden"
             style={{
@@ -56,21 +56,13 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
                 <Play className="ml-0.5 h-5 w-5 fill-current" />
               </span>
             </span>
-            {program.isPro && (
-              <Badge className="absolute left-3 top-3 border-0 bg-amber-500 text-black" data-testid={`badge-pro-${program.slug}`}>
-                <Lock className="mr-1 h-3 w-3" /> PRO
-              </Badge>
-            )}
           </div>
 
-          <div className="bg-background p-3">
+          <div className="bg-zinc-900 p-3">
             <h3 className="line-clamp-2 text-sm font-semibold leading-snug sm:text-base" data-testid={`text-program-title-${program.slug}`}>
               {program.title}
             </h3>
-            {program.tagline && (
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground sm:text-sm">{program.tagline}</p>
-            )}
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground" data-testid={`course-meta-${program.slug}`}>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground" data-testid={`course-meta-${program.slug}`}>
               <span className="inline-flex items-center gap-1.5" data-testid={`text-length-${program.slug}`}>
                 <Calendar className="h-3.5 w-3.5 text-primary" />
                 {program.lengthDays} days
