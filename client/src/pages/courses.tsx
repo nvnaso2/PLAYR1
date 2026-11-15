@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgramCard } from "@/components/program-card";
-import { ArrowLeft, BookOpen, Search } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import type { Program } from "@shared/schema";
 
 export default function CoursesPage() {
@@ -31,31 +31,26 @@ export default function CoursesPage() {
     });
   }, [courses, difficulty, search]);
 
-  const featured = filtered.find((course) => course.isFeatured) ?? filtered[0];
-
   return (
-    <div className="min-h-screen pb-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-7 md:py-10">
+    <main className="mx-auto max-w-7xl space-y-6 p-4 pb-12 sm:p-6" data-testid="page-courses">
+      <div className="space-y-4">
         <Link href="/log" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Train
         </Link>
 
-        <div className="mt-8 flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-primary">
-            <BookOpen className="w-4 h-4" />
-            <span className="text-xs uppercase tracking-[0.22em] font-semibold">Train / Courses</span>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Build your game.</h1>
-          <p className="text-muted-foreground max-w-xl">
-            Focused training systems with a clear day-by-day path. Pick a course, follow the work, and keep improving.
-          </p>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-bold sm:text-2xl" data-testid="text-page-title">Courses</h1>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {isLoading ? "Loading courses…" : `${courses?.length ?? 0} ${(courses?.length ?? 0) === 1 ? "course" : "courses"}`}
+          </span>
         </div>
+      </div>
 
-        {(courses?.length ?? 0) > 1 && (
-          <div className="mt-8 flex flex-col md:flex-row gap-3">
+      {(courses?.length ?? 0) > 1 && (
+          <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search courses" className="pl-9" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search courses" className="pl-9" aria-label="Search courses" />
             </div>
             <Select value={difficulty} onValueChange={setDifficulty}>
               <SelectTrigger className="w-full md:w-48"><SelectValue placeholder="Difficulty" /></SelectTrigger>
@@ -68,20 +63,21 @@ export default function CoursesPage() {
               </SelectContent>
             </Select>
           </div>
-        )}
+      )}
 
-        <div className="mt-10">
-          {isLoading ? (
-            <Skeleton className="h-80 rounded-2xl" />
-          ) : filtered.length === 0 ? (
-            <Card><CardContent className="py-16 text-center text-muted-foreground">No courses match your search.</CardContent></Card>
-          ) : (
-            <div className="max-w-4xl">
-              {featured && <ProgramCard program={featured} variant="featured" hrefBase="/courses" />}
-            </div>
-          )}
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((item) => <Skeleton key={item} className="aspect-video rounded-xl" />)}
         </div>
-      </div>
-    </div>
+      ) : filtered.length === 0 ? (
+        <Card><CardContent className="py-16 text-center text-muted-foreground">No courses match your search.</CardContent></Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="grid-courses">
+          {filtered.map((course) => (
+            <ProgramCard key={course.id} program={course} hrefBase="/courses" />
+          ))}
+        </div>
+      )}
+    </main>
   );
 }

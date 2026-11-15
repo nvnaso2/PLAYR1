@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Clock, Dumbbell, Flame, Sparkles, Users, Lock } from "lucide-react";
+import { Calendar, Clock, Dumbbell, Flame, Sparkles, Users, Lock, Play } from "lucide-react";
 import type { Program } from "@shared/schema";
 
 const difficultyColors: Record<string, string> = {
@@ -41,33 +41,46 @@ export function ProgramCard({ program, enrolledCount, totalItems, variant = "gri
   if (isCourse) {
     return (
       <Link href={`${hrefBase}/${program.slug}`} data-testid={`link-program-${program.slug}`}>
-        <Card className="group relative h-full cursor-pointer overflow-hidden rounded-2xl border-border/60 bg-transparent transition-all hover-elevate active-elevate-2" data-testid={`card-program-${program.slug}`}>
+        <Card className="group relative h-full cursor-pointer overflow-hidden rounded-xl border-border/60 bg-transparent transition-all hover-elevate active-elevate-2" data-testid={`card-program-${program.slug}`}>
           <div
-            className={`relative overflow-hidden ${isFeatured ? "h-60 md:h-72" : "h-48"}`}
+            className="relative aspect-video w-full overflow-hidden"
             style={{
               background: program.coverImageUrl
-                ? `linear-gradient(180deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.78) 100%), url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`
+                ? `url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}") center/cover no-repeat`
                 : `linear-gradient(135deg, ${accent}cc 0%, ${accent}66 50%, hsl(var(--card)) 100%)`,
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
-              <h3 className="max-w-3xl font-sans text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl" data-testid={`text-program-title-${program.slug}`}>
-                {program.title}
-              </h3>
-            </div>
+            <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+            <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center">
+              <span className="flex h-12 w-12 scale-90 items-center justify-center rounded-full border border-white/40 bg-black/65 text-white opacity-0 shadow-lg backdrop-blur-sm transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
+                <Play className="ml-0.5 h-5 w-5 fill-current" />
+              </span>
+            </span>
+            {program.isPro && (
+              <Badge className="absolute left-3 top-3 border-0 bg-amber-500 text-black" data-testid={`badge-pro-${program.slug}`}>
+                <Lock className="mr-1 h-3 w-3" /> PRO
+              </Badge>
+            )}
           </div>
 
-          <div className="bg-background px-1.5 pb-2 pt-4">
-            <div className="flex flex-wrap items-center gap-2.5 text-sm" data-testid={`course-meta-${program.slug}`}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/25 px-3 py-1.5 text-foreground/80" data-testid={`text-length-${program.slug}`}>
-                <Calendar className="h-4 w-4 text-primary" />
+          <div className="bg-background p-3">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug sm:text-base" data-testid={`text-program-title-${program.slug}`}>
+              {program.title}
+            </h3>
+            {program.tagline && (
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground sm:text-sm">{program.tagline}</p>
+            )}
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground" data-testid={`course-meta-${program.slug}`}>
+              <span className="inline-flex items-center gap-1.5" data-testid={`text-length-${program.slug}`}>
+                <Calendar className="h-3.5 w-3.5 text-primary" />
                 {program.lengthDays} days
               </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/25 px-3 py-1.5 text-foreground/80">
-                <Dumbbell className="h-4 w-4 text-primary" />
-                {program.lengthDays} workouts
-              </span>
+              {program.estimatedMinutesPerDay && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  ~{program.estimatedMinutesPerDay} min/day
+                </span>
+              )}
             </div>
 
             {progressPct !== null && (
