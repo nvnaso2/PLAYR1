@@ -128,71 +128,28 @@ export default function ProgramDetailPage() {
   if (isCourse) {
     return (
       <div className="min-h-screen pb-12">
-        <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+        <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-6">
           <Link
             href={contentBase}
-            className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             data-testid="button-back"
           >
             <ArrowLeft className="h-4 w-4" />
             All Courses
           </Link>
 
-          <header
-            className="relative mb-7 flex min-h-[390px] items-end overflow-hidden rounded-2xl border border-border/70 bg-muted bg-cover bg-center sm:min-h-[470px]"
-            data-testid="course-cover-thumbnail"
-            style={{
-              backgroundImage: program.coverImageUrl
-                ? `linear-gradient(180deg, rgba(0,0,0,0.08) 20%, rgba(0,0,0,0.86) 100%), url("${program.coverImageUrl.replace(/["\\\n\r<>]/g, "")}")`
-                : `linear-gradient(135deg, ${accent}bb, #111827 78%)`,
-            }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-transparent" />
-            <div className="relative z-10 max-w-3xl p-6 sm:p-10">
-              <h1 className="font-sans text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl" data-testid="text-program-title">
-                {program.title}
-              </h1>
-              {(program.tagline || program.description) && (
-                <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg" data-testid="text-program-description">
-                  {program.tagline || program.description}
-                </p>
-              )}
-              <div className="mt-6 flex flex-wrap items-center gap-2.5 text-sm font-medium" data-testid="course-meta">
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/25 px-3.5 py-2 text-white/90 shadow-sm backdrop-blur-md">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  {totalDays} days
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/25 px-3.5 py-2 text-white/90 shadow-sm backdrop-blur-md">
-                  <Dumbbell className="h-4 w-4 text-primary" />
-                  {totalDays} workouts
-                </span>
-              </div>
-            </div>
+          <header className="mb-4">
+            <h1 className="font-heading text-2xl font-black uppercase tracking-tight sm:text-3xl" data-testid="text-program-title">{program.title}</h1>
           </header>
 
-          <main className="space-y-6">
-            <section className="max-w-2xl" data-testid="card-program-trailer">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Trailer</h2>
-              </div>
-              {program.trailerVideoUrl ? (
-                <div className="aspect-video overflow-hidden rounded-lg border border-border/70 bg-black">
-                  <video src={program.trailerVideoUrl} controls className="h-full w-full" preload="metadata" />
-                </div>
-              ) : (
-                <div className="flex aspect-[16/8] flex-col items-center justify-center rounded-lg border border-dashed border-primary/40 bg-primary/5 p-6 text-center">
-                  <PlayCircle className="mb-2 h-8 w-8 text-primary/70" />
-                  <p className="text-sm font-semibold">Trailer coming soon</p>
-                </div>
-              )}
-            </section>
+          <main>
 
             {isLocked && (
               <Card className="border-amber-500/40 bg-amber-500/5" data-testid="card-program-locked">
                 <CardContent className="p-6 text-center">
                   <Lock className="mx-auto mb-3 h-8 w-8 text-amber-400" />
                   <h2 className="text-xl font-bold">Full course is part of PLAYR1 Pro</h2>
-                  <p className="mt-2 text-muted-foreground">Watch the trailer above, then upgrade for the full day-by-day plan.</p>
+                  <p className="mt-2 text-muted-foreground">Day 1 is available free. Upgrade for the full day-by-day plan.</p>
                   <Button className="mt-5 bg-amber-500 text-black hover:bg-amber-400" onClick={() => openProOffer("full programs and courses")}>
                     View Pro options
                   </Button>
@@ -201,34 +158,27 @@ export default function ProgramDetailPage() {
             )}
 
             {!isLocked && (
-              <section>
-                <div className="mb-3 flex items-center justify-between gap-4">
-                  <h2 className="text-2xl font-bold tracking-tight">{totalDays} days</h2>
-                  {enrollment ? (
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">Your pace</p>
-                      <p className="text-xs text-muted-foreground">{enrollment.trainingDaysPerWeek ?? 3} days per week</p>
-                    </div>
-                  ) : null}
-                </div>
+              <section className="space-y-4">
+                {enrollment && (
+                  <p className="text-xs text-muted-foreground">
+                    Your pace: <span className="font-semibold text-foreground">{enrollment.trainingDaysPerWeek ?? 3} days per week</span>
+                  </p>
+                )}
                 {!enrollment && (
-                  <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border/70 bg-card/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
                       <label htmlFor="course-training-frequency" className="text-sm font-semibold">How often do you want to train?</label>
-                      <p className="mt-1 text-xs text-muted-foreground">We’ll spread the 14 sessions across your weekly pace.</p>
+                      <p className="text-xs text-muted-foreground">We’ll spread the sessions across your weekly pace.</p>
                     </div>
                     <select
                       id="course-training-frequency"
                       value={trainingDaysPerWeek}
                       onChange={(event) => setTrainingDaysPerWeek(Number(event.target.value))}
-                      className="h-10 rounded-lg border border-border bg-background px-3 text-sm"
+                      className="h-10 rounded-md border border-border bg-background px-3 text-sm"
                       data-testid="select-course-training-frequency"
                     >
                       {[2, 3, 4, 5, 6, 7].map((days) => <option key={days} value={days}>{days} days per week</option>)}
                     </select>
-                  </div>
-                )}
-                {!enrollment && (
                     <Button
                       size="sm"
                       className="border-0"
@@ -239,6 +189,7 @@ export default function ProgramDetailPage() {
                     >
                       {enroll.isPending ? "Starting…" : "Start Course"}
                     </Button>
+                  </div>
                 )}
                 <CourseDayPlan
                   items={items}
@@ -251,6 +202,7 @@ export default function ProgramDetailPage() {
                   trainingDaysPerWeek={enrollment?.trainingDaysPerWeek ?? trainingDaysPerWeek}
                   scheduleStartDate={enrollment?.startedAt ?? null}
                   onUpgrade={() => openProOffer("full programs and courses")}
+                  courseCoverImageUrl={program.coverImageUrl}
                 />
               </section>
             )}
