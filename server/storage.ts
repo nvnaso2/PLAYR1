@@ -8149,7 +8149,7 @@ export class DatabaseStorage {
   async enrollUserInProgram(
     userId: string,
     programId: string,
-    opts?: { assignedByTrainerId?: string; eventId?: string },
+    opts?: { assignedByTrainerId?: string; eventId?: string; trainingDaysPerWeek?: number },
   ): Promise<ProgramEnrollment> {
     // Race-safe idempotent insert. The partial unique index
     // (userId, programId) WHERE status = 'active' makes the second concurrent
@@ -8161,6 +8161,7 @@ export class DatabaseStorage {
         userId,
         programId,
         currentDay: 1,
+        trainingDaysPerWeek: opts?.trainingDaysPerWeek,
         status: "active",
         assignedByTrainerId: opts?.assignedByTrainerId,
         eventId: opts?.eventId,
@@ -8186,6 +8187,14 @@ export class DatabaseStorage {
         eq(programEnrollments.status, "active"),
       ));
     if (!existing) throw new Error("Failed to enroll: conflict but no active enrollment");
+    if (opts?.trainingDaysPerWeek && existing.trainingDaysPerWeek !== opts.trainingDaysPerWeek) {
+      const [updated] = await db
+        .update(programEnrollments)
+        .set({ trainingDaysPerWeek: opts.trainingDaysPerWeek })
+        .where(eq(programEnrollments.id, existing.id))
+        .returning();
+      return updated ?? existing;
+    }
     return existing;
   }
 

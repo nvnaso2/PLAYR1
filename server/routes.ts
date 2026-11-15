@@ -12913,15 +12913,29 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
       if (!isPublic && !isConnectionVisible && !isOwner && !enrollment) {
         return res.status(404).json({ message: "Program not found" });
       }
-      const isLocked = Boolean(program.isPro) && !isOwner && !(await hasProAccess(userId));
-      const items = await storage.getProgramItems(program.id);
+      const isCourse = program.contentType === "course";
+      const hasFullCourseAccess = isOwner || (isCourse && await hasProAccess(userId));
+      const isLocked = !isCourse && Boolean(program.isPro) && !isOwner && !(await hasProAccess(userId));
+      const allItems = await storage.getProgramItems(program.id);
+      const items = isLocked
+        ? []
+        : isCourse && !hasFullCourseAccess
+          ? allItems.filter((item) => item.dayNumber === 1)
+          : allItems;
       const completions = enrollment ? await storage.getCompletionsForEnrollment(enrollment.id) : [];
       res.json({
         program,
-        items: isLocked ? [] : items,
+        items,
         enrollment: isLocked ? null : enrollment,
-        completions: isLocked ? [] : completions,
+        completions: isLocked
+          ? []
+          : isCourse && !hasFullCourseAccess
+            ? completions.filter((completion) => items.some((item) => item.id === completion.programItemId))
+            : completions,
         isLocked,
+        lockedDays: isCourse && !hasFullCourseAccess
+          ? Array.from({ length: Math.max(0, program.lengthDays - 1) }, (_, index) => index + 2)
+          : [],
       });
     } catch (err) {
       console.error("Error getting program:", err);
@@ -12933,10 +12947,13 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
   app.post("/api/programs/:id/enroll", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.claims.sub;
+      const enrollBodySchema = z.object({ trainingDaysPerWeek: z.number().int().min(1).max(7).optional() });
+      const body = enrollBodySchema.parse(req.body ?? {});
       const program = await storage.getProgramById(req.params.id);
       if (!program) return res.status(404).json({ message: "Program not found" });
       const isOwner = program.authorUserId === userId;
-      if (program.isPro && !isOwner && !(await hasProAccess(userId))) {
+      const isCourse = program.contentType === "course";
+      if (!isCourse && program.isPro && !isOwner && !(await hasProAccess(userId))) {
         return res.status(402).json({ message: "PLAYR1 Pro is required for this program", code: "PRO_REQUIRED" });
       }
       if (!program.isPublished && !isOwner) return res.status(403).json({ message: "Program not available" });
@@ -12949,7 +12966,9 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
         }
         if (!allowed) return res.status(403).json({ message: "Program not available" });
       }
-      const enrollment = await storage.enrollUserInProgram(userId, program.id);
+      const enrollment = await storage.enrollUserInProgram(userId, program.id, isCourse
+        ? { trainingDaysPerWeek: body.trainingDaysPerWeek ?? 3 }
+        : undefined);
       await db.insert(analyticsEvents).values({
         userId,
         event: "program_enrollment_created",
@@ -12982,8 +13001,13 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
         const [preEnroll] = await db.select({ currentDay: programEnrollments.currentDay, programId: programEnrollments.programId })
           .from(programEnrollments).where(eq(programEnrollments.id, req.params.enrollmentId));
         const program = preEnroll?.programId ? await storage.getProgramById(preEnroll.programId) : null;
-        if (program?.isPro && program.authorUserId !== userId && !(await hasProAccess(userId))) {
-          return res.status(402).json({ message: "PLAYR1 Pro is required for this program", code: "PRO_REQUIRED" });
+        if (program && program.authorUserId !== userId && (program.contentType === "course" || program.isPro) && !(await hasProAccess(userId))) {
+          const item = program.contentType === "course"
+            ? (await storage.getProgramItems(program.id)).find((candidate) => candidate.id === req.params.itemId)
+            : undefined;
+          if (!item || item.dayNumber !== 1) {
+            return res.status(402).json({ message: "PLAYR1 Pro is required for this course day", code: "PRO_REQUIRED" });
+          }
         }
         const result = await storage.completeProgramItem({
           enrollmentId: req.params.enrollmentId,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -31,6 +31,7 @@ interface ProgramDetailResponse {
   enrollment: ProgramEnrollment | null;
   completions: ProgramItemCompletion[];
   isLocked?: boolean;
+  lockedDays?: number[];
 }
 
 const difficultyColors: Record<string, string> = {
@@ -48,6 +49,7 @@ export default function ProgramDetailPage() {
   const slug = params.slug;
   const isCourseRoute = location.startsWith("/courses");
   const contentBase = isCourseRoute ? "/courses" : "/programs";
+  const [trainingDaysPerWeek, setTrainingDaysPerWeek] = useState(3);
 
   const { data, isLoading, isError } = useQuery<ProgramDetailResponse>({
     queryKey: ["/api/programs", slug],
@@ -67,17 +69,23 @@ export default function ProgramDetailPage() {
     }
   }, [data?.program]);
 
+  useEffect(() => {
+    if (data?.enrollment?.trainingDaysPerWeek) {
+      setTrainingDaysPerWeek(data.enrollment.trainingDaysPerWeek);
+    }
+  }, [data?.enrollment?.trainingDaysPerWeek]);
+
   const enroll = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (daysPerWeek: number) => {
       if (!data?.program.id) throw new Error("No program");
-      return await apiRequest("POST", `/api/programs/${data.program.id}/enroll`);
+      return await apiRequest("POST", `/api/programs/${data.program.id}/enroll`, isCourseRoute ? { trainingDaysPerWeek: daysPerWeek } : {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/programs", slug] });
       queryClient.invalidateQueries({ queryKey: ["/api/programs/me"] });
       track("program_enroll", { programId: data?.program.id, slug });
-      toast({ title: "You're in!", description: "Let's get to work. Today's session is ready." });
-      setLocation(`${contentBase}/${slug}/today`);
+      toast({ title: "You're in!", description: isCourseRoute ? "Your course plan is ready." : "Let's get to work. Today's session is ready." });
+      if (!isCourseRoute) setLocation(`${contentBase}/${slug}/today`);
     },
     onError: () => toast({ title: "Couldn't enroll", description: "Try again in a moment.", variant: "destructive" }),
   });
@@ -109,7 +117,7 @@ export default function ProgramDetailPage() {
     );
   }
 
-  const { program, items, enrollment, isLocked } = data;
+  const { program, items, enrollment, isLocked, lockedDays = [] } = data;
   const isCourse = program.contentType === "course" || isCourseRoute;
   const accent = program.accentColor || "#f97316";
   const completedCount = completedItemIds.size;
@@ -196,19 +204,42 @@ export default function ProgramDetailPage() {
               <section>
                 <div className="mb-3 flex items-center justify-between gap-4">
                   <h2 className="text-2xl font-bold tracking-tight">{totalDays} days</h2>
-                  {!enrollment && (
+                  {enrollment ? (
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">Your pace</p>
+                      <p className="text-xs text-muted-foreground">{enrollment.trainingDaysPerWeek ?? 3} days per week</p>
+                    </div>
+                  ) : null}
+                </div>
+                {!enrollment && (
+                  <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border/70 bg-card/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <label htmlFor="course-training-frequency" className="text-sm font-semibold">How often do you want to train?</label>
+                      <p className="mt-1 text-xs text-muted-foreground">We’ll spread the 14 sessions across your weekly pace.</p>
+                    </div>
+                    <select
+                      id="course-training-frequency"
+                      value={trainingDaysPerWeek}
+                      onChange={(event) => setTrainingDaysPerWeek(Number(event.target.value))}
+                      className="h-10 rounded-lg border border-border bg-background px-3 text-sm"
+                      data-testid="select-course-training-frequency"
+                    >
+                      {[2, 3, 4, 5, 6, 7].map((days) => <option key={days} value={days}>{days} days per week</option>)}
+                    </select>
+                  </div>
+                )}
+                {!enrollment && (
                     <Button
                       size="sm"
                       className="border-0"
                       style={{ background: accent, color: "white" }}
-                      onClick={() => enroll.mutate()}
+                      onClick={() => enroll.mutate(trainingDaysPerWeek)}
                       disabled={enroll.isPending}
                       data-testid="button-enroll"
                     >
                       {enroll.isPending ? "Starting…" : "Start Course"}
                     </Button>
-                  )}
-                </div>
+                )}
                 <CourseDayPlan
                   items={items}
                   totalDays={totalDays}
@@ -216,6 +247,10 @@ export default function ProgramDetailPage() {
                   currentDay={enrollment?.currentDay ?? null}
                   accent={accent}
                   courseSlug={program.slug}
+                  lockedDays={new Set(lockedDays)}
+                  trainingDaysPerWeek={enrollment?.trainingDaysPerWeek ?? trainingDaysPerWeek}
+                  scheduleStartDate={enrollment?.startedAt ?? null}
+                  onUpgrade={() => openProOffer("full programs and courses")}
                 />
               </section>
             )}
@@ -348,7 +383,7 @@ export default function ProgramDetailPage() {
                   size="lg"
                   className="w-full lg:w-auto border-0"
                   style={{ background: accent, color: "white", boxShadow: "0 0 0 2px rgba(255,255,255,0.12), 0 0 0 5px rgba(255,255,255,0.05), 0 6px 20px rgba(0,0,0,0.25)" }}
-                  onClick={() => enroll.mutate()}
+                  onClick={() => enroll.mutate(trainingDaysPerWeek)}
                   disabled={enroll.isPending}
                   data-testid="button-enroll"
                 >

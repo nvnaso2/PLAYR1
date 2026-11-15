@@ -18,6 +18,7 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS is_pro boolean DEFAULT false;
       ALTER TABLE programs ALTER COLUMN is_pro SET DEFAULT true;
       ALTER TABLE programs ADD COLUMN IF NOT EXISTS content_type varchar NOT NULL DEFAULT 'program';
+      ALTER TABLE program_enrollments ADD COLUMN IF NOT EXISTS training_days_per_week integer;
       ALTER TABLE program_items ADD COLUMN IF NOT EXISTS key_takeaways text[];
       UPDATE programs SET is_pro = true WHERE is_published = true;
       ALTER TABLE workout_drills ADD COLUMN IF NOT EXISTS coaching_notes text;

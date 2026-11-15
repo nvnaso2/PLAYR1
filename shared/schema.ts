@@ -2258,6 +2258,7 @@ export const programEnrollments = pgTable("program_enrollments", {
   programId: varchar("program_id").notNull(),
   startedAt: timestamp("started_at").defaultNow(),
   currentDay: integer("current_day").notNull().default(1),
+  trainingDaysPerWeek: integer("training_days_per_week"),
   completedAt: timestamp("completed_at"),
   assignedByTrainerId: varchar("assigned_by_trainer_id"),
   eventId: varchar("event_id"), // null until events ship

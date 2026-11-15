@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { track } from "@/lib/track";
+import { useProUpgrade } from "@/components/pro-upgrade-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,7 @@ import {
   Dumbbell,
   ExternalLink,
   Flame,
+  LockKeyhole,
   PartyPopper,
   Pause,
   PlayCircle,
@@ -63,6 +65,7 @@ interface ProgramDetailResponse {
   items: ProgramItem[];
   enrollment: ProgramEnrollment | null;
   completions: ProgramItemCompletion[];
+  lockedDays?: number[];
 }
 
 const itemTypeMeta: Record<string, { label: string; Icon: any; color: string; verb: string }> = {
@@ -74,6 +77,7 @@ const itemTypeMeta: Record<string, { label: string; Icon: any; color: string; ve
 };
 
 export default function ProgramTodayPage() {
+  const { openProOffer } = useProUpgrade();
   const params = useParams<{ slug: string }>();
   const [location] = useLocation();
   const search = useSearch();
@@ -202,7 +206,7 @@ export default function ProgramTodayPage() {
     );
   }
 
-  const { program, items, enrollment } = data;
+  const { program, items, enrollment, lockedDays = [] } = data;
   const isCourse = program.contentType === "course" || contentBase === "/courses";
 
   // Not enrolled — bounce to detail
@@ -230,6 +234,31 @@ export default function ProgramTodayPage() {
   const takeaways = Array.from(new Set(dayItems.flatMap((item) => item.keyTakeaways ?? [])));
   const dayDone = dayItems.length > 0 && dayItems.every((it) => completedItemIds.has(it.id));
   const isToday = day === enrollment.currentDay;
+
+  if (isCourse && lockedDays.includes(day)) {
+    return (
+      <div className="mx-auto flex min-h-[70vh] max-w-2xl items-center justify-center px-4 py-12">
+        <Card className="w-full border-amber-400/25 bg-zinc-950">
+          <CardContent className="p-8 text-center">
+            <LockKeyhole className="mx-auto h-10 w-10 text-amber-300" />
+            <p className="mt-5 text-xs font-bold uppercase tracking-[0.18em] text-amber-200">PLAYR1 Pro</p>
+            <h1 className="mt-2 text-2xl font-bold">Unlock Day {day}</h1>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Day 1 is free to try. Upgrade to continue through the rest of this course.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Button onClick={() => openProOffer("full programs and courses")} className="bg-amber-400 text-black hover:bg-amber-300">
+                View Pro options
+              </Button>
+              <Link href={`${contentBase}/${slug}`}>
+                <Button variant="outline">Back to course</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-12">
