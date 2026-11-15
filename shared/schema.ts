@@ -2141,7 +2141,8 @@ export const programItems = pgTable("program_items", {
   // Polymorphic refs — only one is populated based on itemType:
   drillId: varchar("drill_id"), // for "drill" or simple "workout" w/ a single drill
   workoutSpec: jsonb("workout_spec").$type<Array<{
-    drillId: string;
+    drillId?: string;
+    title?: string;
     sets?: number;
     reps?: number;
     durationSec?: number;

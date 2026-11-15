@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { programs, programItems, drills, type ProgramItemType } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { mechanicalFoundationWorkouts } from "./mechanical-foundation-workouts";
 
 // ─── Drill ID lookups (resolved at runtime by slug-like title match) ──────
 // Keeps the seed resilient if drill IDs change between environments.
@@ -54,7 +55,7 @@ type SeedItem = {
   notes?: string;
   keyTakeaways?: string[];
   drillKey?: DrillKey;
-  workout?: Array<{ drillKey: DrillKey; sets?: number; reps?: number; durationSec?: number; notes?: string }>;
+  workout?: Array<{ drillKey?: DrillKey; title?: string; matchTitle?: string; sets?: number; reps?: number; durationSec?: number; notes?: string }>;
   challenge?: { scoringMetric: string; target?: number; timeLimitSec?: number; description?: string };
   watchUrl?: string;
   watchProvider?: "youtube" | "vimeo" | "internal";
@@ -346,8 +347,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 1,
         orderInDay: 1,
         itemType: "workout",
-        title: "Base Balance Warm-up & 100-Make Springboard Progression",
-        notes: "Own your base before adding speed. Reset your feet and vertical axis after every miss.",
+        title: "Balance & Springboard Shooting",
+        notes: "Work through the listed form, balance, and movement shots. Keep the ball of the foot connected to the floor and stay balanced through every release.",
         workout: [
           { drillKey: "formShooting", sets: 3, reps: 20, notes: "Close-range balance reps" },
           { drillKey: "catchShoot", sets: 4, reps: 25, notes: "Finish with 100 balanced makes" },
@@ -371,8 +372,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 2,
         orderInDay: 1,
         itemType: "workout",
-        title: "Energy Transfer Reps",
-        notes: "Move from low hips to a fast pocket lift. Keep the sequence compact and repeatable.",
+        title: "Ball Moves First, Hips Load",
+        notes: "Move from low hips into a fast pocket lift. Keep the sequence compact and repeatable.",
         workout: [
           { drillKey: "formShooting", sets: 3, reps: 25, notes: "Low-hips to pocket lift" },
           { drillKey: "catchShoot", sets: 4, reps: 15, notes: "Game-speed sequence" },
@@ -396,8 +397,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 3,
         orderInDay: 1,
         itemType: "workout",
-        title: "Straight-Line Spin Test & 50 Swishes Only",
-        notes: "Start close enough to make clean feedback unavoidable. Do not move back until the ball is spinning correctly.",
+        title: "Follow-Through & Spin Test",
+        notes: "Hold your finish on the first shooting block, then complete the form-shot and touch work listed below.",
         workout: [
           { drillKey: "formShooting", sets: 4, reps: 25, notes: "Straight-line spin test" },
           { drillKey: "freeThrows", sets: 5, reps: 10, notes: "50 swishes target" },
@@ -421,8 +422,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 4,
         orderInDay: 1,
         itemType: "workout",
-        title: "The Mechanical Benchmark Test",
-        notes: "Log your initial baseline percentages before moving into dynamic movement.",
+        title: "Mechanics Recap & Volume Test",
+        notes: "Pick a cue from the first three days, then complete the recap and volume workout while tracking how the shots feel.",
         workout: [
           { drillKey: "formShooting", sets: 2, reps: 25, notes: "Mechanics reset" },
           { drillKey: "catchShoot", sets: 4, reps: 25, notes: "Record makes and attempts" },
@@ -446,8 +447,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 5,
         orderInDay: 1,
         itemType: "workout",
-        title: "The 5-Move Matrix",
-        notes: "Complete 10 makes per move from three spots. Keep the pickup quiet and the finish balanced.",
+        title: "Creating Space & Movement Patterns",
+        notes: "Practice the listed quick-dribble, jab-return, side-step, and step-back patterns. Get balanced before every pickup.",
         workout: [
           { drillKey: "pullUp", sets: 3, reps: 10, notes: "Three spots" },
           { drillKey: "catchShoot", sets: 3, reps: 10, notes: "One set per move" },
@@ -472,8 +473,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 6,
         orderInDay: 1,
         itemType: "workout",
-        title: "Off-Ball Relocation Shooting",
-        notes: "Relocate, catch, and sweep into the shot without letting the feet outrun the upper body.",
+        title: "Off-Ball Catch & Movement",
+        notes: "Practice 1-2 and two-foot catches, curls, and slide drags. Plant and absorb before the shot.",
         workout: [
           { drillKey: "catchShoot", sets: 4, reps: 20, notes: "1-2 and hop pickups" },
           { drillKey: "heatUp", sets: 3, reps: 15, notes: "Sweep-and-sway reps" },
@@ -497,8 +498,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 7,
         orderInDay: 1,
         itemType: "workout",
-        title: "Heavy-Ball / High-Speed Gather Series",
-        notes: "Alternate controlled strength reps with game-speed pickups. Keep the final motion smooth.",
+        title: "Ball on a String — Handle & Game Shots",
+        notes: "Repeat the handle series for three rounds, then apply the combinations to pull-ups and step-backs.",
         workout: [
           { drillKey: "pullUp", sets: 3, reps: 15, notes: "High-to-low transitions" },
           { drillKey: "heatUp", sets: 3, reps: 20, notes: "Fast pocket gathers" },
@@ -522,8 +523,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 8,
         orderInDay: 1,
         itemType: "workout",
-        title: "150-Make Dynamic Movement Circuit",
-        notes: "Cycle through relocation, pull-ups, and catch-and-shoot reps without losing your mechanical checkpoints.",
+        title: "Smooth Pickups & Dynamic Shooting",
+        notes: "Combine balanced pickups, attack dribbles, floaters, and shooting from the listed spots.",
         workout: [
           { drillKey: "catchShoot", sets: 3, reps: 25, notes: "Relocation makes" },
           { drillKey: "pullUp", sets: 3, reps: 15, notes: "Space creation" },
@@ -548,8 +549,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 9,
         orderInDay: 1,
         itemType: "workout",
-        title: "Streak 5 Challenge",
-        notes: "Hit five in a row from five spots to advance. Reset calmly after a miss.",
+        title: "Mindset, Range & Streaks",
+        notes: "Warm up, find your range, and run the listed calibration and streak challenges. Reset calmly after a miss.",
         workout: [
           { drillKey: "tenThrees", sets: 5, reps: 1, notes: "Five consecutive makes per spot" },
           { drillKey: "freeThrows", sets: 3, reps: 10, notes: "Reset routine" },
@@ -573,8 +574,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 10,
         orderInDay: 1,
         itemType: "workout",
-        title: "Pre-Workout Activation Protocol",
-        notes: "Run the same activation sequence every time and notice which cues settle your shot.",
+        title: "75-Minute Complete Workout",
+        notes: "Complete the full warm-up, shooting, finishing, ball-screen, and ball-handling session from the blueprint.",
         workout: [
           { drillKey: "formShooting", sets: 3, reps: 20, notes: "Touch and rhythm" },
           { drillKey: "catchShoot", sets: 3, reps: 20, notes: "Move into flow" },
@@ -598,8 +599,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 11,
         orderInDay: 1,
         itemType: "workout",
-        title: "The 200-Make Metric Log",
-        notes: "Use in-app tracking to record makes, attempts, and the conditions of the session.",
+        title: "Confidence & Measurement Workout",
+        notes: "Record how each shot felt without obsessing over the result. Finish the running and pre-game nerves protocol.",
         workout: [
           { drillKey: "shooting200", sets: 1, reps: 200, notes: "Log every attempt" },
         ],
@@ -622,8 +623,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 12,
         orderInDay: 1,
         itemType: "workout",
-        title: "Sprint-to-Shot Burnout Drills",
-        notes: "Sprint, settle, and shoot. Protect your base and finish through the same checkpoints.",
+        title: "High-Fatigue Conversion Workout",
+        notes: "Sprint the court, settle, and shoot under fatigue. Protect your balance and keep the same mechanics.",
         workout: [
           { drillKey: "heatUp", sets: 4, reps: 15, notes: "Sprint into game shots" },
           { drillKey: "catchShoot", sets: 3, reps: 20, notes: "Hold the finish" },
@@ -647,8 +648,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 13,
         orderInDay: 1,
         itemType: "workout",
-        title: "The Game-Speed Benchmark Test",
-        notes: "Create a controlled pressure environment and compare the result to Day 4.",
+        title: "Game-Simulation Workout",
+        notes: "Use chairs and cones to recreate off-ball and on-ball reads, then test the shots in pickup games.",
         workout: [
           { drillKey: "pullUp", sets: 3, reps: 15, notes: "Quick-trigger pull-ups" },
           { drillKey: "tenThrees", sets: 3, reps: 1, notes: "Contested-vision simulation" },
@@ -672,8 +673,8 @@ const PROGRAMS: SeedProgram[] = [
         dayNumber: 14,
         orderInDay: 1,
         itemType: "workout",
-        title: "The Adaptive Shot Final Challenge",
-        notes: "Complete the final 100 with the shot mix that best tests your current game.",
+        title: "Pressure Games & Final Challenge",
+        notes: "Set a goal, compete through the shooting games, and finish with pressure free throws and pickup play.",
         workout: [
           { drillKey: "shooting200", sets: 1, reps: 100, notes: "Final 100 makes" },
           { drillKey: "freeThrows", sets: 2, reps: 10, notes: "Close with pressure free throws" },
@@ -687,19 +688,20 @@ const PROGRAMS: SeedProgram[] = [
 // ─── Seed function ────────────────────────────────────────────────────────
 
 export async function seedPrograms() {
-  // Idempotent: skip if any of our seeded programs already exist
-  const existing = await db.select({ slug: programs.slug }).from(programs);
-  const existingSlugs = new Set(existing.map((r) => r.slug));
-
+  const existing = await db.select({ id: programs.id, slug: programs.slug }).from(programs);
+  const existingBySlug = new Map(existing.map((r) => [r.slug, r.id]));
   const drillIds = await resolveDrillIds();
+  const catalog = await db.select({ id: drills.id, title: drills.title }).from(drills);
+  const drillIdByTitle = new Map(catalog.map((d) => [d.title.trim().toLowerCase(), d.id]));
   let inserted = 0;
+  let updated = 0;
 
   // The product now exposes courses only. Keep the historical definitions in
   // this file for reference, but never recreate the retired programs.
   for (const p of PROGRAMS.filter((program) => program.contentType === "course")) {
-    if (existingSlugs.has(p.slug)) continue;
-
-    const [program] = await db
+    let programId = existingBySlug.get(p.slug);
+    if (!programId) {
+      const [program] = await db
       .insert(programs)
       .values({
         slug: p.slug,
@@ -721,10 +723,13 @@ export async function seedPrograms() {
         isFeatured: p.isFeatured,
       })
       .returning();
+      programId = program.id;
+      inserted++;
+    }
 
     const itemRows = p.items.map((it) => {
       const row: any = {
-        programId: program.id,
+        programId,
         dayNumber: it.dayNumber,
         orderInDay: it.orderInDay ?? 0,
         itemType: it.itemType,
@@ -734,11 +739,42 @@ export async function seedPrograms() {
         estimatedMinutes: it.estimatedMinutes,
       };
       if (it.drillKey) row.drillId = drillIds[it.drillKey] ?? null;
-      if (it.workout) {
-        row.workoutSpec = it.workout
-          .map((w) => ({ ...w, drillId: drillIds[w.drillKey] ?? null }))
-          .filter((w) => w.drillId)
-          .map(({ drillKey, ...rest }) => rest);
+      const courseWorkout = p.slug === "mechanical-foundation-14" ? mechanicalFoundationWorkouts[it.dayNumber] : undefined;
+      const workout = courseWorkout ?? it.workout;
+      if (workout) {
+        row.workoutSpec = workout.map((w: { drillKey?: DrillKey; title?: string; matchTitle?: string; sets?: number; reps?: number; durationSec?: number; notes?: string }) => {
+          const title = w.title ?? (w.drillKey ? TITLE_BY_KEY[w.drillKey] : "Workout drill");
+          const catalogAliases: Record<string, string> = {
+            "Free Throw Routine": "Free Throws",
+            "Pull-Up Jumper": "Mid Range Pull-ups",
+            "Catch and Shoot": "Catch & Shoot 3s",
+            "Behind the Backs": "Behind the Back",
+            "Cross Tweens": "Cross Between",
+            "Tween Behinds": "Between Behind",
+            "Cross Behinds": "Cross Behind",
+            "Cross, Tween, Behinds": "Cross Between Behind",
+            "In & Outs": "In & Out Crossover Combo",
+            "Find Your Range Drill": "Find Your Range",
+            "Warm Up": "The Warmup",
+            "3s": "Catch & Shoot 3s",
+            "Wing Curls": "Wing Curl 3’s – 20 Makes",
+            "Transition 3s — Top of Key": "Transition 3's",
+            "Curry Drill — Mid Range": "Curry Drill",
+            "Curry Drill — 3PT": "Curry Drill",
+          };
+          const requestedCatalogTitle = w.matchTitle ?? catalogAliases[title] ?? title;
+          const catalogTitle = catalogAliases[requestedCatalogTitle] ?? requestedCatalogTitle;
+          const drillId = drillIdByTitle.get(catalogTitle.trim().toLowerCase())
+            ?? (w.drillKey ? drillIds[w.drillKey] : undefined);
+          return {
+            ...(drillId ? { drillId } : {}),
+            title,
+            ...(w.sets ? { sets: w.sets } : {}),
+            ...(w.reps !== undefined ? { reps: w.reps } : {}),
+            ...(w.durationSec ? { durationSec: w.durationSec } : {}),
+            ...(w.notes ? { notes: w.notes } : {}),
+          };
+        });
       }
       if (it.challenge) row.challengeSpec = it.challenge;
       if (it.watchUrl) {
@@ -748,15 +784,34 @@ export async function seedPrograms() {
       return row;
     });
 
-    if (itemRows.length > 0) {
-      await db.insert(programItems).values(itemRows);
+    for (const row of itemRows) {
+      const [current] = await db.select({
+        id: programItems.id,
+        itemType: programItems.itemType,
+        workoutSpec: programItems.workoutSpec,
+      })
+        .from(programItems)
+        .where(and(
+          eq(programItems.programId, programId),
+          eq(programItems.dayNumber, row.dayNumber),
+          eq(programItems.orderInDay, row.orderInDay),
+        ))
+        .limit(1);
+      if (current) {
+        if (current.itemType !== "workout") continue;
+        // Upgrade legacy seed rows once, but do not overwrite later Program
+        // Studio edits after the new custom workout titles have been written.
+        const alreadyUpgraded = Array.isArray(current.workoutSpec)
+          && current.workoutSpec.some((entry) => !!entry.title);
+        if (alreadyUpgraded) continue;
+        const { id: _id, programId: _programId, ...values } = row;
+        await db.update(programItems).set(values).where(eq(programItems.id, current.id));
+        updated++;
+      } else {
+        await db.insert(programItems).values(row);
+      }
     }
-    inserted++;
   }
 
-  if (inserted > 0) {
-    console.log(`Programs seeded: ${inserted} new`);
-  } else {
-    console.log("Programs already seeded, skipping");
-  }
+  console.log(`Course content synchronized: ${inserted} new programs, ${updated} existing items refreshed`);
 }

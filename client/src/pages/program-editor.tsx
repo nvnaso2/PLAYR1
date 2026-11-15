@@ -681,12 +681,12 @@ function ItemEditorDialog({
   };
   const initialRows = (): WorkoutDrillRow[] => {
     if (existingItem?.workoutSpec && existingItem.workoutSpec.length > 0) {
-      return existingItem.workoutSpec.map((w) => ({
+      return existingItem.workoutSpec.flatMap((w) => w.drillId ? [{
         drillId: w.drillId,
         sets: w.sets,
         reps: w.reps,
         durationSec: w.durationSec,
-      }));
+      }] : []);
     }
     if (existingItem?.drillId) {
       return [{ drillId: existingItem.drillId, sets: undefined, reps: undefined }];
