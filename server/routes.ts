@@ -12920,9 +12920,23 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
       const items = isLocked
         ? []
         : isCourse && !hasFullCourseAccess
-          ? allItems.filter((item) => item.dayNumber === 1)
+          ? [
+              ...allItems.filter((item) => item.dayNumber === 1),
+              ...allItems
+                .filter((item) => item.dayNumber > 1 && ["watch", "workout"].includes(item.itemType))
+                .map((item) => ({
+                  id: item.id,
+                  programId: item.programId,
+                  dayNumber: item.dayNumber,
+                  orderInDay: item.orderInDay,
+                  itemType: item.itemType,
+                  title: item.title,
+                  estimatedMinutes: item.estimatedMinutes,
+                })),
+            ]
           : allItems;
       const completions = enrollment ? await storage.getCompletionsForEnrollment(enrollment.id) : [];
+      const previewSafeItemIds = new Set(allItems.filter((item) => item.dayNumber === 1).map((item) => item.id));
       res.json({
         program,
         items,
@@ -12930,7 +12944,7 @@ ${principlesText ? `\nPLAYR1 BRAND PRINCIPLES:\n${principlesText}` : ""}
         completions: isLocked
           ? []
           : isCourse && !hasFullCourseAccess
-            ? completions.filter((completion) => items.some((item) => item.id === completion.programItemId))
+            ? completions.filter((completion) => previewSafeItemIds.has(completion.programItemId))
             : completions,
         isLocked,
         lockedDays: isCourse && !hasFullCourseAccess

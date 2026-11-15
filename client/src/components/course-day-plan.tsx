@@ -57,7 +57,10 @@ export function CourseDayPlan({
   const [, setLocation] = useLocation();
 
   useEffect(() => setSelectedDay((day) => Math.min(Math.max(day, 1), Math.max(dayCount, 1))), [dayCount]);
-  useEffect(() => setVideoStarted(false), [selectedDay]);
+  useEffect(() => {
+    setVideoStarted(false);
+    setWorkoutOpen(false);
+  }, [selectedDay]);
 
   const byDay = useMemo(() => {
     const grouped = new Map<number, ProgramItem[]>();
@@ -68,11 +71,11 @@ export function CourseDayPlan({
 
   const dayItems = byDay.get(selectedDay) ?? [];
   const isLocked = lockedDays?.has(selectedDay) ?? false;
-  const lesson = isLocked ? undefined : dayItems.find((item) => item.itemType === "watch");
-  const workout = isLocked ? undefined : dayItems.find((item) => ["workout", "drill", "challenge"].includes(item.itemType));
+  const lesson = dayItems.find((item) => item.itemType === "watch");
+  const workout = dayItems.find((item) => ["workout", "drill", "challenge"].includes(item.itemType));
   const complete = !isLocked && dayItems.length > 0 && dayItems.every((item) => completedItemIds.has(item.id));
   const isCurrent = currentDay === selectedDay;
-  const videoUrl = getYouTubeEmbed(lesson?.watchUrl);
+  const videoUrl = isLocked ? null : getYouTubeEmbed(lesson?.watchUrl);
   const scheduledDate = scheduleStartDate
     ? new Date(new Date(scheduleStartDate).getTime() + Math.floor((selectedDay - 1) * 7 / Math.max(1, trainingDaysPerWeek)) * 86400000)
     : null;
@@ -140,17 +143,21 @@ export function CourseDayPlan({
           if (startX !== null && endX !== undefined && Math.abs(endX - startX) > 48) moveDay(endX < startX ? 1 : -1);
         }}
       >
-        {isLocked ? (
-          <div className="flex flex-col items-center py-10 text-center">
-            <LockKeyhole className="h-8 w-8 text-amber-300" />
-            <h2 className="mt-3 text-lg font-bold">Day {selectedDay} is for PLAYR1 Pro</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Day 1 is free to try. Unlock the rest of this course with Pro.</p>
-            {onUpgrade && <button type="button" onClick={onUpgrade} className="mt-3 font-bold text-orange-400 underline-offset-4 hover:underline">View Pro options</button>}
-          </div>
-        ) : (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
             <div className="relative aspect-video max-h-[27dvh] w-full shrink-0 overflow-hidden bg-black">
-              {videoUrl && videoStarted ? (
+              {isLocked ? (
+                <>
+                  {courseCoverImageUrl ? (
+                    <img src={courseCoverImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
+                  ) : (
+                    <span className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${accent}99, #111 80%)` }} />
+                  )}
+                  <div className="absolute inset-0 bg-black/35" />
+                  <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white">
+                    <LockKeyhole className="h-3.5 w-3.5 text-orange-300" /> Day {selectedDay} preview · locked
+                  </div>
+                </>
+              ) : videoUrl && videoStarted ? (
                 <iframe
                   src={videoUrl}
                   title={lesson?.title ?? `Day ${selectedDay} lesson`}
@@ -183,6 +190,7 @@ export function CourseDayPlan({
 
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               <h2 className="font-heading text-xl font-black uppercase sm:text-2xl">{lesson?.title ?? `Day ${selectedDay}`}</h2>
+              {isLocked && <span className="text-xs font-bold uppercase tracking-wide text-amber-300">Preview only</span>}
               {isCurrent && <span className="text-xs font-bold uppercase tracking-wide text-orange-400">Current day</span>}
               {complete && <span className="text-xs font-bold uppercase tracking-wide text-emerald-400">Complete</span>}
               {scheduledDate && !Number.isNaN(scheduledDate.getTime()) && (
@@ -191,13 +199,20 @@ export function CourseDayPlan({
                   {scheduledDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </span>
               )}
+              {isLocked && onUpgrade && (
+                <button type="button" onClick={onUpgrade} className="ml-auto text-xs font-bold text-orange-300 underline-offset-4 hover:underline">
+                  Unlock with Pro
+                </button>
+              )}
             </div>
 
             {workout && (
               <button
                 type="button"
                 onClick={() => setWorkoutOpen(true)}
-                className="flex min-h-[88px] w-full shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-zinc-300 bg-[#f6f6f4] p-2 text-left text-zinc-950 shadow-[0_8px_24px_rgba(0,0,0,.25)] transition hover:-translate-y-0.5"
+                disabled={isLocked}
+                aria-label={isLocked ? `Day ${selectedDay} workout preview, locked` : `Preview Day ${selectedDay} workout`}
+                className={`flex min-h-[88px] w-full shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-zinc-300 bg-[#f6f6f4] p-2 text-left text-zinc-950 shadow-[0_8px_24px_rgba(0,0,0,.25)] transition ${isLocked ? "cursor-not-allowed opacity-75" : "hover:-translate-y-0.5"}`}
                 data-testid={`button-course-workout-${selectedDay}`}
               >
                 <span className="flex min-w-0 flex-1 flex-col items-start justify-center pl-1">
@@ -206,14 +221,14 @@ export function CourseDayPlan({
                     Day {selectedDay} workout{workout.estimatedMinutes ? ` · ${workout.estimatedMinutes} min` : ""}
                   </span>
                   <span className="mt-2 inline-flex min-h-7 items-center gap-2 rounded-md bg-zinc-950 px-3 text-[10px] font-black uppercase text-white">
-                    <Dumbbell className="h-3.5 w-3.5" /> Preview workout
+                    {isLocked ? <LockKeyhole className="h-3.5 w-3.5 text-orange-300" /> : <Dumbbell className="h-3.5 w-3.5" />}
+                    {isLocked ? "Locked preview" : "Preview workout"}
                   </span>
                 </span>
                 {courseCoverImageUrl && <img src={courseCoverImageUrl} alt="" className="h-[72px] w-[30%] shrink-0 rounded-lg object-cover" />}
               </button>
             )}
           </div>
-        )}
       </div>
       <Dialog open={workoutOpen} onOpenChange={setWorkoutOpen}>
         <DialogContent className="flex h-[min(88dvh,920px)] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1.5rem)] w-[calc(100%-1rem)] max-w-xl flex-col overflow-hidden rounded-2xl border-0 bg-transparent p-0 text-zinc-950 shadow-none [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-9 [&>button]:w-9 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full [&>button]:border [&>button]:border-zinc-300 [&>button]:bg-white [&>button]:opacity-100">
