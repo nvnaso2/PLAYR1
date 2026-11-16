@@ -1,8 +1,8 @@
-# Mechanical Foundation: drills to add
+# Mechanical Foundation: drill title audit
 
-This list compares the supplied 14-day blueprint and the user's verified corrections with the app's drill catalog. The course preview shows these entries with their prescribed reps and notes before the matching library drills are added. Similar drills are not linked when they would misrepresent the requested drill.
+This list preserves the course title audit and the user's verified corrections. The app now creates a blank Station 1 template for every unique drill title in `server/mechanical-foundation-workouts.ts` that is not already in the admin catalog. The seed keeps the approved Baseline-to-Baseline 3's link to Running 3's; other course titles stay distinct until reviewed.
 
-Add these drill names to the catalog and then tag them in the Drill Tags funnel:
+The lists below are the original catalog-gap checklist, not the complete source for the active review queue:
 
 - 1 Dribble Step Forwards
 - 1 High, 1 Low

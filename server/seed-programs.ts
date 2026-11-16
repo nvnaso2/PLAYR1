@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { programs, programItems, drills, type ProgramItemType } from "@shared/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { mechanicalFoundationWorkouts } from "./mechanical-foundation-workouts";
 
 // ─── Drill ID lookups (resolved at runtime by slug-like title match) ──────
@@ -688,6 +688,40 @@ const PROGRAMS: SeedProgram[] = [
 // ─── Seed function ────────────────────────────────────────────────────────
 
 export async function seedPrograms() {
+  const courseDrillTitles = [...new Set(
+    Object.values(mechanicalFoundationWorkouts).flat().map((entry) => entry.title),
+  )].filter((title) => title !== "Baseline to Baseline 3's");
+  const existingDrillRows = await db.select({ title: drills.title }).from(drills).where(and(
+    isNull(drills.userId),
+    or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated)),
+  ));
+  const existingDrillTitles = new Set(existingDrillRows.map((drill) => drill.title.trim().toLowerCase()));
+  const missingCourseDrills = courseDrillTitles.filter((title) => !existingDrillTitles.has(title.trim().toLowerCase()));
+  if (missingCourseDrills.length) {
+    const templates = missingCourseDrills.map((title) => {
+      const normalized = title.toLowerCase();
+      const category: "workouts" | "finishing" | "ball-handling" | "shooting" = /pick[- ]?up games|make your own/.test(normalized)
+        ? "workouts"
+        : /layup|mikan|floater|finish|scoop|reverse/.test(normalized)
+          ? "finishing"
+          : /pounds|crossover|crossovers|between|behind|tween|in[- &]*out|walking|zig[- ]?zag/.test(normalized)
+            ? "ball-handling"
+            : "shooting";
+      return {
+        title,
+        category,
+        difficulty: "beginner" as const,
+        skillTags: [] as string[],
+        workoutTags: [] as string[],
+        tagsReviewed: false,
+        tagReviewStage: "diagram-tags" as const,
+        isAiGenerated: false,
+      };
+    });
+    await db.insert(drills).values(templates);
+    console.log(`Added ${templates.length} Mechanical Foundation drills to Station 1`);
+  }
+
   const existing = await db.select({ id: programs.id, slug: programs.slug }).from(programs);
   const existingBySlug = new Map(existing.map((r) => [r.slug, r.id]));
   const drillIds = await resolveDrillIds();
@@ -762,8 +796,12 @@ export async function seedPrograms() {
             "Curry Drill — Mid Range": "Curry Drill",
             "Curry Drill — 3PT": "Curry Drill",
           };
-          const requestedCatalogTitle = w.matchTitle ?? catalogAliases[title] ?? title;
-          const catalogTitle = catalogAliases[requestedCatalogTitle] ?? requestedCatalogTitle;
+          const isMechanicalFoundation = p.slug === "mechanical-foundation-14";
+          const explicitCourseAlias = title === "Baseline to Baseline 3's" && w.matchTitle === "Running 3's";
+          const requestedCatalogTitle = isMechanicalFoundation
+            ? explicitCourseAlias ? w.matchTitle! : title
+            : w.matchTitle ?? catalogAliases[title] ?? title;
+          const catalogTitle = isMechanicalFoundation ? requestedCatalogTitle : catalogAliases[requestedCatalogTitle] ?? requestedCatalogTitle;
           const drillId = drillIdByTitle.get(catalogTitle.trim().toLowerCase())
             ?? (w.drillKey ? drillIds[w.drillKey] : undefined);
           return {
@@ -866,7 +904,7 @@ export async function seedPrograms() {
             },
           };
           const corrections = legacyTitlesByDay[row.dayNumber];
-          const stored = current.workoutSpec as Array<{ title?: string }>;
+          const stored = current.workoutSpec as Array<{ title?: string; drillId?: string }>;
           const nextSpec = Array.isArray(row.workoutSpec) ? [...row.workoutSpec] : [];
           let corrected = false;
           for (const [indexText, legacyTitle] of Object.entries(corrections ?? {})) {
@@ -888,6 +926,18 @@ export async function seedPrograms() {
               && nextSpec[index]
             ) {
               stored[index] = nextSpec[index];
+              corrected = true;
+            }
+          }
+          for (let index = 0; index < stored.length; index++) {
+            const expected = nextSpec[index] as { title?: string; drillId?: string } | undefined;
+            if (
+              stored[index]?.title
+              && stored[index].title === expected?.title
+              && !stored[index].drillId
+              && expected?.drillId
+            ) {
+              stored[index] = { ...stored[index], drillId: expected.drillId };
               corrected = true;
             }
           }

@@ -1,17 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Dumbbell } from "lucide-react";
 import { Link } from "wouter";
-import { DrillCard } from "@/components/drill-card";
+import { DrillLibraryCard } from "@/components/drill-library-card";
+import { findRecommendedDrill } from "@/lib/lead-magnet-drill-matching";
 import type { Drill } from "@shared/schema";
 
 export type RecommendedDrill = {
   title: string;
   description?: string;
 };
-
-function normalizeTitle(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
-}
 
 export function RecommendedDrillCards({ drills }: { drills: RecommendedDrill[] }) {
   const { data: catalogDrills = [] } = useQuery<Drill[]>({
@@ -21,18 +18,12 @@ export function RecommendedDrillCards({ drills }: { drills: RecommendedDrill[] }
   return (
     <div className="lm-recommended-drills" aria-label="Recommended drills">
       {drills.map((drill) => {
-        const normalizedTitle = normalizeTitle(drill.title);
-        const catalogMatch = catalogDrills.find((candidate) =>
-          normalizeTitle(candidate.title) === normalizedTitle
-        ) ?? catalogDrills.find((candidate) => {
-          const candidateTitle = normalizeTitle(candidate.title);
-          return normalizedTitle.length > 8 && (
-            candidateTitle.includes(normalizedTitle) || normalizedTitle.includes(candidateTitle)
-          );
-        });
+        const catalogMatch = findRecommendedDrill(drill.title, catalogDrills);
 
         return catalogMatch ? (
-          <DrillCard key={drill.title} drill={catalogMatch} viewMode="grid" />
+          <div key={drill.title}>
+            <DrillLibraryCard drill={catalogMatch} />
+          </div>
         ) : (
           <Link
             key={drill.title}
@@ -50,7 +41,7 @@ export function RecommendedDrillCards({ drills }: { drills: RecommendedDrill[] }
                 </span>
               )}
               <span className="mt-1 block text-[10px] font-bold uppercase tracking-[.13em] text-zinc-500">
-                Open Drill Library
+                View available drills
               </span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:text-white" />

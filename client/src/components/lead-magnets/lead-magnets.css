@@ -445,11 +445,11 @@ main.lm-page:has(.lm-recommended-drills) .mx-auto.max-w-2xl {
 }
 
 .lm-recommended-drill-fallback {
-  min-height: 220px;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-end;
-  border-radius: 1rem;
+  min-height: 82px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  border-radius: .9rem;
   background: linear-gradient(155deg, rgb(36 38 34 / 88%), #080809 68%) !important;
 }
 
