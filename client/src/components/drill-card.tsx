@@ -133,6 +133,11 @@ export function DrillCard({
             )} data-testid={`text-drill-title-${drill.id}`}>
               {drill.title}
             </h3>
+            {drill.variationOfDrillId && (
+              <Badge variant="outline" className="mt-1 border-orange-500/30 px-1.5 py-0 text-[9px] uppercase tracking-wide text-orange-300">
+                Variation
+              </Badge>
+            )}
             <div className={cn(
               "flex min-w-0 items-center gap-3 text-[10px] text-zinc-400",
               hubFeatured && "gap-1.5 text-[8px]"

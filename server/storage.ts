@@ -841,7 +841,10 @@ export class DatabaseStorage {
 
   // Drills
   async getDrills(): Promise<Drill[]> {
-    return await db.select().from(drills).where(or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))).orderBy(drills.title);
+    return await db.select().from(drills).where(and(
+      eq(drills.tagReviewStage, "complete"),
+      or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))
+    )).orderBy(drills.title);
   }
 
   async getAllDrills(): Promise<Drill[]> {
@@ -854,18 +857,29 @@ export class DatabaseStorage {
   }
 
   async getFeaturedDrills(): Promise<Drill[]> {
-    return await db.select().from(drills).where(and(eq(drills.isFeatured, true), or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated)))).limit(8);
+    return await db.select().from(drills).where(and(
+      eq(drills.isFeatured, true),
+      eq(drills.tagReviewStage, "complete"),
+      or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))
+    )).limit(8);
   }
 
   async getDrillsByCategory(category: string): Promise<Drill[]> {
-    return await db.select().from(drills).where(and(eq(drills.category, category as any), or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))));
+    return await db.select().from(drills).where(and(
+      eq(drills.category, category as any),
+      eq(drills.tagReviewStage, "complete"),
+      or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))
+    ));
   }
 
   async getDrillsForUser(userId: string): Promise<Drill[]> {
     // Get admin drills (userId is null, not AI) and user's own drills
     return await db.select().from(drills)
       .where(and(
-        sql`${drills.userId} IS NULL OR ${drills.userId} = ${userId}`,
+        or(
+          and(isNull(drills.userId), eq(drills.tagReviewStage, "complete")),
+          eq(drills.userId, userId)
+        ),
         or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated))
       ))
       .orderBy(drills.title);

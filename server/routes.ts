@@ -44,7 +44,7 @@ import {
 } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, PLAYER_CARD_CAREER_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, personalRecords, teamAwards, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, playerSetupProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, PLAYER_CARD_CAREER_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, personalRecords, teamAwards, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, playerSetupProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES, DRILL_REVIEW_STAGES } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -1094,6 +1094,7 @@ export async function registerRoutes(
           count: sql<number>`count(*)::int`,
         })
         .from(drills)
+        .where(eq(drills.tagReviewStage, "complete"))
         .groupBy(drills.category);
       const result: Record<string, number> = {};
       for (const row of counts) {
@@ -1122,7 +1123,7 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const drill = await storage.getDrillById(req.params.id);
-      if (!drill) {
+      if (!drill || (drill.tagReviewStage !== "complete" && !drill.userId)) {
         return res.status(404).json({ message: "Drill not found" });
       }
       if (drill.userId !== userId) {
@@ -1198,7 +1199,7 @@ export async function registerRoutes(
   app.get("/api/drills/:id", async (req, res) => {
     try {
       const drill = await storage.getDrillById(req.params.id);
-      if (!drill) {
+      if (!drill || (drill.tagReviewStage !== "complete" && !drill.userId)) {
         return res.status(404).json({ message: "Drill not found" });
       }
       res.json(drill);
@@ -1235,7 +1236,7 @@ export async function registerRoutes(
 
   app.get("/api/admin/drill-tag-review", isAuthenticated, isAdmin, async (_req, res) => {
     try {
-      const allDrills = await storage.getDrills();
+      const allDrills = await storage.getAllDrills();
       res.json(allDrills.filter((drill) => !drill.userId && !drill.isAiGenerated));
     } catch (error) {
       console.error("Error fetching drill tag review queue:", error);
@@ -1245,13 +1246,14 @@ export async function registerRoutes(
 
   app.post("/api/admin/drill-tag-review/reset", isAuthenticated, isAdmin, async (_req, res) => {
     try {
-      const allDrills = await storage.getDrills();
+      const allDrills = await storage.getAllDrills();
       const catalogDrills = allDrills.filter((drill) => !drill.userId && !drill.isAiGenerated);
       for (const drill of catalogDrills) {
         await storage.updateDrill(drill.id, {
           skillTags: [],
           workoutTags: [],
           tagsReviewed: false,
+          tagReviewStage: "diagram-tags",
         });
       }
       invalidateCoachPCache("drills");
@@ -1264,21 +1266,47 @@ export async function registerRoutes(
 
   app.patch("/api/admin/drill-tag-review/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const { skillTags, workoutTags, difficulty, diagramData } = insertDrillSchema
-        .pick({ skillTags: true, workoutTags: true, difficulty: true, diagramData: true })
-        .parse(req.body);
-      if (!skillTags || !skillTags.length || !workoutTags || !difficulty || !["beginner", "intermediate", "advanced"].includes(difficulty)) {
-        return res.status(400).json({ message: "Choose at least one skill and a supported difficulty" });
+      const parsed = insertDrillSchema.partial().parse(req.body);
+      const current = await storage.getDrillById(req.params.id);
+      if (!current || current.userId || current.isAiGenerated) return res.status(404).json({ message: "Drill not found" });
+      const stage = parsed.tagReviewStage ?? current.tagReviewStage;
+      if (!DRILL_REVIEW_STAGES.some((candidate) => candidate === stage)) return res.status(400).json({ message: "Choose a valid review station" });
+      const update = {
+        ...(parsed.title !== undefined ? { title: parsed.title } : {}),
+        ...(parsed.duration !== undefined ? { duration: parsed.duration } : {}),
+        ...(parsed.description !== undefined ? { description: parsed.description } : {}),
+        ...(parsed.videoUrl !== undefined ? { videoUrl: parsed.videoUrl } : {}),
+        ...(parsed.skillTags !== undefined ? { skillTags: parsed.skillTags } : {}),
+        ...(parsed.workoutTags !== undefined ? { workoutTags: parsed.workoutTags } : {}),
+        ...(parsed.difficulty !== undefined ? { difficulty: parsed.difficulty } : {}),
+        ...(parsed.diagramData !== undefined ? { diagramData: parsed.diagramData } : {}),
+        ...(parsed.variationOfDrillId !== undefined ? { variationOfDrillId: parsed.variationOfDrillId } : {}),
+      };
+      const merged = { ...current, ...update };
+      const stageIndex = DRILL_REVIEW_STAGES.findIndex((candidate) => candidate === stage);
+      if (stageIndex >= 1 && (!merged.skillTags?.length || !merged.difficulty || !merged.diagramData?.elements?.length)) {
+        return res.status(400).json({ message: "Finish the diagram, tags, and difficulty station first" });
       }
-      if (!diagramData?.elements?.length) {
-        return res.status(400).json({ message: "Add at least one diagram marker before saving this drill" });
+      if (stageIndex >= 2 && (!merged.title.trim() || !merged.duration || merged.duration <= 0)) {
+        return res.status(400).json({ message: "Add a drill name and estimated time first" });
       }
-      const drill = await storage.updateDrill(req.params.id, {
-        skillTags,
-        workoutTags,
-        difficulty,
-        diagramData: diagramData ?? null,
-        tagsReviewed: true,
+      if (stageIndex >= 3 && !merged.description?.trim()) {
+        return res.status(400).json({ message: "Add the drill description first" });
+      }
+      if (stageIndex >= 4 && !merged.videoUrl?.trim()) {
+        return res.status(400).json({ message: "Add a drill video before publishing it" });
+      }
+      if (merged.variationOfDrillId) {
+        if (merged.variationOfDrillId === current.id) return res.status(400).json({ message: "A drill cannot be a variation of itself" });
+        const parent = await storage.getDrillById(merged.variationOfDrillId);
+        if (!parent || parent.userId || parent.isAiGenerated || parent.tagReviewStage !== "complete" || parent.variationOfDrillId) {
+          return res.status(400).json({ message: "Choose a completed base drill, not another variation" });
+        }
+      }
+      const drill = await storage.updateDrill(current.id, {
+        ...update,
+        tagReviewStage: stage,
+        tagsReviewed: stageIndex > 0,
       });
       if (!drill) return res.status(404).json({ message: "Drill not found" });
       invalidateCoachPCache("drills");
@@ -1296,7 +1324,12 @@ export async function registerRoutes(
   app.post("/api/drills", isAuthenticated, isAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertDrillSchema.parse(req.body);
-      const drill = await storage.createDrill({ ...data, tagsReviewed: false });
+      const drill = await storage.createDrill({
+        ...data,
+        tagsReviewed: false,
+        tagReviewStage: "diagram-tags",
+        variationOfDrillId: null,
+      });
       
       // Sync bidirectional PDF library link
       if (data.pdfLibraryId) {
@@ -1318,6 +1351,8 @@ export async function registerRoutes(
     try {
       const data = insertDrillSchema.partial().parse(req.body);
       delete data.tagsReviewed;
+      delete data.tagReviewStage;
+      delete data.variationOfDrillId;
       
       // Get old drill to check for PDF library changes
       const oldDrill = await storage.getDrillById(req.params.id);

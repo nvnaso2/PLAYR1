@@ -22,6 +22,11 @@ export async function runApplicationMigrations(): Promise<void> {
       ALTER TABLE program_items ADD COLUMN IF NOT EXISTS key_takeaways text[];
       UPDATE programs SET is_pro = true WHERE is_published = true;
       ALTER TABLE workout_drills ADD COLUMN IF NOT EXISTS coaching_notes text;
+      ALTER TABLE drills ADD COLUMN IF NOT EXISTS tag_review_stage varchar NOT NULL DEFAULT 'complete';
+      ALTER TABLE drills ADD COLUMN IF NOT EXISTS variation_of_drill_id varchar;
+      UPDATE drills SET tag_review_stage = 'diagram-tags' WHERE builder_tags_reviewed = false;
+      CREATE INDEX IF NOT EXISTS drills_tag_review_stage_idx ON drills (tag_review_stage);
+      CREATE INDEX IF NOT EXISTS drills_variation_parent_idx ON drills (variation_of_drill_id);
       ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS school_name varchar;
       ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS display_stats jsonb NOT NULL DEFAULT '[]'::jsonb;
       ALTER TABLE player_profiles ADD COLUMN IF NOT EXISTS card_career_stats jsonb NOT NULL DEFAULT '["ppg","rpg","apg"]'::jsonb;

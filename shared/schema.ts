@@ -399,6 +399,9 @@ export type DrillDiagramData = {
   elements: DrillDiagramElement[];
 };
 
+export const DRILL_REVIEW_STAGES = ["diagram-tags", "name-time", "description", "video", "complete"] as const;
+export type DrillReviewStage = typeof DRILL_REVIEW_STAGES[number];
+
 export const drills = pgTable("drills", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: varchar("title").notNull(),
@@ -408,6 +411,8 @@ export const drills = pgTable("drills", {
   skillTags: text("builder_skill_tags").array().notNull().default(sql`'{}'::text[]`),
   workoutTags: text("builder_format_tags").array().notNull().default(sql`'{}'::text[]`),
   tagsReviewed: boolean("builder_tags_reviewed").notNull().default(false),
+  tagReviewStage: varchar("tag_review_stage").$type<DrillReviewStage>().notNull().default("complete"),
+  variationOfDrillId: varchar("variation_of_drill_id"),
   videoLibraryId: varchar("video_library_id"), // Reference to video library
   pdfLibraryId: varchar("pdf_library_id"), // Reference to PDF library
   videoUrl: varchar("video_url"),
