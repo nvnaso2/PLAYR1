@@ -691,12 +691,38 @@ export async function seedPrograms() {
   const courseDrillTitles = [...new Set(
     Object.values(mechanicalFoundationWorkouts).flat().map((entry) => entry.title),
   )].filter((title) => title !== "Baseline to Baseline 3's");
-  const existingDrillRows = await db.select({ title: drills.title }).from(drills).where(and(
+  const courseDrillTitleKeys = new Set(courseDrillTitles.map((title) => title.trim().toLowerCase()));
+  const existingDrillRows = await db.select({ id: drills.id, title: drills.title }).from(drills).where(and(
     isNull(drills.userId),
     or(eq(drills.isAiGenerated, false), isNull(drills.isAiGenerated)),
   ));
+  const existingCatalogIds = new Set((await db.select({ id: drills.id }).from(drills)).map((drill) => drill.id));
   const existingDrillTitles = new Set(existingDrillRows.map((drill) => drill.title.trim().toLowerCase()));
-  const missingCourseDrills = courseDrillTitles.filter((title) => !existingDrillTitles.has(title.trim().toLowerCase()));
+  const [mechanicalFoundationProgram] = await db.select({ id: programs.id }).from(programs)
+    .where(eq(programs.slug, "mechanical-foundation-14"))
+    .limit(1);
+  const intentionallyRemovedCourseTitles = new Set<string>();
+  if (mechanicalFoundationProgram) {
+    const existingWorkoutSpecs = await db.select({ workoutSpec: programItems.workoutSpec }).from(programItems)
+      .where(and(
+        eq(programItems.programId, mechanicalFoundationProgram.id),
+        eq(programItems.itemType, "workout"),
+      ));
+    for (const { workoutSpec } of existingWorkoutSpecs) {
+      for (const item of workoutSpec ?? []) {
+        const titleKey = item.title?.trim().toLowerCase();
+        // A stale course drill ID records an intentional deletion. Do not
+        // recreate that template on the next app startup.
+        if (titleKey && courseDrillTitleKeys.has(titleKey) && item.drillId && !existingCatalogIds.has(item.drillId)) {
+          intentionallyRemovedCourseTitles.add(titleKey);
+        }
+      }
+    }
+  }
+  const missingCourseDrills = courseDrillTitles.filter((title) => {
+    const titleKey = title.trim().toLowerCase();
+    return !existingDrillTitles.has(titleKey) && !intentionallyRemovedCourseTitles.has(titleKey);
+  });
   if (missingCourseDrills.length) {
     const templates = missingCourseDrills.map((title) => {
       const normalized = title.toLowerCase();

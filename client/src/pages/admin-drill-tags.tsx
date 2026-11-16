@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Check, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, Info, Loader2,
-  RotateCw, X,
+  RotateCw, Trash2, X,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,10 @@ import { DrillDiagramBuilder } from "@/components/drill-diagram-builder";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { Drill, DrillDiagramData } from "@shared/schema";
 import { WORKOUT_FORMAT_OPTIONS, WORKOUT_SKILL_OPTIONS } from "@shared/workout-builder-taxonomy";
 
@@ -47,6 +51,7 @@ export default function AdminDrillTagsPage() {
   const [variationId, setVariationId] = useState("");
   const [description, setDescription] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<ReviewDrill | null>(null);
   const { data: drills = [], isLoading, isError, refetch } = useQuery<ReviewDrill[]>({ queryKey: queueKey });
 
   const stationDrills = useMemo(
@@ -101,6 +106,27 @@ export default function AdminDrillTagsPage() {
       void queryClient.invalidateQueries({ queryKey: ["/api/drills/featured"] });
     },
     onError: () => toast({ title: "Could not save drill", variant: "destructive" }),
+  });
+
+  const deleteDrill = useMutation({
+    mutationFn: async (drill: ReviewDrill) => {
+      await apiRequest("DELETE", `/api/drills/${drill.id}`);
+      return drill;
+    },
+    onSuccess: (deleted) => {
+      queryClient.setQueryData<ReviewDrill[]>(queueKey, (current = []) =>
+        current.filter((drill) => drill.id !== deleted.id),
+      );
+      void queryClient.invalidateQueries({ queryKey: ["/api/drills"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/drills/featured"] });
+      setDeleteTarget(null);
+      toast({ title: `${deleted.title} deleted` });
+    },
+    onError: (error: Error) => toast({
+      title: "Could not delete drill",
+      description: error.message,
+      variant: "destructive",
+    }),
   });
 
   const launchDrill = (drill: ReviewDrill) => {
@@ -245,6 +271,7 @@ export default function AdminDrillTagsPage() {
         <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-zinc-500" />
       </button>
       <button type="button" aria-label={`View full drill card for ${drill.title}`} title="Drill details" onClick={() => setInfoDrill(drill)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 text-zinc-400 transition hover:border-orange-400/60 hover:text-orange-300"><Info className="h-4 w-4" /></button>
+      <button type="button" aria-label={`Delete ${drill.title}`} title="Delete drill" onClick={() => setDeleteTarget(drill)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-red-500/20 text-red-300 transition hover:border-red-400/70 hover:bg-red-500/10 hover:text-red-200"><Trash2 className="h-4 w-4" /></button>
     </div>)}
   </div> : <div className="rounded-xl border border-dashed border-zinc-800 px-4 py-10 text-center"><ClipboardList className="mx-auto h-6 w-6 text-zinc-600" /><p className="mt-3 text-sm text-zinc-400">{emptyMessage}</p></div>;
 
@@ -282,7 +309,10 @@ export default function AdminDrillTagsPage() {
             <div className="flex items-center justify-between gap-2">
               <Button variant="outline" onClick={() => chooseAdjacent(-1)} disabled={stationDrills.length < 2} className="border-white/15 bg-transparent"><ChevronLeft className="mr-1 h-4 w-4" />Previous</Button>
               <span className="max-w-[45%] truncate text-xs font-semibold text-zinc-300">{selectedDrill?.title ?? "No drill selected"}</span>
-              <Button variant="outline" onClick={() => chooseAdjacent(1)} disabled={stationDrills.length < 2} className="border-white/15 bg-transparent">Next<ChevronRight className="ml-1 h-4 w-4" /></Button>
+              <div className="flex shrink-0 items-center gap-2">
+                {selectedDrill ? <Button variant="outline" onClick={() => setDeleteTarget(selectedDrill)} className="border-red-500/25 bg-transparent px-2 text-red-300 hover:bg-red-500/10 hover:text-red-200 sm:px-3"><Trash2 className="h-4 w-4 sm:mr-1" /><span className="sr-only sm:not-sr-only">Delete</span></Button> : null}
+                <Button variant="outline" onClick={() => chooseAdjacent(1)} disabled={stationDrills.length < 2} className="border-white/15 bg-transparent">Next<ChevronRight className="ml-1 h-4 w-4" /></Button>
+              </div>
             </div>
             {renderEditor()}
             </div>
@@ -312,5 +342,29 @@ export default function AdminDrillTagsPage() {
         {infoDrill ? <div className="mx-auto w-full max-w-sm"><DrillLibraryCard drill={infoDrill} link={false} /></div> : null}
       </DialogContent>
     </Dialog>
+    <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deleteDrill.isPending) setDeleteTarget(null); }}>
+      <AlertDialogContent className="border-white/10 bg-[#171615] text-zinc-100">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="font-heading text-xl font-black uppercase">Delete this drill?</AlertDialogTitle>
+          <AlertDialogDescription className="text-zinc-400">
+            This permanently removes “{deleteTarget?.title}” from the drill catalog. Existing course or training references may be affected.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleteDrill.isPending} className="border-white/15 bg-transparent text-zinc-200 hover:bg-white/5">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={deleteDrill.isPending || !deleteTarget}
+            onClick={(event) => {
+              event.preventDefault();
+              if (deleteTarget) deleteDrill.mutate(deleteTarget);
+            }}
+            className="bg-red-600 text-white hover:bg-red-500"
+          >
+            {deleteDrill.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Delete drill
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </main>;
 }
