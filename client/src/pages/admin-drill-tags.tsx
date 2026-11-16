@@ -271,7 +271,8 @@ export default function AdminDrillTagsPage() {
 
       {isLoading ? <div className="mx-auto max-w-2xl space-y-4 rounded-2xl border border-white/10 bg-[#191817] p-5"><div className="h-6 w-1/3 animate-pulse rounded bg-zinc-800" /><div className="h-48 animate-pulse rounded-xl bg-zinc-800" /><div className="h-12 animate-pulse rounded-lg bg-zinc-800" /></div>
         : isError ? <Card className="border-red-500/20 bg-zinc-950"><CardContent className="flex flex-col items-center gap-3 p-8 text-center"><p className="text-sm text-zinc-300">The drill catalog could not be loaded.</p><Button variant="outline" onClick={() => refetch()}><RotateCw className="mr-2 h-4 w-4" />Retry</Button></CardContent></Card>
-          : immersive ? <section className="mx-auto max-w-3xl space-y-4">
+          : immersive ? <section className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain bg-[#11100f] px-3 pb-[env(safe-area-inset-bottom)] pt-2 text-zinc-100 sm:px-6">
+            <div className="mx-auto max-w-3xl space-y-4">
             <div className="sticky top-0 z-10 -mx-3 flex items-center justify-between gap-3 border-b border-white/10 bg-[#11100f]/95 px-3 py-3 backdrop-blur sm:-mx-6 sm:px-6">
               <Button variant="ghost" onClick={() => setImmersive(false)} className="text-zinc-300 hover:bg-white/5 hover:text-white"><X className="mr-2 h-4 w-4" />Close</Button>
               <div className="min-w-0 flex-1 text-center"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-orange-300">{activeStage === "complete" ? "Completed" : `Station ${String(stageIndex + 1).padStart(2, "0")} / 04`}</p><p className="truncate text-xs text-zinc-400">{activeIndex >= 0 ? `${activeIndex + 1} of ${stationDrills.length}` : "Station complete"}</p></div>
@@ -284,6 +285,7 @@ export default function AdminDrillTagsPage() {
               <Button variant="outline" onClick={() => chooseAdjacent(1)} disabled={stationDrills.length < 2} className="border-white/15 bg-transparent">Next<ChevronRight className="ml-1 h-4 w-4" /></Button>
             </div>
             {renderEditor()}
+            </div>
           </section> : <section className="flex min-h-[34vh] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#191817]/70 p-6 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-orange-400/20 bg-orange-500/[0.08] text-orange-300"><CircleHelp className="h-5 w-5" /></div>
             <h1 className="mt-4 font-heading text-lg font-bold uppercase tracking-wide">Choose a station to get started</h1>
