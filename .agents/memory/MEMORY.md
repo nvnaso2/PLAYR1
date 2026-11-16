@@ -32,7 +32,7 @@
 - [Retention measurement](retention-measurement.md) — Day-N retention uses all registered users as denominator and each user's signup date as the clock
 - [Training analytics measurement](training-analytics-measurement.md) — separate event-based discovery from persisted drill, session, and program completion records
 - [Direct custom workout assignments](direct-custom-workout-assignments.md) — admin-built workouts can be assigned without creating a player request
-- [Course content model](course-content-model.md) — locked days show read-only lesson/workout previews; keep drill details and completion access gated
+- [Course content model](course-content-model.md) — preserve locked previews and user-verified course drill names; avoid broad catalog matches
 - [My Season eligibility](my-season-eligibility.md) — ask whether the player competes before introducing season management; fun-only players can skip it
 - [Confidence quiz routing](confidence-reality-check-routing.md) — Q1 is self-reflection; both answers continue to the reps question
 - [Game-speed shooting diagnostic](game-speed-shooting-diagnostic.md) — score the leading conversion leak but keep one drill for every answer; a 1-1-1 split stays mixed

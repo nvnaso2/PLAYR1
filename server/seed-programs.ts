@@ -799,6 +799,105 @@ export async function seedPrograms() {
         .limit(1);
       if (current) {
         if (current.itemType !== "workout") continue;
+        if (p.slug === "mechanical-foundation-14" && Array.isArray(current.workoutSpec)) {
+          // Apply the user's verified drill-name corrections only where the
+          // stored entry still has the original seeded title. This avoids
+          // replacing unrelated edits made later in Program Studio.
+          const legacyTitlesByDay: Record<number, Record<number, string>> = {
+            1: { 6: "1 Dribble Pull-Ups" },
+            2: {
+              2: "Free Throws — One Focus",
+              3: "Mid Range",
+              7: "High-Arcing Mid-Range Pull-Ups",
+              8: "High-Arcing 3 Pointers",
+            },
+            3: {
+              4: "Logo 2-Dribble Pull-Up — Follow-Through",
+              5: "Catch & Shoot — Follow-Through",
+              9: "Logo 2-Dribble Pull-Up — Regular",
+            },
+            4: {
+              3: "Free Throws — One Focus",
+              7: "Mid Range",
+              8: "3 Pointers",
+              10: "Logo 2-Dribble Pull-Up — Follow-Through",
+            },
+            5: {
+              3: "1 Dribble Pull-Up",
+              6: "1 Move at each Spot 3's",
+              7: "3 Pointers",
+            },
+            6: { 4: "2-Foot 3 Pointers", 6: "Slide Drag 3 Pointers" },
+            8: {
+              2: "Pull-Ups at Elbow",
+              3: "Attack Dribble Quick Pound Stop — Mid Range",
+              4: "Attack Dribble Quick Pound Stop — 3PT",
+              8: "Curry Drill — Mid Range",
+              9: "Curry Drill — 3PT",
+            },
+            9: { 9: "Streak 3PT" },
+            10: {
+              4: "Curl 2-Dribble Pull-Ups",
+              7: "High Ball Screen — In & Out Attack",
+              8: "Pick-Up 3",
+              9: "1-Dribble Pull-Up",
+              10: "2-Dribble Floater",
+              11: "Scoop Finish",
+              12: "Reverse Finish",
+            },
+            11: { 2: "Mid-Range Pull-Ups — Both Sides" },
+            12: {
+              1: "Trust Walking the Ground — Mid-Range Pull-Ups",
+              3: "Baseline-to-Baseline 3s",
+              7: "17s Into Mid-Range Pull-Ups",
+            },
+            13: {
+              2: "Curl 3s — Flare 3s",
+              3: "Transition 3s — Top of Key",
+              4: "Triple-Threat Jab & Attack Mid Range",
+              5: "Step-Back 3s",
+              6: "High Ball Screen Combo — Downhill 2-Dribble Mid Range",
+              7: "High Ball Screen Combo — Pop 3",
+            },
+            14: {
+              2: "12345 Catch & Shoot 3s — How Long?",
+              6: "Must Make Free Throws in a Row to Leave",
+              8: "Pressure Free Throw Game (+3, -2)",
+            },
+          };
+          const corrections = legacyTitlesByDay[row.dayNumber];
+          const stored = current.workoutSpec as Array<{ title?: string }>;
+          const nextSpec = Array.isArray(row.workoutSpec) ? [...row.workoutSpec] : [];
+          let corrected = false;
+          for (const [indexText, legacyTitle] of Object.entries(corrections ?? {})) {
+            const index = Number(indexText);
+            if (stored[index]?.title === legacyTitle && nextSpec[index]) {
+              stored[index] = nextSpec[index];
+              corrected = true;
+            }
+          }
+          const legacyLinkedDrillIdsByDay: Record<number, Record<number, string | undefined>> = {
+            12: { 8: drillIdByTitle.get("free throws") },
+          };
+          for (const [indexText, legacyDrillId] of Object.entries(legacyLinkedDrillIdsByDay[row.dayNumber] ?? {})) {
+            const index = Number(indexText);
+            if (
+              legacyDrillId
+              && stored[index]?.title === nextSpec[index]?.title
+              && (stored[index] as { drillId?: string }).drillId === legacyDrillId
+              && nextSpec[index]
+            ) {
+              stored[index] = nextSpec[index];
+              corrected = true;
+            }
+          }
+          if (corrected) {
+            await db.update(programItems)
+              .set({ workoutSpec: stored as any })
+              .where(eq(programItems.id, current.id));
+            updated++;
+          }
+        }
         // Upgrade legacy seed rows once, but do not overwrite later Program
         // Studio edits after the new custom workout titles have been written.
         const alreadyUpgraded = Array.isArray(current.workoutSpec)
