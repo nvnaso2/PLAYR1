@@ -1306,7 +1306,14 @@ export async function registerRoutes(
       body: JSON.stringify({ mode, ...(await getDevelopmentCatalogSnapshot()) }),
       signal: AbortSignal.timeout(30_000),
     });
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      throw new Error("The live drill-sync receiver is not published yet. Publish the app update, then retry.");
+    }
     const result = await response.json().catch(() => null);
+    if (!result || typeof result !== "object") {
+      throw new Error("The live app returned an invalid drill-sync response. No drills were changed.");
+    }
     if (!response.ok) {
       throw new Error(result?.message || `Live drill sync failed (${response.status})`);
     }
