@@ -22,3 +22,23 @@ test("drill diagram validation preserves all movement arrow coordinates", () => 
 
   assert.deepEqual(result.elements[0], arrow);
 });
+
+test("drill diagram validation fills default movement arrow coordinates", () => {
+  const result = drillDiagramSchema.parse({
+    version: 1,
+    elements: [{ id: "arrow-2", type: "arrow", x: 50, y: 68 }],
+  });
+
+  assert.deepEqual(result.elements[0], {
+    id: "arrow-2",
+    type: "arrow",
+    x: 50,
+    y: 68,
+    startX: 45,
+    startY: 63,
+    controlX: 50,
+    controlY: 66,
+    endX: 55,
+    endY: 74,
+  });
+});

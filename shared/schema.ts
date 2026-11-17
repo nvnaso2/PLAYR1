@@ -856,7 +856,22 @@ export const drillDiagramSchema = z.object({
     endX: z.number().min(0).max(100).optional(),
     endY: z.number().min(0).max(100).optional(),
   })).max(60),
-});
+}).transform((diagram) => ({
+  ...diagram,
+  elements: diagram.elements.map((element) => {
+    if (element.type !== "arrow") return element;
+    const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
+    return {
+      ...element,
+      startX: element.startX ?? clampPercent(element.x - 5),
+      startY: element.startY ?? clampPercent(element.y - 5),
+      controlX: element.controlX ?? element.x,
+      controlY: element.controlY ?? clampPercent(element.y - 2),
+      endX: element.endX ?? clampPercent(element.x + 5),
+      endY: element.endY ?? clampPercent(element.y + 6),
+    };
+  }),
+}));
 
 // Public player profiles - recruiting-style profile page
 export const PLAYER_CARD_CAREER_STAT_KEYS = [
