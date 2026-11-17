@@ -165,6 +165,13 @@ export default function AdminDrillTagsPage() {
     });
   };
 
+  const saveDiagramOnly = () => {
+    if (!selectedDrill || !diagramData?.elements.length) return;
+    saveReview.mutate({ drill: selectedDrill, fields: { diagramData } }, {
+      onSuccess: () => toast({ title: "Diagram saved; drill remains in Station 1" }),
+    });
+  };
+
   const moveDrill = (drill: ReviewDrill, nextStage: ReviewStage) => {
     if (nextStage === drill.tagReviewStage) return;
     saveReview.mutate({ drill, fields: { tagReviewStage: nextStage } }, {
@@ -245,8 +252,14 @@ export default function AdminDrillTagsPage() {
             {(["beginner", "intermediate", "advanced"] as const).map((level) => <button key={level} type="button" aria-pressed={difficulty === level} onClick={() => setDifficulty(level)} className={`rounded-lg border px-2 py-2.5 text-sm font-semibold capitalize transition ${difficulty === level ? "border-white bg-white text-black" : "border-zinc-700 text-zinc-300 hover:border-orange-500/70"}`}>{level}</button>)}
           </div></section>
           <section className="space-y-3"><div><h2 className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">Court diagram</h2><p className="mt-1 text-xs text-zinc-500">Add at least one marker to map the drill.</p></div><div className="h-[min(640px,85dvh)] min-h-[420px] w-full overflow-hidden rounded-xl border border-zinc-800"><DrillDiagramBuilder value={diagramData} onChange={setDiagramData} /></div></section>
-          {skillTags.length === 0 ? <p role="status" className="text-center text-xs text-amber-300">Choose at least one skill before continuing.</p> : !diagramData?.elements.length ? <p role="status" className="text-center text-xs text-amber-300">Add one or more markers to the court diagram before continuing.</p> : null}
-          <Button onClick={() => saveAndAdvance({ skillTags, workoutTags, difficulty: difficulty as Drill["difficulty"], diagramData }, "name-time", "Tags and diagram saved")} disabled={saveReview.isPending || skillTags.length === 0 || !diagramData?.elements.length} className="h-12 w-full bg-orange-500 font-black uppercase tracking-wide text-black hover:bg-orange-400">{saveReview.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChevronRight className="mr-2 h-4 w-4" />}Save and continue</Button>
+          {skillTags.length === 0 || !diagramData?.elements.length ? <p role="status" className="text-center text-xs text-amber-300">To move this drill to Station 2, choose at least one skill and add a diagram marker. “Save diagram only” stores the drawing without advancing.</p> : null}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button variant="outline" onClick={saveDiagramOnly} disabled={saveReview.isPending || !diagramData?.elements.length} className="h-12 border-white/15 bg-transparent font-bold text-zinc-100 hover:bg-white/5">
+              {saveReview.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Save diagram only
+            </Button>
+            <Button onClick={() => saveAndAdvance({ skillTags, workoutTags, difficulty: difficulty as Drill["difficulty"], diagramData }, "name-time", "Tags and diagram saved")} disabled={saveReview.isPending || skillTags.length === 0 || !diagramData?.elements.length} className="h-12 w-full bg-orange-500 font-black uppercase tracking-wide text-black hover:bg-orange-400">{saveReview.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChevronRight className="mr-2 h-4 w-4" />}Save and continue</Button>
+          </div>
         </>}
         {activeStage === "name-time" && <>
           <div className="grid gap-4 sm:grid-cols-2"><label><span className={labelClass}>Drill name</span><input className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Two-ball rhythm series" /></label><label><span className={labelClass}>Estimated minutes</span><input className={inputClass} type="number" inputMode="numeric" min="1" max="180" value={minutes} onChange={(event) => setMinutes(event.target.value)} placeholder="12" /></label></div>
