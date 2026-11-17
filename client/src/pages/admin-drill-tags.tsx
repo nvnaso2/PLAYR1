@@ -145,16 +145,21 @@ export default function AdminDrillTagsPage() {
           current.map((drill) => drill.id === updated.id ? updated : drill),
         );
         toast({ title: successMessage });
-        if (nextStage !== "complete") {
-          setActiveStage(nextStage);
+        const nextInStation = stationDrills.find((drill) => drill.id !== updated.id);
+        if (nextInStation) {
+          setSelectedId(nextInStation.id);
+          return;
+        }
+
+        if (nextStage === "complete") {
+          setActiveStage("complete");
           setSelectedId(updated.id);
         } else {
-          const next = drills.find((drill) => drill.tagReviewStage === activeStage && drill.id !== updated.id);
-          if (next) setSelectedId(next.id);
-          else {
-            setActiveStage("complete");
-            setSelectedId(updated.id);
-          }
+          const nextStationDrill = drills.find((drill) =>
+            drill.tagReviewStage === nextStage && drill.id !== updated.id,
+          );
+          setActiveStage(nextStage);
+          setSelectedId(nextStationDrill?.id ?? updated.id);
         }
       },
     });
@@ -289,7 +294,7 @@ export default function AdminDrillTagsPage() {
       </nav>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#191817] px-3 py-3 sm:px-4">
-        <p className="text-xs text-zinc-400">Choose a station or browse the drill lists.</p>
+        <p className="text-xs text-zinc-400">Save and continue opens the next drill in this station. Finish the queue before moving on.</p>
         <div className="flex w-full gap-2 sm:w-auto">
           <Button variant="outline" className="h-10 flex-1 border-white/15 bg-transparent text-zinc-200 hover:bg-white/5 sm:flex-none" onClick={() => setQueueOpen(true)}><ClipboardList className="mr-2 h-4 w-4 text-orange-300" />Queue</Button>
           <Button variant="outline" className="h-10 flex-1 border-white/15 bg-transparent text-zinc-200 hover:bg-white/5 sm:flex-none" onClick={() => setCompletedOpen(true)}><Check className="mr-2 h-4 w-4 text-emerald-400" />Completed</Button>
