@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createHash, randomUUID } from "crypto";
+import { createHash, randomUUID, timingSafeEqual } from "crypto";
 import { spawn } from "child_process";
 import { unlink } from "node:fs/promises";
 import path from "path";
@@ -1241,6 +1241,171 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching drill tag review queue:", error);
       res.status(500).json({ message: "Failed to load drill tag review queue" });
+    }
+  });
+
+  const drillCatalogSyncFields = insertDrillSchema.pick({
+    title: true,
+    description: true,
+    category: true,
+    difficulty: true,
+    skillTags: true,
+    workoutTags: true,
+    tagsReviewed: true,
+    tagReviewStage: true,
+    videoUrl: true,
+    thumbnailUrl: true,
+    diagramData: true,
+    pdfUrl: true,
+    duration: true,
+    equipment: true,
+    tips: true,
+    isFeatured: true,
+    trackShots: true,
+    presetRounds: true,
+  }).extend({
+    category: z.enum(DRILL_CATEGORIES),
+    difficulty: z.enum(DIFFICULTY_LEVELS),
+    tagReviewStage: z.enum(DRILL_REVIEW_STAGES),
+  });
+  const drillCatalogSyncPackage = z.object({
+    format: z.literal("playr1-drill-catalog"),
+    version: z.literal(1),
+    drills: z.array(z.object({
+      sourceId: z.string(),
+      fields: drillCatalogSyncFields,
+    })).max(1000),
+  });
+  const getDevelopmentCatalogSnapshot = async () => {
+    const catalog = (await storage.getAllDrills()).filter((drill) => !drill.userId && !drill.isAiGenerated);
+    return {
+      format: "playr1-drill-catalog" as const,
+      version: 1 as const,
+      drills: catalog.map((drill) => ({
+        sourceId: drill.id,
+        fields: drillCatalogSyncFields.parse(drill),
+      })),
+    };
+  };
+  const syncRequest = async (mode: "preview" | "apply") => {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Drill catalog sync can only be initiated from the Replit development app");
+    }
+    const targetUrl = process.env.DRILL_CATALOG_SYNC_URL?.trim();
+    const token = process.env.DRILL_CATALOG_SYNC_TOKEN;
+    if (!targetUrl || !token) {
+      throw new Error("Live drill sync is not configured");
+    }
+    const endpoint = new URL("/api/internal/drill-catalog-sync", targetUrl).toString();
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ mode, ...(await getDevelopmentCatalogSnapshot()) }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(result?.message || `Live drill sync failed (${response.status})`);
+    }
+    return result;
+  };
+
+  app.post("/api/admin/drill-catalog-sync/preview", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      res.json(await syncRequest("preview"));
+    } catch (error) {
+      console.error("Error previewing live drill sync:", error);
+      res.status(502).json({ message: error instanceof Error ? error.message : "Could not preview live drill sync" });
+    }
+  });
+
+  app.post("/api/admin/drill-catalog-sync/apply", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      res.json(await syncRequest("apply"));
+    } catch (error) {
+      console.error("Error applying live drill sync:", error);
+      res.status(502).json({ message: error instanceof Error ? error.message : "Could not sync drills to live" });
+    }
+  });
+
+  app.post("/api/internal/drill-catalog-sync", async (req, res) => {
+    if (process.env.NODE_ENV !== "production") {
+      return res.status(404).json({ message: "Not found" });
+    }
+    const expected = process.env.DRILL_CATALOG_SYNC_TOKEN ?? "";
+    const supplied = req.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+    const expectedBytes = Buffer.from(expected);
+    const suppliedBytes = Buffer.from(supplied);
+    if (!expected || expectedBytes.length !== suppliedBytes.length || !timingSafeEqual(expectedBytes, suppliedBytes)) {
+      return res.status(401).json({ message: "Invalid drill sync authorization" });
+    }
+
+    try {
+      const { mode, ...rawPackage } = req.body ?? {};
+      if (mode !== "preview" && mode !== "apply") {
+        return res.status(400).json({ message: "Choose preview or apply mode" });
+      }
+      const packageData = drillCatalogSyncPackage.parse(rawPackage);
+      const catalog = (await storage.getAllDrills()).filter((drill) => !drill.userId && !drill.isAiGenerated);
+      const byId = new Map(catalog.map((drill) => [drill.id, drill]));
+      const byTitle = new Map<string, typeof catalog>();
+      for (const drill of catalog) {
+        const key = drill.title.trim().toLowerCase();
+        byTitle.set(key, [...(byTitle.get(key) ?? []), drill]);
+      }
+      const sourceTitleCounts = new Map<string, number>();
+      for (const item of packageData.drills) {
+        const key = item.fields.title.trim().toLowerCase();
+        sourceTitleCounts.set(key, (sourceTitleCounts.get(key) ?? 0) + 1);
+      }
+      const updates: Array<{ id: string; fields: z.infer<typeof drillCatalogSyncFields> }> = [];
+      const inserts: Array<z.infer<typeof drillCatalogSyncFields>> = [];
+      const conflicts: string[] = [];
+      for (const item of packageData.drills) {
+        const titleKey = item.fields.title.trim().toLowerCase();
+        const idMatch = byId.get(item.sourceId);
+        const titleMatches = byTitle.get(titleKey) ?? [];
+        const duplicateSourceTitle = (sourceTitleCounts.get(titleKey) ?? 0) > 1;
+        const match = idMatch ?? (!duplicateSourceTitle && titleMatches.length === 1 ? titleMatches[0] : undefined);
+        if (match) updates.push({ id: match.id, fields: item.fields });
+        else if (titleMatches.length > 1 || duplicateSourceTitle) conflicts.push(item.fields.title);
+        else inserts.push(item.fields);
+      }
+      const summary = {
+        sourceCount: packageData.drills.length,
+        updateCount: updates.length,
+        insertCount: inserts.length,
+        conflictCount: conflicts.length,
+        conflicts: [...new Set(conflicts)].slice(0, 50),
+        unchangedProductionCount: Math.max(0, catalog.length - updates.length),
+        mode,
+      };
+      if (mode === "preview") return res.json(summary);
+
+      await db.transaction(async (tx) => {
+        for (const update of updates) {
+          await tx.update(drills).set(update.fields).where(eq(drills.id, update.id));
+        }
+        for (const insert of inserts) {
+          await tx.insert(drills).values({
+            ...insert,
+            userId: null,
+            isAiGenerated: false,
+            variationOfDrillId: null,
+          });
+        }
+      });
+      invalidateCoachPCache("drills");
+      return res.json({ ...summary, mode: "applied" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid drill catalog sync payload", errors: error.errors });
+      }
+      console.error("Error applying incoming live drill sync:", error);
+      return res.status(500).json({ message: "Failed to sync drill catalog" });
     }
   });
 

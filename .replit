@@ -56,6 +56,7 @@ VAPID_PUBLIC_KEY = "BPUwtSsEx50XUdU9_qAAsVnf0LZV_g0IXte1CHQgpjC97hGfUAL7eTdSBKQF
 VAPID_PRIVATE_KEY = "h_OrIBHy1oAPbNrOt0UUTs3hpGQSyijMPlB5mkZpGp4"
 VAPID_SUBJECT = "mailto:noreply@handlz.co"
 ADMIN_EMAIL = "nvnaso@outlook.com"
+DRILL_CATALOG_SYNC_URL = "https://PLAYR1Basketball.replit.app"
 
 [postMerge]
 path = "scripts/post-merge.sh"

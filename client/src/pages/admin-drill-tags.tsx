@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Check, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, Info, Loader2,
-  RotateCw, Trash2, X,
+  RotateCw, Trash2, Upload, X,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,15 @@ import { WORKOUT_FORMAT_OPTIONS, WORKOUT_SKILL_OPTIONS } from "@shared/workout-b
 
 type ReviewStage = "diagram-tags" | "name-time" | "description" | "video" | "complete";
 type ReviewDrill = Drill & { tagReviewStage: ReviewStage; variationOfDrillId?: string | null };
+type DrillSyncSummary = {
+  sourceCount: number;
+  updateCount: number;
+  insertCount: number;
+  conflictCount: number;
+  conflicts: string[];
+  unchangedProductionCount: number;
+  mode: string;
+};
 type StationStage = Exclude<ReviewStage, "complete">;
 const queueKey = ["/api/admin/drill-tag-review"];
 const stages: { id: StationStage; number: string; title: string; subtitle: string }[] = [
@@ -51,6 +60,11 @@ export default function AdminDrillTagsPage() {
   const [description, setDescription] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ReviewDrill | null>(null);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [syncSummary, setSyncSummary] = useState<DrillSyncSummary | null>(null);
+  const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncError, setSyncError] = useState("");
   const { data: drills = [], isLoading, isError, refetch } = useQuery<ReviewDrill[]>({ queryKey: queueKey });
 
   const stationDrills = useMemo(
@@ -169,6 +183,38 @@ export default function AdminDrillTagsPage() {
     saveReview.mutate({ drill: selectedDrill, fields: { diagramData } }, {
       onSuccess: () => toast({ title: "Diagram saved; drill remains in Station 1" }),
     });
+  };
+
+  const previewLiveDrillSync = async () => {
+    setSyncBusy(true);
+    setSyncError("");
+    try {
+      const response = await apiRequest("POST", "/api/admin/drill-catalog-sync/preview");
+      setSyncSummary(await response.json());
+    } catch (error) {
+      setSyncSummary(null);
+      setSyncError(error instanceof Error ? error.message : "Could not preview the live drill update");
+    } finally {
+      setSyncBusy(false);
+    }
+  };
+
+  const applyLiveDrillSync = async () => {
+    setSyncBusy(true);
+    setSyncError("");
+    try {
+      const response = await apiRequest("POST", "/api/admin/drill-catalog-sync/apply");
+      const result = await response.json() as DrillSyncSummary;
+      setSyncSummary(result);
+      setSyncConfirmOpen(false);
+      setSyncOpen(false);
+      toast({ title: `Updated ${result.updateCount + result.insertCount} live drills` });
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Could not update live drills");
+      setSyncConfirmOpen(false);
+    } finally {
+      setSyncBusy(false);
+    }
   };
 
   const moveDrill = (drill: ReviewDrill, nextStage: ReviewStage) => {
@@ -310,6 +356,7 @@ export default function AdminDrillTagsPage() {
         <div className="flex w-full gap-2 sm:w-auto">
           <Button variant="outline" className="h-10 flex-1 border-white/15 bg-transparent text-zinc-200 hover:bg-white/5 sm:flex-none" onClick={() => setQueueOpen(true)}><ClipboardList className="mr-2 h-4 w-4 text-orange-300" />Queue</Button>
           <Button variant="outline" className="h-10 flex-1 border-white/15 bg-transparent text-zinc-200 hover:bg-white/5 sm:flex-none" onClick={() => setCompletedOpen(true)}><Check className="mr-2 h-4 w-4 text-emerald-400" />Completed</Button>
+          <Button variant="outline" className="h-10 flex-1 border-white/15 bg-transparent text-zinc-200 hover:bg-white/5 sm:flex-none" onClick={() => { setSyncSummary(null); setSyncError(""); setSyncOpen(true); }}><Upload className="mr-2 h-4 w-4 text-orange-300" />Sync to live</Button>
         </div>
       </div>
 
@@ -359,6 +406,45 @@ export default function AdminDrillTagsPage() {
         {infoDrill ? <div className="mx-auto w-full max-w-sm"><DrillLibraryCard drill={infoDrill} link={false} /></div> : null}
       </DialogContent>
     </Dialog>
+    <Dialog open={syncOpen} onOpenChange={(open) => { if (!syncBusy) setSyncOpen(open); }}>
+      <DialogContent className="max-h-[92dvh] overflow-y-auto border-white/10 bg-[#171615] p-4 text-zinc-100 sm:max-w-xl sm:p-6">
+        <DialogHeader>
+          <DialogTitle className="font-heading text-xl font-black uppercase">Sync drills to live</DialogTitle>
+          <DialogDescription className="text-zinc-400">
+            Preview and copy only the Replit drill catalog to production. Player accounts, workout history, messages, and all other production data stay untouched.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <Button onClick={previewLiveDrillSync} disabled={syncBusy} className="w-full bg-orange-500 font-bold text-black hover:bg-orange-400">
+            {syncBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Preview live update
+          </Button>
+          {syncSummary ? <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm">
+            <p className="font-bold text-zinc-100">Live catalog preview</p>
+            <p className="text-zinc-300">{syncSummary.sourceCount} Replit drills · {syncSummary.updateCount} updates · {syncSummary.insertCount} additions</p>
+            <p className="text-zinc-400">{syncSummary.unchangedProductionCount} production drills remain unchanged.</p>
+            {syncSummary.conflictCount ? <p className="text-amber-300">{syncSummary.conflictCount} duplicate-title conflicts will be skipped: {syncSummary.conflicts.join(", ")}</p> : null}
+            <Button onClick={() => setSyncConfirmOpen(true)} disabled={syncBusy || (!syncSummary.updateCount && !syncSummary.insertCount)} className="mt-2 w-full bg-red-600 font-bold text-white hover:bg-red-500">Apply one-time drill sync</Button>
+          </div> : null}
+          {syncError ? <p role="alert" className="rounded-lg border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-200">{syncError}</p> : null}
+        </div>
+      </DialogContent>
+    </Dialog>
+    <AlertDialog open={syncConfirmOpen} onOpenChange={(open) => { if (!syncBusy) setSyncConfirmOpen(open); }}>
+      <AlertDialogContent overlayClassName="z-[120]" className="z-[120] border-white/10 bg-[#171615] text-zinc-100">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="font-heading text-xl font-black uppercase">Update only live drills?</AlertDialogTitle>
+          <AlertDialogDescription className="text-zinc-400">
+            This copies the previewed drill details and diagrams into production. No other production records will be changed.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={syncBusy} className="border-white/15 bg-transparent text-zinc-200 hover:bg-white/5">Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={syncBusy} onClick={(event) => { event.preventDefault(); void applyLiveDrillSync(); }} className="bg-red-600 text-white hover:bg-red-500">
+            {syncBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Sync drills
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deleteDrill.isPending) setDeleteTarget(null); }}>
       <AlertDialogContent overlayClassName="z-[110]" className="z-[110] border-white/10 bg-[#171615] text-zinc-100">
         <AlertDialogHeader>
