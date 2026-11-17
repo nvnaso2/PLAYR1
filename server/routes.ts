@@ -44,7 +44,7 @@ import {
 } from "./push";
 import { ensureOnboardingSchema, getDiagnosticSummary, getFixCategory, validateMicroQuizPayload } from "./onboarding";
 import { getMicroQuiz } from "@shared/micro-quizzes";
-import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, PLAYER_CARD_CAREER_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, personalRecords, teamAwards, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, playerSetupProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES, DRILL_REVIEW_STAGES } from "@shared/schema";
+import { insertTrainingLogSchema, insertUserVideoSchema, insertUserProfileSchema, insertDrillSchema, insertDrillMetricSchema, insertVideoLibrarySchema, insertPdfLibrarySchema, insertMetricTemplateSchema, insertCareerProfileSchema, insertChallengeSchema, insertTeamAwardSchema, insertSeasonSchema, insertGameSchema, insertPlayerProfileSchema, PROFILE_DISPLAY_STAT_KEYS, PLAYER_CARD_CAREER_STAT_KEYS, insertTrainerTeamSchema, insertDrillAssignmentSchema, insertTeamClubSchema, insertLeagueSchema, games, seasons, personalRecords, teamAwards, userProfiles, teamClubs, leagues, trainerProfiles, trainerVideos, insertTrainerVideoSchema, trainerPlayerAssignments, insertTrainingLocationSchema, insertTrainerProfileLocationSchema, trainingSessions, trainerPlayers, messages, careerProfiles, playerTrainerConnections, playerProfiles, playerSetupProfiles, drills, trainingLogs, trainingLogMetrics, feedbackComments, insertProgramSchema, insertProgramItemSchema, insertEventSchema, events, insertStatChallengeSchema, programEnrollments, coachPUsage, friendships, userFollows, analyticsEvents, leadMagnetSubmissions, streakChallengeParticipants, FRIEND_ACTIVITY_TYPES, type FriendActivityType, CUSTOM_WORKOUT_REQUEST_STATUSES, DRILL_REVIEW_STAGES, DRILL_CATEGORIES, DIFFICULTY_LEVELS } from "@shared/schema";
 import { getUncachableStripeClient } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { JOURNAL_PROMPTS } from "@shared/journalPrompts";
@@ -1241,6 +1241,128 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching drill tag review queue:", error);
       res.status(500).json({ message: "Failed to load drill tag review queue" });
+    }
+  });
+
+  const drillCatalogSyncFields = insertDrillSchema.pick({
+    title: true,
+    description: true,
+    category: true,
+    difficulty: true,
+    skillTags: true,
+    workoutTags: true,
+    tagsReviewed: true,
+    tagReviewStage: true,
+    videoUrl: true,
+    thumbnailUrl: true,
+    diagramData: true,
+    pdfUrl: true,
+    duration: true,
+    equipment: true,
+    tips: true,
+    isFeatured: true,
+    trackShots: true,
+    presetRounds: true,
+  }).extend({
+    category: z.enum(DRILL_CATEGORIES),
+    difficulty: z.enum(DIFFICULTY_LEVELS),
+    tagReviewStage: z.enum(DRILL_REVIEW_STAGES),
+  });
+  const drillCatalogSyncPackage = z.object({
+    format: z.literal("playr1-drill-catalog"),
+    version: z.literal(1),
+    drills: z.array(z.object({
+      sourceId: z.string().optional(),
+      fields: drillCatalogSyncFields,
+    })).max(1000),
+  });
+
+  app.get("/api/admin/drill-catalog-sync/export", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const catalog = (await storage.getAllDrills()).filter((drill) => !drill.userId && !drill.isAiGenerated);
+      res.json({
+        format: "playr1-drill-catalog",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        drills: catalog.map((drill) => ({
+          sourceId: drill.id,
+          fields: drillCatalogSyncFields.parse(drill),
+        })),
+      });
+    } catch (error) {
+      console.error("Error exporting drill catalog:", error);
+      res.status(500).json({ message: "Failed to export drill catalog" });
+    }
+  });
+
+  app.post("/api/admin/drill-catalog-sync", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { mode, ...rawPackage } = req.body ?? {};
+      if (mode !== "preview" && mode !== "apply") {
+        return res.status(400).json({ message: "Choose preview or apply mode" });
+      }
+      const packageData = drillCatalogSyncPackage.parse(rawPackage);
+      const catalog = (await storage.getAllDrills()).filter((drill) => !drill.userId && !drill.isAiGenerated);
+      const byId = new Map(catalog.map((drill) => [drill.id, drill]));
+      const byTitle = new Map<string, typeof catalog>();
+      for (const drill of catalog) {
+        const key = drill.title.trim().toLowerCase();
+        byTitle.set(key, [...(byTitle.get(key) ?? []), drill]);
+      }
+      const sourceTitleCounts = new Map<string, number>();
+      for (const item of packageData.drills) {
+        const key = item.fields.title.trim().toLowerCase();
+        sourceTitleCounts.set(key, (sourceTitleCounts.get(key) ?? 0) + 1);
+      }
+      const updates: Array<{ id: string; fields: z.infer<typeof drillCatalogSyncFields> }> = [];
+      const inserts: Array<z.infer<typeof drillCatalogSyncFields>> = [];
+      const conflicts: string[] = [];
+      for (const item of packageData.drills) {
+        const titleKey = item.fields.title.trim().toLowerCase();
+        const idMatch = item.sourceId ? byId.get(item.sourceId) : undefined;
+        const titleMatches = byTitle.get(titleKey) ?? [];
+        const sourceHasDuplicateTitle = (sourceTitleCounts.get(titleKey) ?? 0) > 1;
+        const match = idMatch ?? (!sourceHasDuplicateTitle && titleMatches.length === 1 ? titleMatches[0] : undefined);
+        if (match) {
+          updates.push({ id: match.id, fields: item.fields });
+        } else if (titleMatches.length > 1 || sourceHasDuplicateTitle) {
+          conflicts.push(item.fields.title);
+        } else {
+          inserts.push(item.fields);
+        }
+      }
+      const summary = {
+        mode,
+        sourceCount: packageData.drills.length,
+        updateCount: updates.length,
+        insertCount: inserts.length,
+        conflictCount: conflicts.length,
+        conflicts: [...new Set(conflicts)].slice(0, 50),
+        productionOnlyCount: Math.max(0, catalog.length - updates.length),
+      };
+      if (mode === "preview") return res.json(summary);
+
+      await db.transaction(async (tx) => {
+        for (const update of updates) {
+          await tx.update(drills).set(update.fields).where(eq(drills.id, update.id));
+        }
+        for (const insert of inserts) {
+          await tx.insert(drills).values({
+            ...insert,
+            userId: null,
+            isAiGenerated: false,
+            variationOfDrillId: null,
+          });
+        }
+      });
+      invalidateCoachPCache("drills");
+      res.json({ ...summary, mode: "applied" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid drill catalog package", errors: error.errors });
+      }
+      console.error("Error syncing drill catalog:", error);
+      res.status(500).json({ message: "Failed to sync drill catalog" });
     }
   });
 
