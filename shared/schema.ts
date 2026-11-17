@@ -848,6 +848,13 @@ export const drillDiagramSchema = z.object({
     angle: z.number().min(-360).max(360).optional(),
     length: z.number().min(5).max(100).optional(),
     bend: z.number().min(-60).max(60).optional(),
+    scale: z.number().min(0.5).max(2).optional(),
+    startX: z.number().min(0).max(100).optional(),
+    startY: z.number().min(0).max(100).optional(),
+    controlX: z.number().min(0).max(100).optional(),
+    controlY: z.number().min(0).max(100).optional(),
+    endX: z.number().min(0).max(100).optional(),
+    endY: z.number().min(0).max(100).optional(),
   })).max(60),
 });
 

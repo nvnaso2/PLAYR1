@@ -348,7 +348,7 @@ export default function AdminDrillTagsPage() {
       </DialogContent>
     </Dialog>
     <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deleteDrill.isPending) setDeleteTarget(null); }}>
-      <AlertDialogContent className="border-white/10 bg-[#171615] text-zinc-100">
+      <AlertDialogContent overlayClassName="z-[110]" className="z-[110] border-white/10 bg-[#171615] text-zinc-100">
         <AlertDialogHeader>
           <AlertDialogTitle className="font-heading text-xl font-black uppercase">Delete this drill?</AlertDialogTitle>
           <AlertDialogDescription className="text-zinc-400">
